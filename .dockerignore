@@ -1,0 +1,12 @@
+node_modules
+.git
+.openai
+.sites-runtime
+.playwright-mcp
+frontend/dist
+data
+test-results
+mobile
+outputs
+.env
+.env.*

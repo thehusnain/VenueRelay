@@ -1,0 +1,55 @@
+{
+  "name": "rally-event-operations",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env scripts/dev.mjs",
+    "dev:api": "node --import tsx --watch backend/src/index.ts",
+    "dev:web": "vite --config frontend/vite.config.ts",
+    "build": "tsc --noEmit && vite build --config frontend/vite.config.ts",
+    "start": "node --env-file-if-exists=.env --import tsx backend/src/index.ts",
+    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
+    "test:browser": "node tests/browser.mjs",
+    "mobile:sync": "npm run build && cap sync",
+    "mobile:android": "cap open android",
+    "mobile:ios": "cap open ios",
+    "typecheck": "tsc --noEmit",
+    "api:docs": "node scripts/generate-openapi.mjs",
+    "format:check": "prettier --check backend/src frontend/src shared scripts tests/*.ts tests/*.mjs capacitor.config.ts frontend/vite.config.ts",
+    "test:unit": "node --import tsx --test --test-isolation=none tests/domain.test.ts tests/accounts.test.ts",
+    "email:preview": "node --env-file-if-exists=.env scripts/email-preview.mjs",
+    "app:android": "node scripts/build-android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/preferences": "^8.0.1",
+    "lucide-react": "^1.31.0",
+    "nodemailer": "^10.3.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tsx": "^4.21.0",
+    "validator": "^13.15.35"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/ios": "^8.0.2",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/manrope": "^5.2.8",
+    "@types/node": "22.19.19",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/validator": "^13.15.10",
+    "@vitejs/plugin-react": "6.0.2",
+    "axe-core": "^4.14.0",
+    "playwright": "^1.65.0",
+    "prettier": "^3.9.10",
+    "typescript": "5.9.3",
+    "vite": "8.0.13"
+  }
+}

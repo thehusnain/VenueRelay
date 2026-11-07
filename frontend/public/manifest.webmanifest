@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Rally \u00b7 Your event, together",
+  "short_name": "Rally",
+  "description": "Report a request, choose someone to help, and follow it through.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafbfc",
+  "theme_color": "#223044",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

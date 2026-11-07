@@ -1,0 +1,29 @@
+{
+  "passed": [
+    "Accessibility: welcome, zero automated WCAG findings",
+    "First visit opens a welcome page; sample access is an explicit choice",
+    "Accessibility: sign-in error, zero automated WCAG findings",
+    "Accessibility: organiser home, zero automated WCAG findings",
+    "Guided request: three clear steps, Back retains answers, submission saves once",
+    "Accessibility: task detail, zero automated WCAG findings",
+    "Full role journey: attendee request → organiser assignment → volunteer completion → organiser check; browser Back works",
+    "Accessibility: updates dialog, zero automated WCAG findings",
+    "Reporter notifications, read acknowledgement and modal keyboard recovery",
+    "Real network outage + offline reload + reconnect retains one correct record",
+    "Response dropped after commit: replay confirms the original task without duplicates",
+    "Draft survives live refresh; competing change causes a reviewed conflict, never a silent overwrite",
+    "Accessibility: 375px home, zero automated WCAG findings",
+    "375px and 320px layouts, labelled navigation and More-menu keyboard dismissal",
+    "No uncaught JavaScript errors"
+  ],
+  "integrity": {
+    "ok": true,
+    "commands": 29,
+    "activity": 29,
+    "taskVersionMismatches": 0,
+    "missingAuditEntries": 0,
+    "foreignKeyViolations": 0,
+    "checkedAt": "2026-11-07T10:41:36.252Z"
+  },
+  "javascriptErrors": []
+}
