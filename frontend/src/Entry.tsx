@@ -5,11 +5,13 @@ import type { Account, Delivery } from '../../shared/contracts';
 export function Brand({ onClick }: { onClick: () => void }) {
   return (
     <button className="brand" onClick={onClick} aria-label="Rally home">
-      <span className="rally-mark" aria-hidden="true">
-        <i />
-        <i />
+      <span className="rally-logo" aria-hidden="true">
+        <span className="rally-mark">
+          <i />
+          <i />
+        </span>
       </span>
-      rally<span className="brand-period">.</span>
+      <span className="brand-word">Rally</span>
     </button>
   );
 }
@@ -23,6 +25,8 @@ export function Entry({
   onReady,
   onDemo,
   onSignOut,
+  onInstall,
+  onScan,
 }: {
   path: string;
   stage: string;
@@ -33,6 +37,8 @@ export function Entry({
   onReady: (eventId?: string) => Promise<void>;
   onDemo: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  onInstall: () => void;
+  onScan: () => void;
 }) {
   const [busy, setBusy] = useState(false),
     [demoError, setDemoError] = useState('');
@@ -50,171 +56,158 @@ export function Entry({
   };
   const proof = path === '/verify-email' || path === '/reset-password';
   const authPath = ['/sign-in', '/create-account', '/forgot-password'].includes(path);
+  const workflow =
+    proof || authPath || ['loading', 'unavailable', 'verify', 'setup'].includes(stage);
   return (
-    <div className="entry-shell">
+    <div className={`entry-shell ${workflow ? 'is-workflow' : 'is-welcome'}`}>
       <header className="entry-header">
-        <Brand onClick={() => onNavigate('/')} />
-        <span className="entry-tagline">Good events happen together.</span>
+        <div className="entry-identity">
+          <Brand onClick={() => onNavigate('/')} />
+          <span className="entry-tagline">The event, organised.</span>
+        </div>
+        {!workflow ? (
+          <nav className="entry-navigation" aria-label="Welcome navigation">
+            <button className="active" onClick={() => onNavigate('/')}>
+              Home
+            </button>
+            <button onClick={onInstall}>Install Rally</button>
+            <button onClick={onScan}>Scan invitation</button>
+            <button onClick={() => void demo()} disabled={busy}>
+              Explore sample
+            </button>
+          </nav>
+        ) : null}
         {!proof ? (
           <button className="button secondary" onClick={() => onNavigate('/sign-in')}>
             Sign in
           </button>
         ) : null}
       </header>
-      <main id="main" className="entry-main">
-        {proof ? (
-          <ProofPage
-            kind={path === '/verify-email' ? 'verify' : 'reset'}
-            onNavigate={onNavigate}
-            onReady={onReady}
-          />
-        ) : authPath ? (
-          <AccountPage
-            mode={
-              path === '/sign-in' ? 'signin' : path === '/forgot-password' ? 'forgot' : 'register'
-            }
-            onNavigate={onNavigate}
-            onReady={onReady}
-            email={account?.email ?? ''}
-          />
-        ) : stage === 'loading' ? (
-          <div className="opening">
-            <h1>Opening Rally…</h1>
-            <p>Finding your event.</p>
-            <div className="loading-line" />
-          </div>
-        ) : stage === 'unavailable' ? (
-          <div className="entry-form">
-            <h1>Let’s get you connected.</h1>
-            <p>{error}</p>
-            <button className="button primary" onClick={() => void onReady()}>
-              <RefreshCw size={18} />
-              Try again
-            </button>
-          </div>
-        ) : stage === 'verify' && account ? (
-          <ConfirmWaiting
-            account={account}
-            delivery={delivery}
-            onReady={onReady}
-            onDemo={demo}
-            onSignOut={onSignOut}
-          />
-        ) : stage === 'setup' && account ? (
-          <EventSetup
-            account={account}
-            onReady={onReady}
-            onSignOut={onSignOut}
-            invitationError={error}
-          />
-        ) : (
-          <>
-            <section className="welcome">
-              <div className="welcome-copy">
-                <h1>
-                  Bring your event
-                  <br />
-                  team together.
-                </h1>
-                <p>
-                  A place to ask for help, share the plan, and know who’s doing what. Made for the
-                  people behind a great day.
-                </p>
-                <div className="welcome-actions">
-                  <button className="button primary" onClick={() => onNavigate('/create-account')}>
-                    Start your event
-                    <ArrowRight size={19} />
-                  </button>
-                  <button className="text-link" disabled={busy} onClick={() => void demo()}>
-                    {busy ? 'Opening the sample…' : 'Try a sample event'}
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-                <p className="welcome-reassurance">
-                  Already invited? Sign in using the email on your invitation.
-                </p>
-                {demoError ? (
-                  <p className="form-error" role="alert">
-                    {demoError}
-                  </p>
-                ) : null}
-                {error ? (
-                  <p className="form-error" role="alert">
-                    {error}
-                  </p>
-                ) : null}
-              </div>
-              <div
-                className="welcome-example"
-                aria-label="Example of a task moving from a request to completion"
-              >
-                <div className="example-caption">A small problem. A clear way forward.</div>
-                <div className="example-sheet">
-                  <div className="example-sheet-header">
-                    <span className="example-date">
-                      <strong>08</strong>
-                      <span>NOV</span>
-                    </span>
-                    <div>
-                      <strong>Riverside Makers Festival</strong>
-                      <span>Example event</span>
-                    </div>
-                  </div>
-                  <h2>“The entrance is blocked.”</h2>
-                  <p>A request doesn’t have to get lost in the group chat.</p>
-                  <ol className="handoff">
-                    <li>
-                      <span className="handoff-dot">
-                        <Check size={15} />
-                      </span>
-                      <div>
-                        <strong>Sam asks for help</strong>
-                        <p>Everyone knows where the problem is.</p>
-                      </div>
-                    </li>
-                    <li>
-                      <span className="handoff-dot">
-                        <Check size={15} />
-                      </span>
-                      <div>
-                        <strong>Ayesha takes care of it</strong>
-                        <p>One person knows it’s their task.</p>
-                      </div>
-                    </li>
-                    <li>
-                      <span className="handoff-dot">
-                        <Check size={15} />
-                      </span>
-                      <div>
-                        <strong>The organiser checks it’s done</strong>
-                        <p>Sam gets an update. Nothing is left guessing.</p>
-                      </div>
-                    </li>
-                  </ol>
-                  <span className="example-label">An example of how Rally works</span>
-                </div>
-              </div>
-            </section>
-            <section className="welcome-explanation">
-              <h2>
-                One shared plan.
-                <br />A simpler event day.
-              </h2>
+      <main id="main" className={`entry-main ${workflow ? 'entry-workflow' : 'entry-welcome'}`}>
+        {workflow ? (
+          <aside className="entry-brand-panel" aria-hidden="true">
+            <div>
               <p>
-                Your team sees the work that matters to them. If the connection drops, waiting
-                changes stay on the device until they can be saved.
+                Behind every
+                <br />
+                great event.
               </p>
-              <button className="text-link" onClick={() => void demo()} disabled={busy}>
-                See how it works in the sample
-                <ArrowRight size={18} />
+              <span>A shared plan. A team that knows what comes next.</span>
+            </div>
+          </aside>
+        ) : null}
+        <div
+          className={workflow ? 'entry-workflow-content' : 'entry-public-content'}
+          key={authPath || proof ? path : path + stage}
+        >
+          {proof ? (
+            <ProofPage
+              kind={path === '/verify-email' ? 'verify' : 'reset'}
+              onNavigate={onNavigate}
+              onReady={onReady}
+            />
+          ) : authPath ? (
+            <AccountPage
+              mode={
+                path === '/sign-in' ? 'signin' : path === '/forgot-password' ? 'forgot' : 'register'
+              }
+              onNavigate={onNavigate}
+              onReady={onReady}
+              email={account?.email ?? ''}
+            />
+          ) : stage === 'loading' ? (
+            <div className="opening">
+              <h1>Opening Rally…</h1>
+              <p>Finding your event.</p>
+              <div className="loading-line" />
+            </div>
+          ) : stage === 'unavailable' ? (
+            <div className="entry-form">
+              <h1>Let’s get you connected.</h1>
+              <p>{error}</p>
+              <button className="button primary" onClick={() => void onReady()}>
+                <RefreshCw size={18} />
+                Try again
               </button>
-            </section>
-          </>
-        )}
+            </div>
+          ) : stage === 'verify' && account ? (
+            <ConfirmWaiting
+              account={account}
+              delivery={delivery}
+              onReady={onReady}
+              onDemo={demo}
+              onSignOut={onSignOut}
+            />
+          ) : stage === 'setup' && account ? (
+            <EventSetup
+              account={account}
+              onReady={onReady}
+              onSignOut={onSignOut}
+              invitationError={error}
+            />
+          ) : (
+            <>
+              <section className="welcome">
+                <div className="welcome-copy">
+                  <h1>
+                    <span>Your event.</span>
+                    <span>Working together.</span>
+                  </h1>
+                  <p>
+                    Coordinate your team, manage the plan, and follow every request through to
+                    completion. One shared place for your event.
+                  </p>
+                  <div className="welcome-actions">
+                    <button
+                      className="button primary"
+                      onClick={() => onNavigate('/create-account')}
+                    >
+                      Start your event
+                      <ArrowRight size={19} />
+                    </button>
+                    <button className="text-link" disabled={busy} onClick={() => void demo()}>
+                      {busy ? 'Opening the sample…' : 'Try a sample event'}
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
+                  <p className="welcome-reassurance">
+                    Already invited? Sign in using the email on your invitation.
+                  </p>
+                  {demoError ? (
+                    <p className="form-error" role="alert">
+                      {demoError}
+                    </p>
+                  ) : null}
+                  {error ? (
+                    <p className="form-error" role="alert">
+                      {error}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+              <section
+                id="coordination"
+                className="welcome-explanation"
+                aria-label="Event coordination features"
+              >
+                {[
+                  ['Clear ownership', 'The right person, on every task.'],
+                  ['Team updates', 'Keep everyone informed.'],
+                  ['Offline recovery', 'Save now. Sync when connected.'],
+                  ['Recorded history', 'Know what changed and when.'],
+                ].map(([title, detail]) => (
+                  <div key={title}>
+                    <h2>{title}</h2>
+                    <p>{detail}</p>
+                  </div>
+                ))}
+              </section>
+            </>
+          )}
+        </div>
       </main>
       <footer className="entry-footer">
         <span>Rally · event coordination for people</span>
-        <span>Clear plans. Helpful people. A good day.</span>
       </footer>
     </div>
   );

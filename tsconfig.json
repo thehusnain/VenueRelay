@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
@@ -12,14 +16,16 @@
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": ["node", "vite/client"]
+    "types": [
+      "node",
+      "vite/client"
+    ]
   },
   "include": [
     "backend/**/*.ts",
     "frontend/**/*.ts",
     "frontend/**/*.tsx",
     "shared/**/*.ts",
-    "tests/**/*.ts",
-    "capacitor.config.ts"
+    "tests/**/*.ts"
   ]
 }

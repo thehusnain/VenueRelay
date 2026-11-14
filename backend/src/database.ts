@@ -11,7 +11,7 @@ export class Store {
     this.db.exec(
       'PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;',
     );
-    const migrations = ['001_initial.sql', '002_accounts.sql'];
+    const migrations = ['001_initial.sql', '002_accounts.sql', '003_pwa.sql'];
     const version = (this.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version;
     if (version > migrations.length)

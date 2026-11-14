@@ -37,7 +37,7 @@ export function session(store: Store, userId: string) {
   );
   return value;
 }
-function sessionValue(req: IncomingMessage) {
+export function sessionValue(req: IncomingMessage) {
   const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
   if (bearer && !bearer.startsWith('rly_')) return bearer;
   return req.headers.cookie

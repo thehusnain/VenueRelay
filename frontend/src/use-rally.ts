@@ -1,141 +1,108 @@
-import { Capacitor } from '@capacitor/core';
+import { sessionPreference } from './session-preferences';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Snapshot, Pending, Account, Delivery } from '../../shared/contracts';
-export class RequestError extends Error {
-  status: number;
-  code: string;
-  details: unknown;
-  constructor(status: number, code: string, message: string, details?: unknown) {
-    super(message);
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
+import type { Snapshot, Account, Delivery } from '../../shared/contracts';
+import { fetchJson, RequestError } from './transport';
+import { isSnapshot } from './device-state';
+import {
+  addIntent,
+  announceDeviceChange,
+  cachedSnapshot,
+  clearSnapshots,
+  migrateDeviceStorage,
+  readQueue,
+  readState,
+  removeIntent,
+  replaceIntent,
+  saveSnapshot,
+  scopeOf,
+  writeState,
+  type StoredIntent,
+} from './offline-store';
+import { requestBackgroundSync, syncOutbox } from './sync-engine';
+export { RequestError } from './transport';
 export const API = import.meta.env.VITE_API_URL ?? '';
-let nativeSession: string | null = null;
-const nativeReady = Capacitor.isNativePlatform()
-  ? import('@capacitor/preferences').then(async ({ Preferences }) => {
-      nativeSession = (await Preferences.get({ key: 'rally.session' })).value;
-    })
-  : Promise.resolve();
 export async function request<T = any>(
   path: string,
   options: RequestInit = {},
   persona = 'self',
 ): Promise<T> {
-  await nativeReady;
-  const response = await fetch(`${API}/api/v1${path}`, {
+  const data = await fetchJson<any>(`${API}/api/v1${path}`, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Rally-Persona': persona,
-      ...(Capacitor.isNativePlatform()
-        ? {
-            'X-Rally-Client': 'native',
-            ...(nativeSession ? { Authorization: `Bearer ${nativeSession}` } : {}),
-          }
-        : {}),
-      ...options.headers,
-    },
-    signal: options.signal ?? AbortSignal.timeout(10000),
+    headers: { 'Content-Type': 'application/json', 'X-Rally-Persona': persona, ...options.headers },
   });
-  const data = await response.json();
-  if (!response.ok)
-    throw new RequestError(
-      response.status,
-      data.error?.code ?? 'ERROR',
-      data.error?.message ?? 'The action could not be completed.',
-      data.error?.details,
-    );
-  if (['/auth/login', '/auth/register', '/auth/demo'].includes(path) && data.user?.id) {
-    try {
-      const previous = savedSnapshot();
-      if (previous && previous.user.id !== data.user.id) localStorage.removeItem(lastKey);
-    } catch {}
-  }
-  if (Capacitor.isNativePlatform()) {
-    const { Preferences } = await import('@capacitor/preferences');
-    if (data.sessionToken) {
-      nativeSession = data.sessionToken;
-      await Preferences.set({ key: 'rally.session', value: nativeSession! });
-    }
-    if (path === '/auth/logout') {
-      nativeSession = null;
-      await Preferences.remove({ key: 'rally.session' });
-    }
+  if (['/auth/me', '/auth/login', '/auth/register', '/auth/demo'].includes(path) && data.user?.id) {
+    await migrateDeviceStorage();
+    const previous = await cachedSnapshot();
+    if (previous && previous.user.id !== data.user.id) await writeState('lastScope', null);
+    await writeState('activeUser', data.user.id);
+    announceDeviceChange();
   }
   return data;
-}
-const lastKey = 'rally:v1:last';
-const cacheKey = (s: Snapshot) => `rally:v1:snapshot:${s.user.id}:${s.event.id}:${s.me.id}`;
-const outboxPrefix = (s: Snapshot) => `rally:v1:outbox:${s.user.id}:${s.event.id}:${s.me.id}:`;
-function readQueue(s: Snapshot) {
-  const prefix = outboxPrefix(s),
-    items: Pending[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)!;
-    if (k.startsWith(prefix))
-      try {
-        items.push(JSON.parse(localStorage.getItem(k)!));
-      } catch {}
-  }
-  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.key.localeCompare(b.key));
-}
-function savedSnapshot(): Snapshot | null {
-  try {
-    const key = localStorage.getItem(lastKey);
-    return key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null;
-  } catch {
-    return null;
-  }
 }
 export function useRally() {
   const [stage, setStage] = useState<
     'loading' | 'welcome' | 'verify' | 'setup' | 'workspace' | 'unavailable'
   >('loading');
-  const [account, setAccount] = useState<Account | null>(null);
-  const [delivery, setDelivery] = useState<Delivery>({ mode: 'disabled', connected: false });
+  const [account, setAccount] = useState<Account | null>(null),
+    [delivery, setDelivery] = useState<Delivery>({ mode: 'disabled', connected: false });
   const [data, setData] = useState<Snapshot | null>(null),
-    [pending, setPending] = useState<Pending[]>([]),
-    [persona, setPersona] = useState('self'),
-    [simulatedOffline, setSimulatedOffline] = useState(false),
+    [pending, setPending] = useState<StoredIntent[]>([]),
+    [persona, setPersona] = useState('self');
+  const [simulatedOffline, setSimulatedOffline] = useState(false),
     [connection, setConnection] = useState<'connecting' | 'live' | 'offline' | 'syncing'>(
       'connecting',
-    ),
-    [error, setError] = useState(''),
-    [toast, setToast] = useState('');
+    );
+  const [error, setError] = useState(''),
+    [toast, setToast] = useState(''),
+    [realtime, setRealtime] = useState(false);
   const current = useRef<Snapshot | null>(null),
     personaRef = useRef('self'),
     paused = useRef(false),
     flushing = useRef(false),
     generation = useRef(0),
-    lastSuccess = useRef(Date.now());
-  const apply = useCallback((next: Snapshot) => {
+    lastSuccess = useRef(Date.now()),
+    refreshing = useRef(false);
+  const updateQueue = useCallback(async () => {
+    const s = current.current;
+    if (s) setPending(await readQueue(scopeOf(s)));
+  }, []);
+  const apply = useCallback(async (next: Snapshot) => {
+    if (!isSnapshot(next))
+      throw new RequestError(
+        502,
+        'INVALID_SNAPSHOT',
+        'The event response could not be read. Please retry; waiting changes have not been cleared.',
+      );
     current.current = next;
     setData(next);
-    setPending(readQueue(next));
     try {
-      const key = cacheKey(next);
-      localStorage.setItem(key, JSON.stringify(next));
-      localStorage.setItem(lastKey, key);
+      const isPaused = !!(await readState('paused:' + scopeOf(next)));
+      paused.current = isPaused;
+      setSimulatedOffline(isPaused);
+      await saveSnapshot(next);
+      setPending(await readQueue(scopeOf(next)));
+      return true;
     } catch {
-      setError('Device storage is full. Offline copies cannot be refreshed.');
+      setError(
+        'Device storage is unavailable or full. Your live event is visible, but an offline copy could not be saved.',
+      );
+      return false;
     }
   }, []);
   const load = useCallback(
     async (eventId?: string, nextPersona = personaRef.current) => {
       const run = ++generation.current;
-      let invitationMessage = '';
       try {
-        ensureConnected();
+        await migrateDeviceStorage();
+        if (paused.current || !navigator.onLine)
+          throw new Error('You are offline. Showing the last saved event where available.');
         if (!eventId) {
           const auth = await request<{ user: Account; delivery: Delivery }>('/auth/me');
           if (run !== generation.current) return;
           setAccount(auth.user);
           setDelivery(auth.delivery);
-          if (!auth.user.email && sessionStorage.getItem('rally:demo') !== 'yes') {
+          if (!auth.user.email && sessionPreference.get('rally:demo') !== 'yes') {
             setStage('welcome');
             setData(null);
             current.current = null;
@@ -147,78 +114,58 @@ export function useRally() {
             current.current = null;
             return;
           }
-          const invitation = sessionStorage.getItem('rally:invitation');
+          const invitation = sessionPreference.get('rally:invitation');
           if (invitation && auth.user.email) {
-            try {
-              await request('/invitations/accept', {
-                method: 'POST',
-                body: JSON.stringify({ token: invitation }),
-              });
-              sessionStorage.removeItem('rally:invitation');
-            } catch (error) {
-              invitationMessage = (error as Error).message;
-              setError(invitationMessage);
-              sessionStorage.removeItem('rally:invitation');
-            }
+            await request('/invitations/accept', {
+              method: 'POST',
+              body: JSON.stringify({ token: invitation }),
+            });
+            sessionPreference.remove('rally:invitation');
           }
         }
         const next = eventId
-          ? await request<Snapshot>(`/events/${eventId}/snapshot`, {}, nextPersona)
-          : await request<Snapshot | { requiresSetup: true; user: Account }>(
-              '/bootstrap',
-              { method: 'POST', body: '{}' },
-              nextPersona,
-            );
-        if ('requiresSetup' in next) {
+          ? await request(`/events/${eventId}/snapshot`, {}, nextPersona)
+          : await request('/bootstrap', { method: 'POST', body: '{}' }, nextPersona);
+        if (run !== generation.current) return;
+        if (next.requiresSetup) {
           setStage('setup');
           setData(null);
           current.current = null;
           return;
         }
-        if (run !== generation.current) return;
         personaRef.current = nextPersona;
         setPersona(nextPersona);
-        apply(next);
+        if (await apply(next)) setError('');
         setStage('workspace');
-        setConnection('live');
-        setError(invitationMessage);
+        setConnection(paused.current ? 'offline' : 'live');
         lastSuccess.current = Date.now();
       } catch (e) {
+        if (run !== generation.current) return;
         if (e instanceof RequestError && e.status === 401) {
-          setStage('welcome');
-          setAccount(null);
-          setData(null);
           current.current = null;
+          setData(null);
+          setAccount(null);
+          setStage('welcome');
           setError('');
-          setConnection('connecting');
-        } else {
-          const cached = current.current ?? savedSnapshot();
-          if (cached && !eventId) {
-            apply(cached);
-            setStage('workspace');
-            personaRef.current = cached.event.is_demo ? cached.me.role : 'self';
-            setPersona(personaRef.current);
-          }
-          setConnection('offline');
-          if (e instanceof RequestError) setError(e.message);
-          else if (!cached) {
-            setStage('unavailable');
-            setError('We cannot reach Rally right now. Please try again in a moment.');
-          }
+          return;
         }
-      }
-      function ensureConnected() {
-        if (paused.current || !navigator.onLine) throw new Error('Offline');
+        const cached = current.current ?? (await cachedSnapshot().catch(() => null));
+        if (cached && !eventId) {
+          await apply(cached);
+          personaRef.current = cached.event.is_demo ? cached.me.role : 'self';
+          setPersona(personaRef.current);
+          setStage('workspace');
+        } else if (!current.current) setStage('unavailable');
+        setConnection('offline');
+        setError(e instanceof Error ? e.message : 'Rally could not open. Please retry.');
       }
     },
     [apply],
   );
   const refresh = useCallback(async () => {
     const s = current.current;
-    if (!s || paused.current || !navigator.onLine) {
-      setConnection('offline');
-      return;
-    }
+    if (!s || paused.current || !navigator.onLine || refreshing.current) return;
+    refreshing.current = true;
     const run = generation.current;
     try {
       const next = await request<Snapshot>(
@@ -227,99 +174,153 @@ export function useRally() {
         personaRef.current,
       );
       if (run !== generation.current) return;
-      apply(next);
+      if (!isSnapshot(next))
+        throw new RequestError(
+          502,
+          'INVALID_SNAPSHOT',
+          'The event response could not be read. Please retry; waiting changes have not been cleared.',
+        );
+      if (next.user.id !== s.user.id || next.me.id !== s.me.id)
+        throw new RequestError(
+          401,
+          'ACTOR_CHANGED',
+          'Your account changed. Sign in again; waiting changes remain on this device.',
+        );
+      if (await apply(next)) setError('');
+      setConnection(paused.current ? 'offline' : 'live');
       lastSuccess.current = Date.now();
-      setConnection('live');
-      setError('');
     } catch (e) {
       setConnection('offline');
       if (e instanceof RequestError) {
         setError(e.message);
-        if (e.status === 401) setStage('welcome');
+        if (e.status === 401 || e.status === 403) {
+          generation.current++;
+          current.current = null;
+          setData(null);
+          setAccount(null);
+          setStage('welcome');
+        }
       }
+    } finally {
+      refreshing.current = false;
     }
   }, [apply]);
   const flush = useCallback(async () => {
     const s = current.current;
     if (!s || flushing.current || paused.current || !navigator.onLine) return;
-    const run = generation.current;
     flushing.current = true;
     try {
-      for (const item of readQueue(s)) {
-        if (item.conflict || paused.current || !navigator.onLine) break;
-        setConnection('syncing');
-        try {
-          await request(
-            `/events/${s.event.id}/commands`,
-            {
-              method: 'POST',
-              headers: { 'Idempotency-Key': item.key },
-              body: JSON.stringify({
-                action: item.action,
-                taskId: item.taskId,
-                expectedVersion: item.expectedVersion,
-                payload: item.payload,
-              }),
-            },
-            item.persona,
-          );
-          localStorage.removeItem(outboxPrefix(s) + item.key);
-          setPending(readQueue(s));
-          setToast('Your change is saved.');
-        } catch (e) {
-          if (e instanceof RequestError && e.status === 401) {
-            setStage('welcome');
-            setError('Please sign in again. Your unsent changes are safe on this device.');
-          } else if (e instanceof RequestError && e.status < 500 && e.status !== 429) {
-            localStorage.setItem(
-              outboxPrefix(s) + item.key,
-              JSON.stringify({ ...item, conflict: e.message }),
-            );
-            setPending(readQueue(s));
-            setToast('Someone else changed this task. Please check it before continuing.');
-            await refresh();
-          } else setConnection('offline');
-          break;
-        }
+      if ((await readQueue(scopeOf(s))).some((item) => !item.conflict)) setConnection('syncing');
+      const result = await syncOutbox(scopeOf(s), API);
+      await updateQueue();
+      if (result.authRequired) {
+        generation.current++;
+        current.current = null;
+        setData(null);
+        setAccount(null);
+        setStage('welcome');
+        setError(`Sign in as ${s.user.name} to send waiting changes. They remain on this device.`);
+        return;
       }
-      if (run === generation.current) await refresh();
+      if (result.saved) setToast('Your changes are saved.');
+      if (result.retry) {
+        setConnection('offline');
+        void requestBackgroundSync();
+      }
+      await refresh();
+    } catch (e) {
+      setConnection('offline');
+      setError(e instanceof Error ? e.message : 'Device storage could not be opened.');
     } finally {
       flushing.current = false;
     }
-  }, [refresh]);
+  }, [refresh, updateQueue]);
   useEffect(() => {
     void load();
-    const interval = setInterval(() => {
+    const tick = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void flush();
         if (!flushing.current) void refresh();
       }
-    }, 3000);
+    }, 10000);
     const online = () => {
-      void flush();
-      void refresh();
+        void flush();
+        void refresh();
+      },
+      offline = () => setConnection('offline'),
+      visible = () => {
+        if (document.visibilityState === 'visible') online();
+      };
+    const changed = () => {
+      void updateQueue().catch(() => {});
     };
-    const offline = () => setConnection('offline');
-    const storage = () => {
-      if (current.current) setPending(readQueue(current.current));
+    const channel =
+      typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('rally-device') : null;
+    if (channel) channel.onmessage = changed;
+    const worker = (e: MessageEvent) => {
+      if (e.data?.type === 'rally:outbox') online();
     };
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
-    window.addEventListener('storage', storage);
+    document.addEventListener('visibilitychange', visible);
+    navigator.serviceWorker?.addEventListener('message', worker);
     return () => {
-      clearInterval(interval);
+      clearInterval(tick);
+      channel?.close();
       window.removeEventListener('online', online);
       window.removeEventListener('offline', offline);
-      window.removeEventListener('storage', storage);
+      document.removeEventListener('visibilitychange', visible);
+      navigator.serviceWorker?.removeEventListener('message', worker);
     };
-  }, [load, flush, refresh]);
+  }, [load, flush, refresh, updateQueue]);
+  useEffect(() => {
+    if (!data) return;
+    let socket: WebSocket | undefined,
+      timer: ReturnType<typeof setTimeout> | undefined,
+      disposed = false,
+      attempt = 0;
+    const connect = () => {
+      if (disposed || paused.current) return;
+      const url = new URL(`${API}/api/v1/events/${data.event.id}/live`, location.origin);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      url.searchParams.set('persona', persona);
+      socket = new WebSocket(url);
+      socket.onopen = () => {
+        attempt = 0;
+        setRealtime(true);
+        void refresh();
+        void flush();
+      };
+      socket.onmessage = (e) => {
+        try {
+          if (JSON.parse(e.data).type === 'event.changed') void refresh();
+        } catch {}
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        setRealtime(false);
+        if (!disposed)
+          timer = setTimeout(
+            connect,
+            Math.min(30000, 1000 * 2 ** Math.min(attempt++, 5)) + Math.random() * 300,
+          );
+      };
+    };
+    connect();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      socket?.close();
+      setRealtime(false);
+    };
+  }, [data?.event.id, data?.me.id, persona, simulatedOffline, refresh, flush]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 5000);
     return () => clearTimeout(timer);
   }, [toast]);
   const mutate = useCallback(
-    (
+    async (
       action: string,
       payload: Record<string, unknown>,
       taskId?: string,
@@ -327,76 +328,95 @@ export function useRally() {
     ) => {
       const s = current.current;
       if (!s) return false;
-      if (taskId && readQueue(s).some((x) => x.taskId === taskId)) {
-        setToast('This task already has an action waiting to sync.');
-        return false;
-      }
-      const item: Pending = {
-        key: crypto.randomUUID(),
-        eventId: s.event.id,
-        persona: personaRef.current,
-        action,
-        payload,
-        taskId,
-        expectedVersion,
-        createdAt: new Date().toISOString(),
-      };
       try {
-        localStorage.setItem(outboxPrefix(s) + item.key, JSON.stringify(item));
-        setPending(readQueue(s));
+        await addIntent(s, {
+          key: crypto.randomUUID(),
+          eventId: s.event.id,
+          persona: personaRef.current,
+          action,
+          payload,
+          taskId,
+          expectedVersion,
+          createdAt: new Date().toISOString(),
+        });
+        await updateQueue();
+        announceDeviceChange();
         setToast(
           paused.current || !navigator.onLine
             ? 'Saved on this device. Will send when connected.'
             : 'Saving your action…',
         );
+        void requestBackgroundSync();
         void flush();
         return true;
-      } catch {
+      } catch (e) {
         setToast(
-          'Device storage is unavailable. Your action was not sent. Free some space and retry.',
+          e instanceof Error && e.message.includes('already')
+            ? e.message
+            : 'Device storage is unavailable. Your action was not sent. Free space and retry.',
         );
         return false;
       }
     },
-    [flush],
+    [flush, updateQueue],
   );
-  const discard = (key: string) => {
-    if (!current.current) return;
-    localStorage.removeItem(outboxPrefix(current.current) + key);
-    setPending(readQueue(current.current));
-    void flush();
-  };
-  const rebase = (key: string) => {
+  const discard = async (key: string) => {
     const s = current.current;
     if (!s) return;
-    const item = readQueue(s).find((x) => x.key === key);
-    if (!item) return;
-    const task = s.tasks.find((t) => t.id === item.taskId);
-    if (item.taskId && !task) {
-      setToast('You no longer have access to this task. Discard the pending action.');
-      return;
+    try {
+      const item = (await readQueue(scopeOf(s))).find((i) => i.key === key);
+      if (item) {
+        if ((item.leaseUntil ?? 0) > Date.now())
+          throw new Error('This change is syncing. Try again in a moment.');
+        await removeIntent(item.id);
+      }
+      await updateQueue();
+      announceDeviceChange();
+      void flush();
+    } catch (e) {
+      setToast((e as Error).message);
     }
-    const next = {
-      ...item,
-      key: crypto.randomUUID(),
-      expectedVersion: task?.version,
-      createdAt: new Date().toISOString(),
-      conflict: undefined,
-    };
-    localStorage.setItem(outboxPrefix(s) + next.key, JSON.stringify(next));
-    localStorage.removeItem(outboxPrefix(s) + key);
-    setPending(readQueue(s));
-    void flush();
+  };
+  const rebase = async (key: string) => {
+    const s = current.current;
+    if (!s) return;
+    try {
+      const item = (await readQueue(scopeOf(s))).find((i) => i.key === key);
+      if (!item || item.action === 'device.unreadable') return;
+      const task = s.tasks.find((t) => t.id === item.taskId);
+      if (item.taskId && !task)
+        throw new Error('You no longer have access to this task. Keep the saved version.');
+      const nextKey = crypto.randomUUID();
+      await replaceIntent(item, {
+        ...item,
+        key: nextKey,
+        id: item.scope + ':' + nextKey,
+        expectedVersion: task?.version,
+        createdAt: new Date().toISOString(),
+        conflict: undefined,
+        attempts: 0,
+        nextAttemptAt: 0,
+        leaseUntil: 0,
+      });
+      await updateQueue();
+      announceDeviceChange();
+      void flush();
+    } catch (e) {
+      setToast((e as Error).message);
+    }
   };
   const switchContext = async (eventId: string, nextPersona: string) => {
     if (pending.length) {
-      setToast('Sync or discard pending actions before switching roles or events.');
+      setToast('Sync or remove pending changes before switching events or roles.');
       return;
     }
     await load(eventId, nextPersona);
   };
-  const toggleOffline = () => {
+  const toggleOffline = async () => {
+    const s = current.current;
+    if (!s) return;
     paused.current = !paused.current;
+    await writeState('paused:' + scopeOf(s), paused.current);
     setSimulatedOffline(paused.current);
     if (paused.current) setConnection('offline');
     else {
@@ -409,46 +429,10 @@ export function useRally() {
     stage,
     account,
     delivery,
-    beginDemo: async () => {
-      if (pending.length) {
-        setToast('Please send or remove your waiting changes first.');
-        return;
-      }
-      await request('/auth/demo', { method: 'POST', body: '{}' });
-      sessionStorage.setItem('rally:demo', 'yes');
-      paused.current = false;
-      setSimulatedOffline(false);
-      await load(undefined, 'self');
-    },
-    signOut: async () => {
-      const owner = current.current?.user.id ?? account?.id;
-      const waitingAnywhere =
-        owner &&
-        Object.keys(localStorage).some((key) => key.startsWith(`rally:v1:outbox:${owner}:`));
-      if (pending.length || waitingAnywhere) {
-        setToast('You have changes waiting to be saved. Open Connection help first.');
-        return;
-      }
-      await request('/auth/logout', { method: 'POST', body: '{}' });
-      for (const key of Object.keys(localStorage))
-        if (key.startsWith('rally:') && !key.startsWith('rally:v1:outbox:'))
-          localStorage.removeItem(key);
-      sessionStorage.removeItem('rally:demo');
-      paused.current = false;
-      setSimulatedOffline(false);
-      personaRef.current = 'self';
-      setPersona('self');
-      setPending([]);
-      generation.current++;
-      current.current = null;
-      setData(null);
-      setAccount(null);
-      setStage('welcome');
-      setError('');
-    },
     pending,
     persona,
     connection,
+    realtime,
     simulatedOffline,
     error,
     toast,
@@ -462,5 +446,43 @@ export function useRally() {
     rebase,
     toggleOffline,
     lastSuccess,
+    beginDemo: async () => {
+      if ((await readQueue()).length)
+        throw new Error('Send or remove your waiting changes before opening another sample.');
+      if (!sessionPreference.set('rally:demo', 'yes'))
+        throw new Error('Enable browser storage and retry.');
+      await request('/auth/demo', { method: 'POST', body: '{}' });
+      paused.current = false;
+      setSimulatedOffline(false);
+      await load(undefined, 'self');
+    },
+    signOut: async () => {
+      try {
+        const owner = current.current?.user.id ?? account?.id;
+        if ((await readQueue()).some((i) => i.userId === owner)) {
+          setToast('You have changes waiting. Open Connection help first.');
+          return;
+        }
+        await request('/auth/logout', { method: 'POST', body: '{}' });
+        await clearSnapshots();
+        sessionPreference.remove('rally:demo');
+        generation.current++;
+        current.current = null;
+        setData(null);
+        setAccount(null);
+        setPending([]);
+        setPersona('self');
+        personaRef.current = 'self';
+        paused.current = false;
+        setSimulatedOffline(false);
+        setStage('welcome');
+        setError('');
+        announceDeviceChange();
+      } catch {
+        setToast(
+          'Could not sign out safely. Reconnect and try again; waiting data has not been removed.',
+        );
+      }
+    },
   };
 }

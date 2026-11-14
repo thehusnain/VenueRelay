@@ -1,3 +1,6 @@
+import { PwaTools } from './PwaTools';
+import { QrScanner, parseRallyLink } from './qr';
+import { sessionPreference } from './session-preferences';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -43,7 +46,12 @@ export function App() {
   useEffect(() => {
     const invitation = new URLSearchParams(location.search).get('invite');
     if (invitation) {
-      sessionStorage.setItem('rally:invitation', invitation);
+      if (!sessionPreference.set('rally:invitation', invitation)) {
+        rally.setToast(
+          'This browser could not save your invitation. Restore storage access, then reopen the invitation link.',
+        );
+        return;
+      }
       history.replaceState({}, '', '/sign-in');
       navigate('/sign-in');
     }
@@ -78,6 +86,28 @@ export function App() {
       heading.focus({ preventScroll: true });
     }
   }, [path, rally.stage, data?.me.id]);
+  const scanned = (value: string) => {
+    try {
+      const target = parseRallyLink(value, location.origin);
+      if (target.invite && !sessionPreference.set('rally:invitation', target.invite))
+        throw new Error('Device storage is unavailable. Retry after enabling storage.');
+      setDialog('');
+      go(target.path);
+    } catch (e) {
+      rally.setToast((e as Error).message);
+    }
+  };
+  const browserTools = (
+    <>
+      <PwaTools
+        open={dialog === 'pwa'}
+        onClose={() => setDialog('')}
+        data={data}
+        waiting={!!pending.length}
+      />
+      {dialog === 'qr' ? <QrScanner onClose={() => setDialog('')} onRead={scanned} /> : null}
+    </>
+  );
   const entryPath = [
     '/sign-in',
     '/create-account',
@@ -92,6 +122,8 @@ export function App() {
           Skip to content
         </a>
         <Entry
+          onInstall={() => setDialog('pwa')}
+          onScan={() => setDialog('qr')}
           path={path}
           stage={rally.stage}
           account={rally.account}
@@ -105,11 +137,17 @@ export function App() {
             go('/');
           }}
         />
+        {browserTools}
+        {rally.toast ? (
+          <div className="toast" role="status">
+            {rally.toast}
+          </div>
+        ) : null}
       </>
     );
   const org = data.me.role === 'organiser',
     unread = data.notifications.filter((n) => !n.read_at).length,
-    selected = path.startsWith('/tasks/')
+    selected = /^\/tasks\/[^/]+$/.test(path)
       ? data.tasks.find((t) => t.id === path.split('/')[2])
       : undefined;
   const currentPage =
@@ -124,7 +162,7 @@ export function App() {
             : '';
   const openTask = (id: string) => go('/tasks/' + id),
     create = () => {
-      sessionStorage.setItem(`rally:task-filter:${data.event.id}:${data.me.id}`, 'todo');
+      sessionPreference.set(`rally:task-filter:${data.event.id}:${data.me.id}`, 'todo');
       go('/new-task');
     };
   const account = () => {
@@ -171,13 +209,21 @@ export function App() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <div className="rally-app">
+      <div className={`rally-app page-${currentPage || path.slice(1) || 'home'}`}>
         <header className="app-header">
           <div className="app-header-inner">
             <Brand onClick={() => go('/')} />
             <span className="header-event-name">{data.event.name}</span>
             <div className="header-actions">
-              <span className={`save-indicator ${connection}`} role="status">
+              <span
+                className={`save-indicator ${connection}`}
+                role="status"
+                title={
+                  rally.realtime
+                    ? 'Real-time connection active'
+                    : 'Reconnecting live updates; periodic refresh remains active'
+                }
+              >
                 <span />
                 {connection === 'offline'
                   ? 'Offline'
@@ -211,6 +257,22 @@ export function App() {
                   <span>More</span>
                 </summary>
                 <div className="more-panel">
+                  <button
+                    onClick={() => {
+                      if (more.current) more.current.open = false;
+                      setDialog('pwa');
+                    }}
+                  >
+                    Install Rally & notifications
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (more.current) more.current.open = false;
+                      setDialog('qr');
+                    }}
+                  >
+                    Scan a QR code
+                  </button>
                   <strong>{data.me.name}</strong>
                   <span className="account-caption">{data.user.email ?? 'Sample account'}</span>
                   {data.events.length > 1 ? (
@@ -339,91 +401,115 @@ export function App() {
           </div>
         ) : null}
         <main id="main" className="app-main" tabIndex={-1}>
-          {rally.error ? (
-            <div className="plain-notice warning" role="alert">
-              <p>{rally.error}</p>
-              <button className="text-link" onClick={() => void rally.refresh()}>
-                Try again
-              </button>
-            </div>
-          ) : null}
-          {connection === 'offline' || pending.length ? (
-            <div className="connection-banner" role="status">
-              <WifiOff size={21} />
-              <p>
-                {connection === 'offline' ? 'Your connection is paused. ' : ''}
-                {pending.length
-                  ? `${pending.length} ${pending.length === 1 ? 'change is' : 'changes are'} waiting to be saved. Keep this device’s data until they are confirmed.`
-                  : 'You can still read your saved event.'}
-              </p>
-              <button className="text-link" onClick={() => go('/connection-help')}>
-                See waiting changes
-                <ArrowRight size={17} />
-              </button>
-            </div>
-          ) : null}
-          {selected ? (
-            <TaskView
-              key={selected.id}
-              data={data}
-              task={selected}
-              pending={pending}
-              mutate={rally.mutate}
-              onBack={() => go('/tasks')}
-            />
-          ) : path === '/new-task' ? (
-            <CreateTask data={data} mutate={rally.mutate} onBack={() => go('/tasks')} />
-          ) : path === '/tasks' ? (
-            <TaskWorkspace
-              data={data}
-              pending={pending}
-              onTask={openTask}
-              onCreate={create}
-              search={search}
-              setSearch={setSearch}
-            />
-          ) : labels[path] ? (
-            <>
-              <div className="page-introduction">
-                <div>
-                  <h1>{labels[path][0]}</h1>
-                  <p>{labels[path][1]}</p>
-                </div>
+          <div className="page-scene" key={path + data.me.id}>
+            {rally.error ? (
+              <div className="plain-notice warning" role="alert">
+                <p>{rally.error}</p>
+                <button className="text-link" onClick={() => void rally.refresh()}>
+                  Try again
+                </button>
               </div>
-              {path === '/schedule' ? (
-                <SchedulePage data={data} onAdd={() => setDialog('schedule')} />
-              ) : path === '/team' ? (
-                <TeamPage data={data} onInvite={() => setDialog('invite')} />
-              ) : path === '/history' ? (
-                <LogPage data={data} onTask={openTask} onExport={() => void exportRecords()} />
-              ) : path === '/connections' && org ? (
-                <IntegrationPage data={data} notify={rally.setToast} />
-              ) : path === '/connection-help' ? (
-                <ReliabilityPage
-                  data={data}
-                  pending={pending}
-                  simulatedOffline={rally.simulatedOffline}
-                  toggleOffline={rally.toggleOffline}
-                  discard={rally.discard}
-                  rebase={rally.rebase}
-                  flush={() => void rally.flush()}
-                  notify={rally.setToast}
-                />
-              ) : (
-                <p>Only the organiser can use this page.</p>
-              )}
-            </>
-          ) : (
-            <Home
-              data={data}
-              pending={pending}
-              onTask={openTask}
-              onCreate={create}
-              onTasks={() => go('/tasks')}
-              onSchedule={() => go('/schedule')}
-              onInvite={() => setDialog('invite')}
-            />
-          )}
+            ) : null}
+            {connection === 'offline' || pending.length ? (
+              <div className="connection-banner" role="status">
+                <WifiOff size={21} />
+                <p>
+                  {connection === 'offline'
+                    ? rally.simulatedOffline
+                      ? 'Task updates are paused. '
+                      : 'Connection interrupted. '
+                    : ''}
+                  {pending.length
+                    ? `${pending.length} ${pending.length === 1 ? 'change is' : 'changes are'} waiting to be saved. Keep this device’s data until they are confirmed.`
+                    : 'You can still read your saved event.'}
+                </p>
+                <button className="text-link" onClick={() => go('/connection-help')}>
+                  See waiting changes
+                  <ArrowRight size={17} />
+                </button>
+              </div>
+            ) : null}
+            {(!selected && path.startsWith('/tasks/')) ||
+            (!selected && !['/', '/new-task', '/tasks', ...Object.keys(labels)].includes(path)) ? (
+              <section className="missing-page">
+                <h1>{path.startsWith('/tasks/') ? 'Task unavailable' : 'Page not found'}</h1>
+                <p>
+                  {path.startsWith('/tasks/')
+                    ? 'This task may have moved or may no longer be available to your role.'
+                    : 'This address does not lead to a Rally page.'}
+                </p>
+                <div className="button-row">
+                  <button className="button primary" onClick={() => go('/tasks')}>
+                    View tasks
+                  </button>
+                  <button className="button secondary" onClick={() => go('/')}>
+                    Go to Home
+                  </button>
+                </div>
+              </section>
+            ) : selected ? (
+              <TaskView
+                key={selected.id}
+                data={data}
+                task={selected}
+                pending={pending}
+                mutate={rally.mutate}
+                onBack={() => go('/tasks')}
+              />
+            ) : path === '/new-task' ? (
+              <CreateTask data={data} mutate={rally.mutate} onBack={() => go('/tasks')} />
+            ) : path === '/tasks' ? (
+              <TaskWorkspace
+                data={data}
+                pending={pending}
+                onTask={openTask}
+                onCreate={create}
+                search={search}
+                setSearch={setSearch}
+              />
+            ) : labels[path] ? (
+              <>
+                <div className={`page-introduction page-cover cover-${path.slice(1)}`}>
+                  <div>
+                    <h1>{labels[path][0]}</h1>
+                    <p>{labels[path][1]}</p>
+                  </div>
+                </div>
+                {path === '/schedule' ? (
+                  <SchedulePage data={data} onAdd={() => setDialog('schedule')} />
+                ) : path === '/team' ? (
+                  <TeamPage data={data} onInvite={() => setDialog('invite')} />
+                ) : path === '/history' ? (
+                  <LogPage data={data} onTask={openTask} onExport={() => void exportRecords()} />
+                ) : path === '/connections' && org ? (
+                  <IntegrationPage data={data} notify={rally.setToast} />
+                ) : path === '/connection-help' ? (
+                  <ReliabilityPage
+                    data={data}
+                    pending={pending}
+                    simulatedOffline={rally.simulatedOffline}
+                    toggleOffline={rally.toggleOffline}
+                    discard={rally.discard}
+                    rebase={rally.rebase}
+                    flush={() => void rally.flush()}
+                    notify={rally.setToast}
+                  />
+                ) : (
+                  <p>Only the organiser can use this page.</p>
+                )}
+              </>
+            ) : (
+              <Home
+                data={data}
+                pending={pending}
+                onTask={openTask}
+                onCreate={create}
+                onTasks={() => go('/tasks')}
+                onSchedule={() => go('/schedule')}
+                onInvite={() => setDialog('invite')}
+              />
+            )}
+          </div>
           <footer className="app-footer">
             <span>Rally · {data.event.name}</span>
             <button onClick={() => setDialog('help')}>Need a hand using Rally?</button>
@@ -436,6 +522,7 @@ export function App() {
           {rally.toast}
         </div>
       ) : null}
+      {browserTools}
       {['invite', 'event', 'schedule', 'announcement'].includes(dialog) ? (
         <SimpleForm
           kind={dialog as 'invite' | 'event' | 'schedule' | 'announcement'}

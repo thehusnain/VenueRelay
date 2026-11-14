@@ -1,75 +1,47 @@
 # Rally
 
-An event companion for HS-0130: attendees ask for help, organisers choose someone to handle it, volunteers and vendors do their work, and organisers check the result. Everyone can follow what happened without searching spreadsheets or chat groups.
+An event coordination website and installable PWA for HS-0130. Attendees request help, organisers assign an owner, volunteers/vendors do the work, and organisers check completion. The same website works on phones, tablets and desktops. There is no separate native application.
 
-## Start the demo
+## Run locally
 
-Install **Node.js 24 LTS**. From this folder:
+Use Node.js 24 LTS:
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:3001** and choose **Try a sample event**. No signup, email service, database installation, Docker or API key is needed. Use **More → Try a different role** to try the organiser, volunteer, vendor and attendee experiences. `Ctrl+C` stops the app.
+Open **http://127.0.0.1:3001**. SQLite is created automatically under `data/`; no database installation, Docker, email account or API key is required. Keep the terminal running. `Ctrl+C` stops the app. `npm run dev` is the command, not `npm dev`.
 
-`npm run dev` is the command; `npm dev` is not a valid npm command. Run `npm run` to list available commands.
+The built app on port 3001 supports offline testing. Port 5173 is the live frontend editor. After source changes, rebuild/restart to update port 3001.
 
-The launcher builds the web app, starts the Node backend and starts the frontend editor at http://127.0.0.1:5173. Port 3001 serves the built app and supports the offline demonstration. After changing frontend code, use 5173 for live editing; restart `npm run dev` to refresh the built app on 3001.
+## Judge demo login
 
-**No separate database setup:** Node creates `data/rally.sqlite` automatically. Keeping this small local database means completed tasks, notifications and history survive restarts. The sample event uses the same storage and permission checks as real events. Real accounts start with an empty event, without sample records.
+- Email: **demo@rally.local**
+- Password: **RallyDemo2026!**
 
-## Try a real account
+Choose **Sign in**. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded only outside production; `DEMO_ACCOUNT_ENABLED=false` prevents seeding.
 
-Choose **Start your event**, register, confirm the email, then follow the three steps to name and locate your event. Invite people from **Your team**; invitations give each person their own account and permissions.
-
-External email delivery is intentionally not connected yet. In the default local preview mode, verification and recovery messages are saved privately on this computer; nothing is sent to an external inbox. After registering, run:
+The welcome screen also offers an isolated **Try a sample event** option. Real registrations remain separate and start without sample records. Email verification/recovery uses private local previews until SMTP is configured:
 
 ```sh
-npm run email:preview -- your-address@example.com
+npm run email:preview -- YOUR_EMAIL
 ```
 
-Open the displayed confirmation link, confirm ownership, and continue. Use an actual email address on a domain that accepts mail: validation checks syntax and DNS records. The link proves access to the local preview during a demo; real inbox ownership can only be demonstrated once SMTP delivery is connected. Preview files contain private links; do not commit or share them.
+## Features
 
-To customise settings, copy `.env.example` to `.env`. Defaults work without this step. SMTP configuration is described in [API and accounts](docs/API.md).
+- Server-enforced roles, task ownership, progress, blockers and checked completion.
+- Transactional SQLite records, immutable activity journal, persistent inbox and integrity checks.
+- IndexedDB snapshots and per-person outbox, concurrent-tab leases, persistent retries and explicit conflict review.
+- Service-worker precaching, install controls and optional Background Sync, with foreground/reopen retries when the browser lacks it.
+- Authenticated WebSockets for live invalidations; role-filtered snapshots and periodic refresh recover missed updates.
+- Optional browser push with permission controls, durable delivery jobs and provider retry handling.
+- Mobile QR camera scanning, image upload and pasted-link fallback; invitation QR codes.
+- Keyboard support, responsive layout and locally bundled Antonio/Manrope fonts.
 
-## Install the app
+Open **More → Install Rally & notifications** for installation and push controls, or **More → Connection help** to inspect pending work and record integrity. Never clear device storage while unsent work is waiting.
 
-The built localhost web app can be installed from a supporting desktop browser's install menu. This PWA uses the same event records and works with previously loaded information during a connection loss.
-
-Android and iOS Capacitor projects are in `mobile/`. The Android debug APK and local USB connection instructions are described in [MOBILE.md](docs/MOBILE.md). The Node backend stays on the computer; Capacitor packages the React frontend. No hosting or deployment is required.
-
-## What it does
-
-- Server-enforced organiser, volunteer, vendor and attendee permissions.
-- Owned tasks with progress, blockers, resolution and checked completion.
-- Shared event plan and team updates; persistent personal notifications.
-- Email confirmation, password recovery and revocable sessions.
-- Transactional writes, retry deduplication and explicit conflict review.
-- Offline device queue and reconnect recovery without silently overwriting other people's changes.
-- Append-only activity with before/after records, organiser export and live integrity checks.
-- A readable, responsive interface with keyboard support and guided forms.
-- Documented API and revocable event integration keys.
-
-Updates refresh every three seconds while the app is visible. Notifications appear inside Rally. SMS, OS push and background sync while the app is closed are not implemented. See [validation](docs/VALIDATION.md) for tested failures and practical limits.
-
-## Project structure
-
-```text
-backend/migrations/   Versioned SQL schema and journal protections
-backend/src/          Node API, accounts, email outbox, permissions and transactions
-frontend/public/      PWA shell, manifest and icons
-frontend/src/         React pages, guided task flows, inbox and device outbox
-shared/               TypeScript contracts shared by frontend and backend
-mobile/android/       Native Android project
-mobile/ios/           Native iOS project
-scripts/              Local launcher, email preview, Android build and API generator
-tests/                Account, domain, HTTP and browser failure tests
-docs/                 Run guide, API, design rationale and evidence
-artifacts/            Generated Android APK, when built
-```
-
-## Check the project
+## Checks and API
 
 ```sh
 npm test
@@ -77,22 +49,24 @@ npm run build
 npm run api:docs
 ```
 
-If a restricted environment prevents the tests opening a listener, keep the app running and use `RALLY_TEST_URL=http://127.0.0.1:3001 npm test`. HTTP tests create isolated users and events. They require local preview mode and never deliver external mail.
+If test subprocesses cannot open ports, start Rally first and run `RALLY_TEST_URL=http://127.0.0.1:3001 npm test`.
 
-For the browser scenario, run the built app on port 3001, then in another terminal:
+With the built app running, install the Playwright browser once, then run:
 
 ```sh
 npx playwright install chromium
 npm run test:browser
+npm run test:pwa
+npm run test:design
+npm run test:layout
 ```
 
-Run `npm run build` then `npm start` to serve only the built web app and API. Both start commands preserve the database.
+Interactive Swagger: **http://127.0.0.1:3001/api/docs**. OpenAPI: `/api/openapi.json`.
 
-- [Judge run guide and submission text](docs/SUBMISSION.md)
-- [Demo walkthrough](docs/DEMO.md)
-- [API guide](docs/API.md) and [OpenAPI contract](docs/openapi.json)
-- [Architecture and correctness](docs/ARCHITECTURE.md)
-- [UI/UX and HCI review](docs/UX-REVIEW.md)
-- [Observed validation](docs/VALIDATION.md)
+- [PWA setup, phone access and browser limits](docs/PWA.md)
+- [API contract and retry protocol](docs/API.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Judge submission notes and credentials](docs/SUBMISSION.md)
+- [Validation](docs/VALIDATION.md)
 
-This version is for localhost. No public deployment or app-store publication is required or claimed.
+`backend/` owns records and permissions; `frontend/` contains React, service worker and IndexedDB code; `shared/` holds contracts; `tests/` covers behaviour. Keep `.env`, `data/`, dependencies and generated browser output out of Git. This repository has no APK, iOS project or native build workflow.

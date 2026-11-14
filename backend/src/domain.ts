@@ -2,7 +2,17 @@ import type { IncomingMessage } from 'node:http';
 import type { Store } from './database.ts';
 import { hash, id, now, token, requireVerified, publicUser, type User } from './auth.ts';
 import { ApiError, ensure, text, choice, date } from './errors.ts';
-import type { Event, Member, Task, Status, Activity, Schedule } from '../../shared/contracts.ts';
+import type {
+  Event,
+  Member,
+  Task,
+  Status,
+  Activity,
+  Schedule,
+  Snapshot,
+  Notification,
+  Announcement,
+} from '../../shared/contracts.ts';
 export interface Context {
   user: User;
   event: Event;
@@ -609,7 +619,7 @@ export function seedDemo(store: Store, ctx: Context) {
       },
     });
 }
-export function snapshot(store: Store, ctx: Context) {
+export function snapshot(store: Store, ctx: Context): Snapshot {
   const tasks = store
     .all<Task>('SELECT * FROM tasks WHERE event_id=? ORDER BY created_at DESC,id', ctx.event.id)
     .filter((t) => canRead(ctx.me, t));
@@ -642,12 +652,15 @@ export function snapshot(store: Store, ctx: Context) {
     })),
     tasks,
     activity,
-    notifications: store.all(
+    notifications: store.all<Notification>(
       'SELECT * FROM notifications WHERE member_id=? ORDER BY created_at DESC LIMIT 100',
       ctx.me.id,
     ),
-    schedule: store.all('SELECT * FROM schedule WHERE event_id=? ORDER BY starts_at', ctx.event.id),
-    announcements: store.all(
+    schedule: store.all<Schedule>(
+      'SELECT * FROM schedule WHERE event_id=? ORDER BY starts_at',
+      ctx.event.id,
+    ),
+    announcements: store.all<Announcement>(
       'SELECT * FROM announcements WHERE event_id=? ORDER BY created_at DESC LIMIT 20',
       ctx.event.id,
     ),

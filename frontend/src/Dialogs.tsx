@@ -1,14 +1,15 @@
+import { QrCode } from './qr';
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, Check, Clipboard, ShieldCheck } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import { Modal } from './components';
-import { request } from './use-rally';
+import { request, API } from './use-rally';
 export type Mutate = (
   action: string,
   payload: Record<string, unknown>,
   taskId?: string,
   expectedVersion?: number,
-) => boolean;
+) => Promise<boolean>;
 const values = (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   return Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
@@ -42,11 +43,19 @@ export function SimpleForm({
     setBusy(true);
     try {
       if (kind === 'announcement') {
-        if (mutate('announcement.create', { message: p.message })) onClose();
+        if (await mutate('announcement.create', { message: p.message })) onClose();
       }
       if (kind === 'schedule') {
         if (
-          mutate('schedule.create', {
+          !Number.isFinite(Date.parse(p.startsAt)) ||
+          !Number.isFinite(Date.parse(p.endsAt)) ||
+          Date.parse(p.endsAt) <= Date.parse(p.startsAt)
+        ) {
+          setError('Choose an end time after the start time.');
+          return;
+        }
+        if (
+          await mutate('schedule.create', {
             ...p,
             startsAt: new Date(p.startsAt).toISOString(),
             endsAt: new Date(p.endsAt).toISOString(),
@@ -65,7 +74,7 @@ export function SimpleForm({
           { method: 'POST', body: JSON.stringify(p) },
           data.event.is_demo ? data.me.role : 'self',
         );
-        setLink(`${location.origin}/?invite=${encodeURIComponent(r.token)}`);
+        setLink(`${API || location.origin}/?invite=${encodeURIComponent(r.token)}`);
         onDone();
       }
     } catch (e) {
@@ -78,6 +87,7 @@ export function SimpleForm({
     <Modal title={title} onClose={onClose}>
       {link ? (
         <div className="invite-result">
+          <QrCode value={link} />
           <div className="success-mark">
             <Check size={24} />
           </div>

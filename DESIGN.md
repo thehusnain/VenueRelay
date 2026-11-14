@@ -1,44 +1,23 @@
-# Rally · guided event companion
+# Rally interface
 
-## Direction
+A calm, clear event workspace. Keep the established black/white palette and locally bundled Antonio/Manrope pairing. This is a refinement of the existing website/PWA, not a new visual identity or technology stack.
 
-Replace the operations-dashboard identity with a clear community event companion. Audience: organisers and helpers without IT training, often on a phone. Adjectives: understandable, welcoming, direct, trustworthy. Essence: everyone knows next.
+## Hierarchy and scale
 
-The incumbent dark sidebar, metrics strip, tiny status table and technical tools on the home screen have been rejected. The replacement uses an open page, a short horizontal navigation, clear task sentences and full-page steps for account/event setup. No dashboard charts, task-board jargon or decorative control panels.
+The welcome screen leads to starting an event or trying the sample. Its fixed two-part headline is height-aware:52–88px on desktop,40–56px on phones, with1.06 line-height. It must stay on two lines on ordinary desktop widths, with the explanation and actions visible on600–720px-high laptop windows. No decorative eyebrow pill or numbered feature markers. Feature summaries sit in one quiet row below the main content.
 
-## Visual system
+Page/task headings use36–48px, event headings44–60px and account headings36–44px. Antonio is display-only; Manrope is used for instructions, names, navigation, controls and body text. Body16px, secondary text12–14px, section headings20–24px. Labels and controls remain readable without giant titles. Operational role/date labels and step numbers convey actual state, rather than decoration.
 
-Self-hosted Manrope throughout; 16px body with 1.6 line height, 14px minimum supporting labels, 20–24px section headings and 32–40px page headings. Code examples alone use IBM Plex Mono. Spacious 8px rhythm; 44px minimum main controls. Corners 8px on controls and 14px on substantial surfaces. Defined edges without decorative glow/shadow.
+## Layout
 
-| Token | Value / role |
-|---|---|
-| Background | oklch(.98 .004 250), cool near-white |
-| Surface | oklch(1 0 0), white |
-| Text | oklch(.25 .025 255), ink |
-| Muted text | oklch(.46 .02 255), readable supporting text |
-| Border | oklch(.88 .01 250) |
-| Strong control border | oklch(.62 .02 250) |
-| Primary action | oklch(.28 .035 255), ink |
-| Accent | oklch(.48 .14 35), terracotta |
-| Selected surface | oklch(.95 .012 250) |
-| Success | oklch(.40 .08 155) |
-| Warning | oklch(.44 .09 65) |
-| Error | oklch(.46 .14 25) |
+Use a shared20–40px responsive gutter and24/32px section spacing. Related fields stay closer than separate sections. The header uses normal grid placement rather than overlapping branding with an absolutely positioned public nav. On phones, installation and invitation scanning remain accessible below the brand/sign-in row.
 
-The identifying move is a clear event-day heading with a simple date tab and task handoff expressed as a sentence naming the person. Colour helps people find their next action; it does not decorate every element. The welcome screen demonstrates one labelled example task rather than a fake analytics screen.
+Home prioritises three actionable tasks; Tasks, Event plan and Your team retain their existing flows. Settings, install/push and QR tools remain under More. Event metadata supports the task list rather than dominating it. Account forms have a restrained supporting panel on desktop and focused form-only layouts on small screens.
 
-## Information architecture
+## Components
 
-Public entry → create account / sign in / explicitly try sample → confirm email → create/join event → Home, Tasks, Event plan, Your team. History, connections, connection help and account controls live under More. Home shows at most three next actions. Technical IDs and detailed logs are disclosed only when requested.
-
-## HCI commitments
-
-Use real-world vocabulary; reveal optional fields progressively; retain input on errors; present one primary action per step; preserve Back and Cancel; show saved/pending/conflict feedback clearly. Mobile navigation is text-labelled. Forms allow password-manager autofill and paste. Layout supports narrow screens and increased text size. Native dialogs are reserved for brief protected interactions; longer onboarding uses full-page steps.
-
-## Motion
-
-Only short state/reveal transitions (160–200ms) and reduced-motion support. No WebGL or decorative 3D in the work flow. Later expressive motion must preserve comprehension and performance.
+White primary pills and restrained dark secondary buttons; visible keyboard focus and44px main targets. Surfaces use defined edges,12–16px corners and no decorative glow. Dialogs keep clear focus/escape behaviour and scroll within short viewports. Fields retain16px input text on phones. Long titles and names wrap; pages scroll instead of clipping content.
 
 ## Verification
 
-Review welcome, sign-in, confirmation, empty-event setup, organiser home, volunteer task, attendee request, mobile and errors. Run keyboard and automated accessibility checks. Record research and findings in docs/UX-REVIEW.md and updated validation evidence.
+Check the full page/state matrix across phone, tablet and desktop sizes. In addition to overflow/axe checks, assert that the landing actions fit within short laptop viewports and that the desktop headline uses two lines. Inspect rendered pages and verify sign-in input persistence during a delayed initial account check. Backend permissions, outbox/sync, WebSockets and PWA behaviour remain unchanged by styling.

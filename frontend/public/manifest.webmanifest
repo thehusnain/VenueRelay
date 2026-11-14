@@ -1,13 +1,13 @@
 {
   "id": "/",
-  "name": "Rally \u00b7 Your event, together",
+  "name": "Rally \u00b7 The event, organised",
   "short_name": "Rally",
   "description": "Report a request, choose someone to help, and follow it through.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fafbfc",
-  "theme_color": "#223044",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/icon-192.png",

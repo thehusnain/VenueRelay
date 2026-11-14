@@ -1,10 +1,12 @@
+import { attachRealtime } from './realtime.ts';
+import { PushService, pushSettings } from './push.ts';
 import { createServer, type IncomingMessage } from 'node:http';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import { resolve, extname, sep } from 'node:path';
 import { Store } from './database.ts';
 import { handleAccountRoute } from './accounts.ts';
 import { emailSettings, type EmailSettings, checkEmailDomain } from './email.ts';
-import { currentUser, requireUser, hash, id, now, publicUser } from './auth.ts';
+import { currentUser, requireUser, hash, id, now, publicUser, sessionValue } from './auth.ts';
 import { ApiError, ensure, text } from './errors.ts';
 import {
   context,
@@ -27,6 +29,7 @@ interface Options {
   allowedOrigins?: string[];
   emailSettings?: EmailSettings;
   checkEmailDomain?: typeof checkEmailDomain;
+  push?: PushService;
 }
 const mime: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -70,11 +73,16 @@ export function createApp(options: Options) {
   const { store } = options;
   const mailSettings = options.emailSettings ?? emailSettings();
   const allowedOrigins = new Set(options.allowedOrigins ?? []);
-  return createServer(async (req, res) => {
+  const push = options.push ?? new PushService(store, pushSettings());
+  const server = createServer(async (req, res) => {
+    res.once('finish', () => {
+      if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method ?? '') && res.statusCode < 400)
+        live.invalidate();
+    });
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
     const origin = req.headers.origin;
     const ownOrigin = `${options.secureCookies ? 'https' : 'http'}://${req.headers.host}`;
     if (origin && origin !== ownOrigin && allowedOrigins.has(origin)) {
@@ -84,7 +92,7 @@ export function createApp(options: Options) {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, Idempotency-Key, X-Rally-Persona, X-Rally-Client',
+        'Content-Type, Authorization, Idempotency-Key, X-Rally-Persona, X-Rally-Client, X-Rally-Expected-Actor',
       );
     }
     if (req.method === 'OPTIONS') {
@@ -119,6 +127,34 @@ export function createApp(options: Options) {
           send(
             JSON.parse(readFileSync(new URL('../../docs/openapi.json', import.meta.url), 'utf8')),
           );
+          return;
+        }
+        if (path === '/api/v1/push/public-key' && method === 'GET') {
+          send({ enabled: !!push.settings, publicKey: push.settings?.publicKey ?? null });
+          return;
+        }
+        if (path === '/api/docs' || path === '/api/docs/') {
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Content-Security-Policy':
+              "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+          });
+          res.end(
+            '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rally API</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/setup.js"></script></body></html>',
+          );
+          return;
+        }
+        if (path === '/api/docs/setup.js') {
+          res.writeHead(200, { 'Content-Type': 'text/javascript' });
+          res.end(
+            "SwaggerUIBundle({url:'/api/openapi.json',dom_id:'#swagger-ui',deepLinking:true,validatorUrl:null});",
+          );
+          return;
+        }
+        if (['/api/docs/swagger-ui.css', '/api/docs/swagger-ui-bundle.js'].includes(path)) {
+          const file = resolve('node_modules/swagger-ui-dist', path.split('/').pop()!);
+          res.writeHead(200, { 'Content-Type': mime[extname(file)] });
+          createReadStream(file).pipe(res);
           return;
         }
         if (path.startsWith('/api/v1/auth/')) {
@@ -181,11 +217,38 @@ export function createApp(options: Options) {
         ensure(match, 404, 'NOT_FOUND', 'Endpoint not found.');
         const ctx = context(store, req, currentUser(store, req), decodeURIComponent(match[1])),
           resource = match[2] ?? 'snapshot';
+        if (resource === 'push/subscription' && method === 'GET') {
+          send({
+            enabled: !!store.get(
+              'SELECT id FROM push_subscriptions WHERE member_id=? AND session_hash=?',
+              ctx.me.id,
+              hash(sessionValue(req) ?? ''),
+            ),
+          });
+          return;
+        }
+        if (resource === 'push/subscription' && method === 'POST') {
+          push.subscribe(ctx, req, await body(req));
+          send({ ok: true });
+          return;
+        }
+        if (resource === 'push/subscription' && method === 'DELETE') {
+          push.unsubscribe(ctx, await body(req));
+          send({ ok: true });
+          return;
+        }
         if (resource === 'snapshot' && method === 'GET') {
           send(snapshot(store, ctx));
           return;
         }
         if (resource === 'commands' && method === 'POST') {
+          const expectedActor = req.headers['x-rally-expected-actor'];
+          ensure(
+            !expectedActor || expectedActor === ctx.me.id,
+            409,
+            'ACTOR_CHANGED',
+            'Your signed-in account changed. Sign in with the account that saved this change.',
+          );
           const p = await body(req);
           ensure(typeof p.action === 'string', 422, 'VALIDATION_ERROR', 'An action is required.');
           const result = execute(
@@ -333,7 +396,7 @@ export function createApp(options: Options) {
       }
       let file = resolve(options.staticDir, '.' + decodeURIComponent(path));
       ensure(
-        file === resolve(options.staticDir) || file.startsWith(resolve(options.staticDir) + '/'),
+        file === resolve(options.staticDir) || file.startsWith(resolve(options.staticDir) + sep),
         403,
         'FORBIDDEN',
         'Invalid path.',
@@ -342,11 +405,11 @@ export function createApp(options: Options) {
         file = resolve(options.staticDir, 'index.html');
       res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
       );
       res.writeHead(200, {
         'Content-Type': mime[extname(file)] ?? 'application/octet-stream',
-        'Cache-Control': file.includes('/assets/')
+        'Cache-Control': file.includes(`${sep}assets${sep}`)
           ? 'public, max-age=31536000, immutable'
           : 'no-cache',
       });
@@ -372,4 +435,6 @@ export function createApp(options: Options) {
       }
     }
   });
+  const live = attachRealtime(server, store, allowedOrigins, options.secureCookies);
+  return server;
 }

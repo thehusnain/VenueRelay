@@ -1,3 +1,4 @@
+import { readQueue, scopeOf } from './offline-store';
 import { useEffect, useState } from 'react';
 import {
   Plus,
@@ -34,42 +35,33 @@ export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => v
           </button>
         ) : null}
       </div>
-      <section className="surface-panel">
-        <div className="panel-heading">
-          <h2>Your event team</h2>
-          <span className="count-tag">{data.members.length}</span>
-        </div>
-        <div className="people-table">
-          <div className="people-head">
-            <span>Team member</span>
-            <span>Access</span>
-            <span>Team</span>
-            <span>Active tasks</span>
-          </div>
-          {data.members.map((m) => (
-            <div className="person-row" key={m.id}>
-              <div>
-                <Avatar member={m} />
+      <section className="team-directory" aria-label="Event team">
+        {data.members.map((m) => {
+          const count = data.tasks.filter(
+            (t) => t.owner_id === m.id && !['closed', 'resolved'].includes(t.status),
+          ).length;
+          return (
+            <article className={`person-credential ${m.role}`} key={m.id}>
+              <div className="credential-top">
+                <span className={`role-badge ${m.role}`}>{m.role}</span>
+              </div>
+              <div className="credential-person">
+                <Avatar member={m} size="large" />
+                <h2>{m.name}</h2>
+              </div>
+              <div className="credential-bottom">
                 <span>
-                  <strong>
-                    {m.name}
-                    {m.id === data.me.id ? <small> You</small> : null}
-                  </strong>
-                  <span>{m.role === 'attendee' ? 'Event guest' : m.team}</span>
+                  {m.team}
+                  {m.id === data.me.id ? ' · You' : ''}
+                </span>
+                <span>
+                  {count} {data.me.role === 'organiser' ? 'active' : 'visible'}{' '}
+                  {count === 1 ? 'task' : 'tasks'}
                 </span>
               </div>
-              <span className={`role-badge ${m.role}`}>{m.role}</span>
-              <span>{m.team}</span>
-              <strong>
-                {
-                  data.tasks.filter(
-                    (t) => t.owner_id === m.id && !['closed', 'resolved'].includes(t.status),
-                  ).length
-                }
-              </strong>
-            </div>
-          ))}
-        </div>
+            </article>
+          );
+        })}
       </section>
       <details className="role-explanation">
         <summary>Who can do what?</summary>
@@ -106,8 +98,8 @@ export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => v
       </details>
       <div className="inline-note">
         <ShieldCheck size={18} />
-        Roles are enforced by the Node.js API for every request. The preview switch works only in
-        your own demo workspace.
+        Each person sees the work their role allows. Role previews are available only in the sample
+        event.
       </div>
     </>
   );
@@ -140,39 +132,41 @@ export function SchedulePage({ data, onAdd }: { data: Snapshot; onAdd: () => voi
             <p>{data.event.venue}</p>
           </div>
         </div>
-        {data.schedule.length ? (
-          data.schedule.map((s, i) => {
-            const state =
-              Date.now() > Date.parse(s.ends_at)
-                ? 'Finished'
-                : Date.now() >= Date.parse(s.starts_at)
-                  ? 'Happening now'
-                  : 'Upcoming';
-            return (
-              <article className="schedule-session" key={s.id}>
-                <span className="session-number">{String(i + 1).padStart(2, '0')}</span>
-                <div className="session-time">
-                  <strong>{time(s.starts_at)}</strong>
-                  <span>to {time(s.ends_at)}</span>
-                </div>
-                <div>
-                  <h2>{s.title}</h2>
-                  <p>
-                    <MapPin size={14} />
-                    {s.location}
-                  </p>
-                </div>
-                <span className={`session-state ${state === 'Happening now' ? 'current' : ''}`}>
-                  {state}
-                </span>
-              </article>
-            );
-          })
-        ) : (
-          <Empty title="A day full of possibility">
-            Add the first session to share the event plan.
-          </Empty>
-        )}
+        <div className="programme-sessions">
+          {data.schedule.length ? (
+            data.schedule.map((s, i) => {
+              const state =
+                Date.now() > Date.parse(s.ends_at)
+                  ? 'Finished'
+                  : Date.now() >= Date.parse(s.starts_at)
+                    ? 'Happening now'
+                    : 'Upcoming';
+              return (
+                <article className="schedule-session" key={s.id}>
+                  <span className="session-number">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="session-time">
+                    <strong>{time(s.starts_at)}</strong>
+                    <span>to {time(s.ends_at)}</span>
+                  </div>
+                  <div>
+                    <h2>{s.title}</h2>
+                    <p>
+                      <MapPin size={14} />
+                      {s.location}
+                    </p>
+                  </div>
+                  <span className={`session-state ${state === 'Happening now' ? 'current' : ''}`}>
+                    {state}
+                  </span>
+                </article>
+              );
+            })
+          ) : (
+            <Empty title="No activities scheduled yet">
+              Add the first session to share the event plan.
+            </Empty>
+          )}
+        </div>
       </section>
     </>
   );
@@ -443,7 +437,7 @@ export function IntegrationPage({ data, notify }: { data: Snapshot; notify: (m: 
           </h2>
           <span>POST /api/v1/events/{data.event.id}/commands</span>
         </div>
-        <pre>
+        <pre tabIndex={0} aria-label="API request example">
           <code>{`Authorization: Bearer YOUR_TOKEN\nContent-Type: application/json\nIdempotency-Key: ${'intent_' + data.event.id.slice(0, 8)}\n\n${example}`}</code>
         </pre>
       </section>
@@ -531,13 +525,43 @@ export function ReliabilityPage({
                 <div className="pending-actions">
                   {p.conflict ? (
                     <>
-                      {!p.taskId || task ? (
+                      {p.action !== 'device.unreadable' && (!p.taskId || task) ? (
                         <button className="button secondary" onClick={() => rebase(p.key)}>
                           Use my change instead
                         </button>
                       ) : null}
+                      {p.action === 'device.unreadable' ? (
+                        <button
+                          className="button secondary"
+                          onClick={async () => {
+                            try {
+                              const raw =
+                                (await readQueue(scopeOf(data))).find((item) => item.key === p.key)
+                                  ?.raw ?? null;
+                              if (raw === null) throw new Error();
+                              const url = URL.createObjectURL(
+                                new Blob([raw], { type: 'text/plain' }),
+                              );
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = 'rally-unsent-change.txt';
+                              link.click();
+                              URL.revokeObjectURL(url);
+                              notify('Saved a copy of the unreadable change.');
+                            } catch {
+                              notify(
+                                'The saved copy could not be read. Keep this device’s data and try again.',
+                              );
+                            }
+                          }}
+                        >
+                          Save a recovery copy
+                        </button>
+                      ) : null}
                       <button className="text-link" onClick={() => discard(p.key)}>
-                        Keep the saved version
+                        {p.action === 'device.unreadable'
+                          ? 'Remove unreadable copy'
+                          : 'Keep the saved version'}
                       </button>
                     </>
                   ) : (

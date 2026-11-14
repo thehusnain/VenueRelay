@@ -185,10 +185,10 @@ test('register, invite, accept, assign and volunteer completion use real separat
     await s.close();
   }
 });
-test('native clients can use revocable bearer sessions without cross-site cookies', async () => {
+test('API clients can use revocable bearer sessions without cross-site cookies', async () => {
   const s = await server();
   try {
-    const auth = await call(s.url, '/auth/demo', {}, undefined, { 'X-Rally-Client': 'native' });
+    const auth = await call(s.url, '/auth/demo', {}, undefined, { 'X-Rally-Client': 'api' });
     assert.ok(auth.data.sessionToken);
     const headers = { Authorization: `Bearer ${auth.data.sessionToken}` };
     const state = await call(s.url, '/bootstrap', {}, undefined, headers);
@@ -238,6 +238,38 @@ test('unverified accounts cannot open events and real accounts start with empty 
       (await call(s.url, '/auth/verify-email', { token: secret }, a.cookie)).status,
       410,
     );
+  } finally {
+    await s.close();
+  }
+});
+
+test('queued work is rejected if the signed-in actor changes, without adding records', async () => {
+  const s = await server();
+  try {
+    const auth = await call(s.url, '/auth/demo', {});
+    const state = (await call(s.url, '/bootstrap', {}, auth.cookie)).data;
+    const path = `/events/${state.event.id}`;
+    const before = (await call(s.url, `${path}/integrity`, undefined, auth.cookie)).data;
+    const input = {
+      action: 'task.create',
+      payload: { title: 'Protected queued change', location: 'Gate' },
+    };
+    const key = id();
+    const wrong = await call(s.url, `${path}/commands`, input, auth.cookie, {
+      'Idempotency-Key': key,
+      'X-Rally-Expected-Actor': 'different-person',
+    });
+    assert.equal(wrong.status, 409);
+    assert.equal(wrong.data.error.code, 'ACTOR_CHANGED');
+    const after = (await call(s.url, `${path}/integrity`, undefined, auth.cookie)).data;
+    assert.equal(after.commands, before.commands);
+    assert.equal(after.activity, before.activity);
+    assert.equal(after.ok, true);
+    const retry = await call(s.url, `${path}/commands`, input, auth.cookie, {
+      'Idempotency-Key': key,
+      'X-Rally-Expected-Actor': state.me.id,
+    });
+    assert.equal(retry.status, 200);
   } finally {
     await s.close();
   }

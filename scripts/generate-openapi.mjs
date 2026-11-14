@@ -178,7 +178,7 @@ const spec = {
     title: 'Rally Event Operations API',
     version: '1.0.0',
     description:
-      'Node.js API for HS-0130. Operational commands atomically commit state, immutable history and durable in-app notifications. Poll snapshots for live updates. Dates use ISO 8601 UTC.',
+      'Node.js API for HS-0130. Operational commands atomically commit state, immutable history and durable in-app notifications. Use authenticated event WebSockets for invalidations and role-filtered snapshots for records. Dates use ISO 8601 UTC.',
   },
   servers: [{ url: '/' }],
   security: [{ session: [] }, { bearer: [] }],
@@ -190,7 +190,7 @@ const spec = {
         type: 'http',
         scheme: 'bearer',
         description:
-          'Native user session or event-scoped rly_ integration token. Integration keys are issued by verified organisers and must be kept server-side.',
+          'User bearer session or event-scoped rly_ integration token. Integration keys are issued by verified organisers and must be kept server-side.',
       },
     },
     schemas,
@@ -319,6 +319,14 @@ add('/events/{eventId}/commands', 'post', 'Commit operational command', {
   response: ref('CommandResult'),
   parameters: [
     {
+      name: 'X-Rally-Expected-Actor',
+      in: 'header',
+      required: false,
+      schema: string,
+      description:
+        'Member ID from the confirmed snapshot. If the session changed, rejects with 409 ACTOR_CHANGED before writing. Recommended for offline queues.',
+    },
+    {
       name: 'Idempotency-Key',
       in: 'header',
       required: true,
@@ -381,6 +389,31 @@ add('/events/{eventId}/integrity', 'get', 'Check record invariants', {
 add('/events/{eventId}/export', 'get', 'Export complete event record', {
   description:
     'Organiser only. Includes all task records and audit before/after snapshots with UTC timestamps.',
+});
+add('/push/public-key', 'get', 'Browser push capability and VAPID public key', {
+  publicAccess: true,
+  response: object({ enabled: { type: 'boolean' }, publicKey: nullable }),
+});
+add(
+  '/events/{eventId}/push/subscription',
+  'get',
+  'Check push registration for the current session',
+);
+add('/events/{eventId}/push/subscription', 'post', 'Subscribe this browser to event push', {
+  body: object(
+    { endpoint: string, keys: object({ p256dh: string, auth: string }, ['p256dh', 'auth']) },
+    ['endpoint', 'keys'],
+  ),
+  description:
+    'Requires an authenticated own membership, browser permission and configured VAPID keys. Browser provider endpoints only. Subscription is bound to the current session; logout/expiry revokes delivery.',
+});
+add('/events/{eventId}/push/subscription', 'delete', 'Remove this browser push subscription', {
+  body: object({ endpoint: string }, ['endpoint']),
+});
+add('/events/{eventId}/live', 'get', 'Upgrade to authenticated event WebSocket', {
+  status: 101,
+  description:
+    'Connect with ws/wss using the session cookie and an allowed Origin. Optional persona query is restricted to the owning demo account. Receives connected and event.changed messages containing only eventId. On invalidation refetch the role-filtered snapshot. Reconnect with backoff; polling is a fallback. Auth is rechecked on broadcasts and heartbeat; session revocation closes with 4401. Commands always use HTTP with idempotency keys.',
 });
 writeFileSync(
   new URL('../docs/openapi.json', import.meta.url),

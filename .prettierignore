@@ -1,8 +1,12 @@
 node_modules
 frontend/dist
-mobile
 package-lock.json
 test-results
 .openai
 .sites-runtime
 tests/browser-scenario.js
+tests/design-scenario.js
+
+tests/pwa-scenario.js
+
+tests/layout-scenario.js

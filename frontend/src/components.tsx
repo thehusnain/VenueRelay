@@ -153,7 +153,8 @@ export function ActivityList({
         const member = members.find((m) => m.id === a.actor_id);
         let entity: any = {};
         try {
-          entity = JSON.parse(a.after_json);
+          const parsed = JSON.parse(a.after_json);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) entity = parsed;
         } catch {}
         return (
           <div className="activity-item" key={a.id}>

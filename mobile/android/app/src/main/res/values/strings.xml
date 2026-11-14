@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Rally</string>
-    <string name="title_activity_main">Rally</string>
-    <string name="package_name">app.rally.eventops</string>
-    <string name="custom_url_scheme">app.rally.eventops</string>
-</resources>

@@ -24,7 +24,7 @@ For an actual network outage, load the event on port 3001 once, switch the brows
 
 ## Show conflicting edits
 
-Open the same organiser event in two tabs. In one tab pause updates and queue an assignment. In the other tab assign that task to someone else. Reconnect the first. The saved owner remains; the waiting change needs review. Choose **Keep saved version** or explicitly **Use my change instead**. A polling refresh while a draft is open does not silently replace the version the draft was based on.
+Sign in to the documented demo account in two separate browser profiles (for example, a regular and a private window). Open the same organiser event in both. Tabs in one profile deliberately share an outbox and block a second pending operation on the same task. In one tab pause updates and queue an assignment. In the other tab assign that task to someone else. Reconnect the first. The saved owner remains; the waiting change needs review. Choose **Keep saved version** or explicitly **Use my change instead**. A polling refresh while a draft is open does not silently replace the version the draft was based on.
 
 The automated lost-response scenario lets the server commit before aborting its response, then retries the same action. It verifies one task, activity record and set of notifications.
 
@@ -36,4 +36,4 @@ Create an account with a valid email domain. Use `npm run email:preview -- EMAIL
 
 As a verified organiser, open **More → Connect another app**. Create an event key and call the documented snapshot/command API. Revoke it and show access is denied. **More → What changed** offers the activity log and complete event export. API documentation is served at `/api/openapi.json`.
 
-See [validation](VALIDATION.md) for measured results and [mobile instructions](MOBILE.md) for the locally connected app. No public deployment is needed.
+See [validation](VALIDATION.md) for measured results and [PWA instructions](PWA.md) for browser installation and phone access. No public deployment is needed.

@@ -377,11 +377,14 @@ export async function handleAccountRoute(options: {
     );
   } else throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
   endSession(store, req);
+  endSession(store, req);
   const value = session(store, user.id);
   res.setHeader('Set-Cookie', cookie(value));
   send({
     user: publicUser(user),
     delivery,
-    ...(req.headers['x-rally-client'] === 'native' ? { sessionToken: value } : {}),
+    ...(['api', 'native'].includes(String(req.headers['x-rally-client']))
+      ? { sessionToken: value }
+      : {}),
   });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, MapPin, Clock, UserRound } from 'lucide-react';
 import type { Snapshot, Task, Pending, Status } from '../../shared/contracts';
 import { statusLabels } from '../../shared/contracts';
@@ -21,21 +21,34 @@ export function CreateTask({
     [priority, setPriority] = useState('normal'),
     [owner, setOwner] = useState(''),
     [due, setDue] = useState('');
+  const submitting = useRef(false);
+  const [saving, setSaving] = useState(false);
   const org = data.me.role === 'organiser';
-  const next = (e: FormEvent<HTMLFormElement>) => {
+  const next = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (step < 2) setStep(step + 1);
-    else if (
-      mutate('task.create', {
-        title,
-        description,
-        location,
-        priority,
-        ownerId: owner || null,
-        dueAt: due ? new Date(due).toISOString() : null,
-      })
-    )
-      onBack();
+    if (step < 2) {
+      setStep(step + 1);
+      return;
+    }
+    if (submitting.current) return;
+    submitting.current = true;
+    setSaving(true);
+    try {
+      if (
+        await mutate('task.create', {
+          title,
+          description,
+          location,
+          priority,
+          ownerId: owner || null,
+          dueAt: due ? new Date(due).toISOString() : null,
+        })
+      )
+        onBack();
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
   };
   return (
     <section className="task-wizard">
@@ -68,6 +81,18 @@ export function CreateTask({
           ][step]
         }
       </p>
+      <ol className="wizard-stepper" aria-label="Task creation steps">
+        {['The task', 'Location', org ? 'Assignment' : 'Review'].map((label, index) => (
+          <li
+            key={label}
+            className={index === step ? 'current' : index < step ? 'complete' : ''}
+            aria-current={index === step ? 'step' : undefined}
+          >
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            {label}
+          </li>
+        ))}
+      </ol>
       <form key={step} onSubmit={next}>
         {step === 0 ? (
           <>
@@ -186,7 +211,7 @@ export function CreateTask({
               Back
             </button>
           ) : null}
-          <button className="button primary">
+          <button className="button primary" type="submit" disabled={saving}>
             {step === 2 ? (org ? 'Add this task' : 'Send my request') : 'Continue'}
             <ArrowRight size={18} />
           </button>
@@ -280,10 +305,10 @@ export function TaskView({
         <section className="task-next-step">
           {target ? (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (
-                  mutate(
+                  await mutate(
                     'task.status',
                     { status: target, resolution: note },
                     task.id,
@@ -366,11 +391,11 @@ export function TaskView({
         <section className={`assignment ${task.status === 'open' ? 'assignment-needed' : ''}`}>
           <h2>{task.owner_id ? 'Who is helping' : 'Choose someone to help'}</h2>
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const p = Object.fromEntries(new FormData(e.currentTarget));
               if (
-                mutate(
+                await mutate(
                   'task.assign',
                   {
                     ownerId: p.ownerId,
