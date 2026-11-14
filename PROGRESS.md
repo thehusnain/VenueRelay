@@ -20,7 +20,7 @@ One responsive React/Vite website and installable PWA, using the existing Node.j
 
 - npm test: 42 tests passed with isolated HTTP/WebSocket/database fixtures.
 - Production build, formatting, strict unused-symbol TypeScript and git diff --check passed.
-- Full browser journey: 15 checks passed, including roles, offline reload/reconnect, response lost after commit, reviewed conflicts and keyboard recovery. Integrity: 29 commands, 29 activity entries, zero version/audit/foreign-key mismatches at 2026-11-14T04:39:35.078Z.
+- Full browser journey: 15 checks passed, including roles, offline reload/reconnect, response lost after commit, reviewed conflicts and keyboard recovery. Integrity: 29 commands, 29 activity entries, zero version/audit/foreign-key mismatches at 2026-11-14T04:58:18.698Z.
 - PWA browser scenario: 8 checks passed, including demo login, real service worker/IndexedDB, install/push fallbacks, denied camera and QR image/paste recovery, offline deep route, pause/reload/reconnect and API docs.
 - Design matrix: 90 page/state views passed at 320, 375, 768, 1024 and 1440px. Zero horizontal overflow or findings from the selected axe rules; local fonts and reduced motion verified.
 - Focused layout: 11 checks passed, covering ten viewports from 320x568 to 1600x900 and delayed-session sign-in input persistence. Both landing actions visible and headline two lines at every tested viewport.
@@ -32,4 +32,22 @@ Browser checks used a disposable server on port3002, DATABASE_PATH=/tmp/rally-no
 
 Physical phone cameras, VoiceOver/TalkBack and real external push delivery have not been tested. Trusted HTTPS is needed for real phone camera/service worker/push access; VAPID configuration and permission are needed for push. Background scheduling depends on browser support, with foreground/reopen retry fallback. No deployment or external messages were performed.
 
-Git branch main; origin https://github.com/thehusnain/rally.git. A read attempt on 14 November still failed with Could not resolve host: github.com. The user has authorised normal staging, committing and pushing; verify git history/status for the actual result. Do not bypass network/filesystem restrictions or claim a push succeeded without confirmation. No remaining product implementation is required for this design pass; future changes should start from the existing project and observed test evidence.
+Git branch main; origin https://github.com/thehusnain/rally.git. A read attempt on 14 November still failed with Could not resolve host: github.com. The user has authorised normal staging, committing and pushing; verify git history/status for the actual result. Do not bypass network/filesystem restrictions or claim a push succeeded without confirmation. Future changes should start from the existing project and observed test evidence.
+
+
+## Latest mobile/HCI refinement — 14 November
+
+User requested a more distinctive, easier website, with mobile use taking priority. Implemented an event run-sheet layout while retaining the Antonio/Manrope and black/white identity:
+- Persistent labelled bottom navigation on phones up to 720px, normal top navigation on larger screens, safe-area/content clearance and scrollable viewport-bounded menus.
+- Compact event identity and a single visible, accessible save status. Removed the repeated date/progress display. Workspace entrance choreography disabled.
+- Organiser next-step filters (choose owner, help teammate, check result), visible status/ownership on each task, full-row accessible actions and one-tap empty-search recovery.
+- Compact team roster, clear sample-role shortcut with focus transfer, simpler buttons and an actual role hand-off explanation on the welcome page.
+- Preserved role permissions, task ownership, transactions, offline/conflict handling and PWA behaviour. No new framework/dependency/native project.
+
+Validation: 42 automated tests; 90 responsive/axe views; 11 focused landing/sign-in checks; 12 new mobile usability checks across eight portrait/landscape/tablet/desktop sizes; 15 end-to-end browser checks; 8 PWA checks. Latest integrity: 29 commands/29 activity entries with zero mismatches at 2026-11-14T04:58:18.698Z. No uncaught JavaScript errors. Build, formatting, strict unused-symbol typecheck, diff check and mechanical design detector passed. Final usability rerun passed at 2026-11-14T04:58:59.693Z. The 390x480 field test simulates reduced height; physical keyboard/screen-reader testing remains outstanding.
+
+Design rationale and primary HCI/accessibility references are in DESIGN.md; observed evidence in docs/VALIDATION.md. Tests reproduce with npm run test:usability after Playwright Chromium setup. Updated the two existing tracked screenshots only. Ignored test-results/hci-*-final.png contains extra review captures.
+
+This pass used temporary database /tmp/rally-hci.sqlite on port3002 (exec65298) with preview mail. The normal port3001 preview should serve the current built frontend after refresh. Keep the normal preview available and stop only the temporary test server. User authorised normal git staging, commit and push; report the actual resulting commit/network status, not an assumed successful push.
+
+Git outcome for this latest pass: git add failed with Unable to create .git/index.lock: Read-only file system. No new commit or push was made for the mobile/HCI changes. Source/docs/tests remain saved in the working tree; the previous commit is d8e2071. Do not report this pass as committed. Resume publishing only from an environment with normal repository write access; prior GitHub DNS failure may also need resolving.

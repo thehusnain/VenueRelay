@@ -42,18 +42,18 @@ export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => v
           ).length;
           return (
             <article className={`person-credential ${m.role}`} key={m.id}>
-              <div className="credential-top">
-                <span className={`role-badge ${m.role}`}>{m.role}</span>
-              </div>
+              <Avatar member={m} size="large" />
               <div className="credential-person">
-                <Avatar member={m} size="large" />
-                <h2>{m.name}</h2>
+                <h2>
+                  {m.name}
+                  {m.id === data.me.id ? <span className="person-you">You</span> : null}
+                </h2>
+                <p>
+                  {m.team}
+                  <span> · {m.role}</span>
+                </p>
               </div>
               <div className="credential-bottom">
-                <span>
-                  {m.team}
-                  {m.id === data.me.id ? ' · You' : ''}
-                </span>
                 <span>
                   {count} {data.me.role === 'organiser' ? 'active' : 'visible'}{' '}
                   {count === 1 ? 'task' : 'tasks'}
@@ -163,7 +163,9 @@ export function SchedulePage({ data, onAdd }: { data: Snapshot; onAdd: () => voi
             })
           ) : (
             <Empty title="No activities scheduled yet">
-              Add the first session to share the event plan.
+              {data.me.role === 'organiser'
+                ? 'Add the first session to share the event plan.'
+                : 'Your organiser will share activities and times here.'}
             </Empty>
           )}
         </div>
@@ -214,8 +216,7 @@ export function LogPage({
         <div className="log-assurance">
           <ShieldCheck size={17} />
           <span>
-            Append-only history. Each operational change and its notifications are committed
-            together.
+            Every saved change stays in this history. New updates never replace older entries.
           </span>
           <span className="count-tag">{items.length} entries</span>
         </div>

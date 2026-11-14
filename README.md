@@ -59,6 +59,7 @@ npm run test:browser
 npm run test:pwa
 npm run test:design
 npm run test:layout
+npm run test:usability
 ```
 
 Interactive Swagger: **http://127.0.0.1:3001/api/docs**. OpenAPI: `/api/openapi.json`.

@@ -1,23 +1,29 @@
 # Rally interface
 
-A calm, clear event workspace. Keep the established black/white palette and locally bundled Antonio/Manrope pairing. This is a refinement of the existing website/PWA, not a new visual identity or technology stack.
+Rally is an event run sheet for people working on phones, rather than a statistical dashboard. The organiser should see the next hand-off; a volunteer or vendor should find their assignment; an attendee should know how to request help. Keep the black/white identity, circular Rally mark, Antonio display headings and Manrope body/UI text.
 
-## Hierarchy and scale
+## Mobile first
 
-The welcome screen leads to starting an event or trying the sample. Its fixed two-part headline is height-aware:52–88px on desktop,40–56px on phones, with1.06 line-height. It must stay on two lines on ordinary desktop widths, with the explanation and actions visible on600–720px-high laptop windows. No decorative eyebrow pill or numbered feature markers. Feature summaries sit in one quiet row below the main content.
+At widths up to 720px, Home, Tasks/My requests, Event plan and Your team sit in a persistent bottom navigation. Use icons with visible labels, a clear current-page mark and targets at least 44px across. Reserve content space and safe-area padding below the navigation; move to a normal top navigation on larger screens. Menus scroll within the viewport. Forms and notices scroll naturally rather than clipping inside a fixed-height page.
 
-Page/task headings use36–48px, event headings44–60px and account headings36–44px. Antonio is display-only; Manrope is used for instructions, names, navigation, controls and body text. Body16px, secondary text12–14px, section headings20–24px. Labels and controls remain readable without giant titles. Operational role/date labels and step numbers convey actual state, rather than decoration.
+The header always identifies Rally and shows whether work is saved, waiting or offline. Updates and More remain labelled. On sample events, Switch role opens and focuses the existing role selector; real events retain their server-enforced permissions. Sample controls should not dominate the work.
 
-## Layout
+## Hierarchy and next steps
 
-Use a shared20–40px responsive gutter and24/32px section spacing. Related fields stay closer than separate sections. The header uses normal grid placement rather than overlapping branding with an absolutely positioned public nav. On phones, installation and invitation scanning remain accessible below the brand/sign-in row.
+Home starts with compact event name, role, date and location. No repeated date poster or completion metric. Next comes the person's work and a clear Add a task/Ask for help action. Organisers can filter next steps into Choose owner, Needs help and Check result. The default list keeps the three most urgent items; all work remains available through Tasks.
 
-Home prioritises three actionable tasks; Tasks, Event plan and Your team retain their existing flows. Settings, install/push and QR tools remain under More. Event metadata supports the task list rather than dominating it. Account forms have a restrained supporting panel on desktop and focused form-only layouts on small screens.
+Every task row shows readable status, task title, ownership/progress, location and due time. The entire row is an accessible button; desktop next-action labels explain what opening it enables. Color and tiny symbols never carry status alone. Task lists recover from a failed search with Clear search. The team is a compact roster of people, their role/team and active work rather than a wall of decorative cards.
 
-## Components
+The welcome page explains the actual hand-off: attendee asks, organiser assigns, volunteer/vendor acts, organiser checks. Retain its height-aware two-line headline and visible actions on short screens. Account pages use a restrained supporting panel on desktop and form-only layouts on phones.
 
-White primary pills and restrained dark secondary buttons; visible keyboard focus and44px main targets. Surfaces use defined edges,12–16px corners and no decorative glow. Dialogs keep clear focus/escape behaviour and scroll within short viewports. Fields retain16px input text on phones. Long titles and names wrap; pages scroll instead of clipping content.
+## Type and controls
 
-## Verification
+Antonio is display-only; Manrope is used for instructions, names, controls, status and body text. Operational headings use a restrained scale (32px on phone event headings, 42px on desktop), with 14–16px instructions and 16px mobile fields. Secondary metadata uses 12–13px; saving status can use 11px. Long titles and names wrap.
 
-Check the full page/state matrix across phone, tablet and desktop sizes. In addition to overflow/axe checks, assert that the landing actions fit within short laptop viewports and that the desktop headline uses two lines. Inspect rendered pages and verify sign-in input persistence during a delayed initial account check. Backend permissions, outbox/sync, WebSockets and PWA behaviour remain unchanged by styling.
+Primary/secondary buttons share an 8px radius; form surfaces keep defined edges without glows. Related fields stay close; separate sections receive more space. Keep native selects, browser Back, keyboard focus, dialog Escape/focus return, explicit submitting states and offline/conflict recovery. Avoid page entrance choreography in the workspace; short hover/state feedback respects reduced motion.
+
+## HCI basis and verification
+
+The implementation applies visible system status, recognition through labelled navigation, plain language, limited choices and recoverable errors from [Nielsen's usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/). Focus visibility and target-size checks follow [WCAG 2.2 guidance](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/). These are design decisions and tested heuristics, not a claim of formal certification or research with end users.
+
+Run the full page/state matrix, the short-viewport landing check, the task/offline journey and the mobile usability scenario. The usability scenario checks filtering, search recovery, sample-role discovery, navigation target size, menu bounds, compact roster layout and focused-field visibility across phone, landscape, tablet and desktop sizes. Keep actual limitations in docs/VALIDATION.md. Backend permissions, transactional records, sync and PWA behaviour remain unchanged by the visual work.

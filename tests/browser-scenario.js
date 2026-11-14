@@ -4,7 +4,7 @@ async (existingPage,options={})=>{
  page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
  await context.addInitScript(() => { window.rallyTestQueue = () => new Promise((resolve,reject) => { const open=indexedDB.open('rally-device');open.onerror=()=>reject(open.error);open.onsuccess=()=>{const db=open.result;const req=db.transaction('outbox').objectStore('outbox').getAll();req.onsuccess=()=>{resolve(req.result);db.close()};req.onerror=()=>reject(req.error)}; }); });
  const assert=(value,message)=>{if(!value)throw new Error(message)},record=message=>passed.push(message);
- const queue=()=>page.waitForFunction(async()=>!(await window.rallyTestQueue()).length && document.querySelector('.save-indicator')?.textContent?.trim()==='Saved');
+ const queue=()=>page.waitForFunction(async()=>!(await window.rallyTestQueue()).length && document.querySelector('[aria-label="Save status"]')?.textContent?.trim()==='All changes saved');
  const api=async(eventId,resource,body,key)=>{const response=await context.request.fetch(`${base}/api/v1/events/${eventId}/${resource}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(key?{'Idempotency-Key':key}:{})},...(body?{data:body}:{})});const value=await response.json();assert(response.ok(),JSON.stringify(value));return value};
  const go=async name=>page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name,exact:true}).click();
  const more=async()=>{const control=page.locator('.more-menu');if(!await control.evaluate(el=>el.open))await control.locator('summary').click()};

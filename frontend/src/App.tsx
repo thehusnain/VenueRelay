@@ -212,27 +212,24 @@ export function App() {
       <div className={`rally-app page-${currentPage || path.slice(1) || 'home'}`}>
         <header className="app-header">
           <div className="app-header-inner">
-            <Brand onClick={() => go('/')} />
+            <div className="app-identity">
+              <Brand onClick={() => go('/')} />
+              <span
+                className={`device-save-state ${connection}`}
+                role="status"
+                aria-label="Save status"
+              >
+                {connection === 'offline'
+                  ? 'Offline · saved on device'
+                  : pending.length
+                    ? 'Changes waiting to save'
+                    : connection === 'syncing'
+                      ? 'Saving changes…'
+                      : 'All changes saved'}
+              </span>
+            </div>
             <span className="header-event-name">{data.event.name}</span>
             <div className="header-actions">
-              <span
-                className={`save-indicator ${connection}`}
-                role="status"
-                title={
-                  rally.realtime
-                    ? 'Real-time connection active'
-                    : 'Reconnecting live updates; periodic refresh remains active'
-                }
-              >
-                <span />
-                {connection === 'offline'
-                  ? 'Offline'
-                  : pending.length
-                    ? 'Changes waiting'
-                    : connection === 'syncing'
-                      ? 'Saving…'
-                      : 'Saved'}
-              </span>
               <button
                 className="updates-button"
                 onClick={() => setInbox(true)}
@@ -393,7 +390,16 @@ export function App() {
         </nav>
         {data.event.is_demo ? (
           <div className="sample-strip">
-            <span>You’re trying a sample event.</span>
+            <span>Sample event</span>
+            <button
+              disabled={!!pending.length}
+              onClick={() => {
+                if (more.current) more.current.open = true;
+                document.getElementById('preview-role')?.focus();
+              }}
+            >
+              Switch role
+            </button>
             <button onClick={account}>
               Use your own event
               <ArrowRight size={15} />

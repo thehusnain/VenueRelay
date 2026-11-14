@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ArrowDownRight, ArrowRight, Check, MapPin, Plus, Search } from 'lucide-react';
 import type { Snapshot, Task, Pending } from '../../shared/contracts';
 import { statusLabels } from '../../shared/contracts';
-import { Avatar, Empty, eventDate, time } from './components';
+import { Empty, eventDate, time } from './components';
 export function taskSentence(task: Task, data: Snapshot) {
   const owner = data.members.find((m) => m.id === task.owner_id)?.name ?? 'Your teammate';
   switch (task.status) {
@@ -37,17 +37,27 @@ function TaskItem({
   pending: boolean;
 }) {
   const urgent = task.priority === 'urgent' && !['closed', 'resolved'].includes(task.status);
-  const owner = data.members.find((m) => m.id === task.owner_id);
+  const action =
+    data.me.role === 'organiser'
+      ? (
+          { open: 'Choose owner', blocked: 'Help teammate', resolved: 'Check result' } as Partial<
+            Record<Task['status'], string>
+          >
+        )[task.status]
+      : task.owner_id === data.me.id && task.status === 'assigned'
+        ? 'Start task'
+        : undefined;
   return (
     <button
       className={`plain-task ${urgent ? 'is-urgent' : ''}`}
       onClick={onOpen}
       aria-label={`Open task: ${task.title}`}
     >
-      <span className={`task-state-mark ${task.status}`} aria-hidden="true">
-        {task.status === 'closed' ? <Check size={16} /> : null}
-      </span>
       <span className="plain-task-content">
+        <span className={`plain-task-state ${task.status}`}>
+          <span className={`task-state-mark ${task.status}`} aria-hidden="true" />
+          {statusLabels[task.status]}
+        </span>
         <span className="plain-task-title">
           {task.title}
           {urgent ? <span className="urgent-word">Urgent</span> : null}
@@ -61,11 +71,10 @@ function TaskItem({
           {task.due_at ? <span> · Due {time(task.due_at)}</span> : null}
         </span>
       </span>
-      <span className="task-row-person">
-        <Avatar member={owner} size="small" />
+      <span className="plain-task-action">
+        {action ? <span>{action}</span> : null}
+        <ArrowRight size={19} className="plain-task-arrow" />
       </span>
-      <span className={`plain-task-state ${task.status}`}>{statusLabels[task.status]}</span>
-      <ArrowRight size={19} className="plain-task-arrow" />
     </button>
   );
 }
@@ -88,6 +97,7 @@ export function Home({
 }) {
   const org = data.me.role === 'organiser',
     attendee = data.me.role === 'attendee';
+  const [focus, setFocus] = useState('all');
   const important = data.tasks.filter((t) =>
     org
       ? ['open', 'blocked', 'resolved'].includes(t.status)
@@ -98,9 +108,26 @@ export function Home({
   const priority = { urgent: 0, high: 1, normal: 2 };
   important.sort((a, b) => priority[a.priority] - priority[b.priority]);
   const nextSession = data.schedule.find((s) => Date.parse(s.ends_at) > Date.now());
-  const completed = data.tasks.filter((t) => t.status === 'closed').length;
-  const eventDay = new Date(data.event.date + 'T12:00:00Z');
   const planItems = data.schedule.filter((s) => Date.parse(s.ends_at) > Date.now()).slice(0, 3);
+  const focusOptions = [
+    { id: 'all', label: 'All next steps', count: important.length },
+    {
+      id: 'open',
+      label: 'Choose owner',
+      count: important.filter((t) => t.status === 'open').length,
+    },
+    {
+      id: 'blocked',
+      label: 'Needs help',
+      count: important.filter((t) => t.status === 'blocked').length,
+    },
+    {
+      id: 'resolved',
+      label: 'Check result',
+      count: important.filter((t) => t.status === 'resolved').length,
+    },
+  ];
+  const visible = important.filter((t) => !org || focus === 'all' || t.status === focus);
   return (
     <div className="home-content">
       <section className="event-cover">
@@ -115,20 +142,6 @@ export function Home({
               <MapPin size={17} />
               {data.event.venue}
             </span>
-            <ArrowDownRight size={48} aria-hidden="true" />
-          </div>
-        </div>
-        <div className="event-cover-side">
-          <div className="event-date-stamp">
-            <strong>{String(eventDay.getUTCDate()).padStart(2, '0')}</strong>
-            <span>{new Intl.DateTimeFormat('en', { month: 'long' }).format(eventDay)}</span>
-          </div>
-          <span className="cover-date-year">{eventDay.getUTCFullYear()}</span>
-          <div className="event-progress">
-            <span>
-              {completed} of {data.tasks.length} {org ? 'tasks' : 'visible tasks'} finished
-            </span>
-            <progress value={completed} max={data.tasks.length || 1} aria-label="Finished tasks" />
           </div>
         </div>
       </section>
@@ -139,15 +152,36 @@ export function Home({
               <h2>
                 {org ? 'Needs your attention' : attendee ? 'Your help requests' : 'Your next tasks'}
               </h2>
+              <p className="workspace-guidance">
+                {org
+                  ? 'Choose a task to assign, help, or check.'
+                  : attendee
+                    ? 'Ask for help here. Your team’s progress appears below.'
+                    : 'Open an assignment to start work or update your organiser.'}
+              </p>
             </div>
             <button className="button primary" onClick={onCreate}>
               <Plus size={18} />
               {org ? 'Add a task' : 'Ask for help'}
             </button>
           </div>
-          {important.length ? (
+          {org && important.length ? (
+            <div className="attention-filters" role="group" aria-label="Next step to handle">
+              {focusOptions.map((option) => (
+                <button
+                  key={option.id}
+                  aria-pressed={focus === option.id}
+                  onClick={() => setFocus(option.id)}
+                >
+                  {option.label}
+                  <span>{option.count}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {visible.length ? (
             <div className="plain-task-list">
-              {important.slice(0, 3).map((t) => (
+              {visible.slice(0, 3).map((t) => (
                 <TaskItem
                   key={t.id}
                   task={t}
@@ -156,6 +190,13 @@ export function Home({
                   onOpen={() => onTask(t.id)}
                 />
               ))}
+            </div>
+          ) : important.length ? (
+            <div className="friendly-empty">
+              <h3>No tasks need this step.</h3>
+              <button className="text-link" onClick={() => setFocus('all')}>
+                Show all next steps
+              </button>
             </div>
           ) : (
             <div className="friendly-empty">
@@ -311,6 +352,7 @@ export function TaskWorkspace({
         <label className="simple-search">
           <Search size={18} />
           <input
+            type="search"
             aria-label="Find a task"
             placeholder="Find a task…"
             value={search}
@@ -318,6 +360,14 @@ export function TaskWorkspace({
           />
         </label>
       </div>
+      {search ? (
+        <p className="search-results" role="status">
+          {tasks.length} {tasks.length === 1 ? 'result' : 'results'} for “{search}”{' '}
+          <button className="text-link" onClick={() => setSearch('')}>
+            Clear search
+          </button>
+        </p>
+      ) : null}
       {tasks.length ? (
         <div className="plain-task-list">
           {tasks.map((t) => (

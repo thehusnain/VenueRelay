@@ -188,15 +188,16 @@ export function Entry({
               <section
                 id="coordination"
                 className="welcome-explanation"
-                aria-label="Event coordination features"
+                aria-label="How people work together in Rally"
               >
                 {[
-                  ['Clear ownership', 'The right person, on every task.'],
-                  ['Team updates', 'Keep everyone informed.'],
-                  ['Offline recovery', 'Save now. Sync when connected.'],
-                  ['Recorded history', 'Know what changed and when.'],
-                ].map(([title, detail]) => (
+                  ['Attendee', 'Ask for help', 'Describe the problem and where it is.'],
+                  ['Organiser', 'Choose an owner', 'Give one person a clear task.'],
+                  ['Volunteer or vendor', 'Do the work', 'Share progress or ask for support.'],
+                  ['Organiser', 'Check it’s done', 'Confirm the result. Everyone gets an update.'],
+                ].map(([role, title, detail]) => (
                   <div key={title}>
+                    <span className="handoff-role">{role}</span>
                     <h2>{title}</h2>
                     <p>{detail}</p>
                   </div>

@@ -10,3 +10,4 @@ tests/design-scenario.js
 tests/pwa-scenario.js
 
 tests/layout-scenario.js
+tests/usability-scenario.js
