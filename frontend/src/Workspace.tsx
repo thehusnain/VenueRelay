@@ -4,6 +4,37 @@ import { ArrowDownRight, ArrowRight, Check, ChevronDown, MapPin, Plus, Search } 
 import type { Snapshot, Task, Pending } from '../../shared/contracts';
 import { statusLabels } from '../../shared/contracts';
 import { Empty, eventDate, time } from './components';
+function PendingTasks({ items, search = '' }: { items: Pending[]; search?: string }) {
+  const requests = items.filter(
+    (item) =>
+      item.action === 'task.create' &&
+      String(item.payload.title ?? '')
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  if (!requests.length) return null;
+  return (
+    <section className="pending-task-list" aria-label="Requests waiting to save">
+      {requests.map((item) => (
+        <article className="pending-task" key={item.key}>
+          <span className="pending-task-status">
+            {item.conflict ? 'Needs review' : 'Waiting for confirmation'}
+          </span>
+          <h2>{String(item.payload.title ?? 'Your request')}</h2>
+          <p>
+            <MapPin size={15} />
+            <span>{String(item.payload.location ?? '')}</span>
+          </p>
+          <p role="status">
+            {item.conflict
+              ? item.conflict
+              : 'Saved on this device. It will appear in the event once the team receives it.'}
+          </p>
+        </article>
+      ))}
+    </section>
+  );
+}
 export function taskSentence(task: Task, data: Snapshot) {
   const owner = data.members.find((m) => m.id === task.owner_id)?.name ?? 'Your teammate';
   switch (task.status) {
@@ -153,6 +184,7 @@ export function Home({
           </div>
         </div>
       </section>
+      <PendingTasks items={pending} />
       <div className="home-workspace">
         <section className="next-actions">
           <div className="section-heading">
@@ -455,7 +487,7 @@ export function TaskWorkspace({
           <p>
             {attendee
               ? 'Follow your requests, from first report to final update.'
-              : 'A clear owner. A clear next step. Keep the work moving.'}
+              : 'Open a task to assign it, update progress or check the result.'}
           </p>
         </div>
         <button className="button primary" onClick={onCreate}>
@@ -502,6 +534,7 @@ export function TaskWorkspace({
           </button>
         </p>
       ) : null}
+      {!finished ? <PendingTasks items={pending} search={search} /> : null}
       {tasks.length ? (
         <div className="plain-task-list">
           {tasks.map((t) => (
@@ -514,6 +547,10 @@ export function TaskWorkspace({
             />
           ))}
         </div>
+      ) : !finished && pending.some((item) => item.action === 'task.create') && !search ? (
+        <p className="pending-task-hint">
+          Your saved request is shown above. You can open it when it has been confirmed.
+        </p>
       ) : (
         <Empty
           title={

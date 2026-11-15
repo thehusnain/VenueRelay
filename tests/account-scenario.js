@@ -88,7 +88,7 @@ async (existingPage, options = {}) => {
     await page.locator('.more-menu summary').click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.goto(base + '/forgot-password');
-    await page.getByLabel('Username or email', { exact: true }).fill(email);
+    await page.getByLabel('Username', { exact: true }).fill(email);
     await page.getByLabel('Recovery code', { exact: true }).fill(freshCode);
     await page.getByLabel('New password', { exact: true }).fill('new mobile password 2026');
     await page.getByRole('button', { name: 'Reset password', exact: true }).click();
@@ -104,7 +104,7 @@ async (existingPage, options = {}) => {
       fullPage: true,
     });
     await page.getByRole('button', { name: 'Sign in with new password', exact: true }).click();
-    await page.getByLabel('Username or email', { exact: true }).fill(email);
+    await page.getByLabel('Username', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill('new mobile password 2026');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('heading', { name: 'Mobile community day', exact: true }).waitFor();

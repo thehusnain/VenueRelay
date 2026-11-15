@@ -121,15 +121,22 @@ export class MongoDomain {
     );
   }
   async eventForUser(userId: string, store = this.store) {
-    const memberships = await store.all<Member>('members', { user_id: userId });
-    return (
-      await store.all<Event>(
-        'events',
-        { id: { $in: memberships.map((m) => m.event_id) } },
-        { is_demo: 1, created_at: -1 },
-        1,
+    const rows = await store
+      .collection('members')
+      .aggregate(
+        [
+          { $match: { user_id: userId } },
+          { $lookup: { from: 'events', localField: 'event_id', foreignField: 'id', as: 'event' } },
+          { $unwind: '$event' },
+          { $replaceWith: '$event' },
+          { $sort: { is_demo: 1, created_at: -1 } },
+          { $limit: 1 },
+          { $project: { _id: 0 } },
+        ],
+        { session: store.session },
       )
-    )[0];
+      .toArray();
+    return rows[0] as unknown as Event | undefined;
   }
   async append(
     tx: MongoStore,
@@ -169,23 +176,31 @@ export class MongoDomain {
       after_json: JSON.stringify(after),
       created_at: stamp,
     });
-    for (const memberId of new Set(recipients.filter((x) => x && x !== ctx.me.id))) {
+    const recipientIds = [...new Set(recipients.filter((x) => x && x !== ctx.me.id))];
+    if (recipientIds.length) {
+      const members = await tx.all<Member>('members', {
+        id: { $in: recipientIds },
+        event_id: ctx.event.id,
+      });
       ensure(
-        await tx.get('members', { id: memberId, event_id: ctx.event.id }),
+        members.length === recipientIds.length,
         422,
         'INVALID_MEMBER',
         'Notification recipient must belong to this event.',
       );
-      await tx.insert('notifications', {
-        id: id(),
-        event_id: ctx.event.id,
-        member_id: memberId,
-        command_id: commandId,
-        task_id: type === 'task' ? entityId : '',
-        message,
-        read_at: null,
-        created_at: stamp,
-      });
+      await tx.collection('notifications').insertMany(
+        recipientIds.map((memberId) => ({
+          id: id(),
+          event_id: ctx.event.id,
+          member_id: memberId,
+          command_id: commandId,
+          task_id: type === 'task' ? entityId : '',
+          message,
+          read_at: null,
+          created_at: stamp,
+        })),
+        { session: tx.session },
+      );
     }
   }
   async execute(
@@ -304,13 +319,89 @@ export class MongoDomain {
   }
   async snapshot(ctx: Context): Promise<Snapshot> {
     return this.store.transaction(async (tx) => {
-      const tasks = await tx.all<Task>('tasks', this.taskFilter(ctx), { created_at: -1, id: 1 });
-      const activity = await this.activity(ctx, 0, 200, true, tx);
-      const members = await tx.all<Member>(
-        'members',
-        { event_id: ctx.event.id },
-        { role: 1, name: 1 },
-      );
+      const lookup = (
+        from: string,
+        filter: Document,
+        sort?: Document,
+        limit?: number,
+        variable?: Document,
+      ) => ({
+        $lookup: {
+          from,
+          as: from,
+          ...(variable ? { let: variable } : {}),
+          pipeline: [
+            { $match: filter },
+            ...(sort ? [{ $sort: sort }] : []),
+            ...(limit ? [{ $limit: limit }] : []),
+            { $project: { _id: 0 } },
+          ],
+        },
+      });
+      const activityFilter =
+        ctx.me.role === 'organiser'
+          ? { event_id: ctx.event.id }
+          : {
+              event_id: ctx.event.id,
+              $expr: {
+                $or: [
+                  { $in: ['$entity_type', ['schedule', 'announcement']] },
+                  {
+                    $and: [{ $eq: ['$entity_type', 'task'] }, { $in: ['$entity_id', '$$taskIds'] }],
+                  },
+                ],
+              },
+            };
+      const rows = await tx
+        .collection('events')
+        .aggregate(
+          [
+            { $match: { id: ctx.event.id } },
+            lookup('tasks', this.taskFilter(ctx), { created_at: -1, id: 1 }),
+            lookup('activity', activityFilter, { id: -1 }, 200, { taskIds: '$tasks.id' }),
+            lookup('members', { event_id: ctx.event.id }, { role: 1, name: 1 }),
+            lookup('notifications', { member_id: ctx.me.id }, { created_at: -1 }, 100),
+            lookup('schedule', { event_id: ctx.event.id }, { starts_at: 1 }),
+            lookup('announcements', { event_id: ctx.event.id }, { created_at: -1 }, 20),
+            {
+              $lookup: {
+                from: 'members',
+                pipeline: [
+                  { $match: { user_id: ctx.user.id } },
+                  { $project: { _id: 0, event_id: 1 } },
+                ],
+                as: 'ownMemberships',
+              },
+            },
+            lookup(
+              'events',
+              { $expr: { $in: ['$id', '$$eventIds'] } },
+              { created_at: -1 },
+              undefined,
+              { eventIds: '$ownMemberships.event_id' },
+            ),
+            {
+              $project: {
+                _id: 0,
+                tasks: 1,
+                activity: 1,
+                members: 1,
+                notifications: 1,
+                schedule: 1,
+                announcements: 1,
+                events: 1,
+              },
+            },
+          ],
+          { session: tx.session },
+        )
+        .toArray();
+      ensure(rows[0], 404, 'NOT_FOUND', 'Event not found.');
+      const state = rows[0] as unknown as Pick<
+        Snapshot,
+        'tasks' | 'activity' | 'members' | 'notifications' | 'schedule' | 'announcements' | 'events'
+      >;
+      const { tasks, activity, members } = state;
       const visible =
         ctx.me.role === 'organiser'
           ? members
@@ -320,7 +411,6 @@ export class MongoDomain {
                 m.role === 'organiser' ||
                 tasks.some((t) => t.owner_id === m.id),
             );
-      const joins = await tx.all<Member>('members', { user_id: ctx.user.id });
       return {
         event: ctx.event,
         me: ctx.me,
@@ -332,24 +422,10 @@ export class MongoDomain {
           user_id: m.id === ctx.me.id ? user_id : '',
         })),
         activity,
-        notifications: await tx.all<Notification>(
-          'notifications',
-          { member_id: ctx.me.id },
-          { created_at: -1 },
-          100,
-        ),
-        schedule: await tx.all<Schedule>('schedule', { event_id: ctx.event.id }, { starts_at: 1 }),
-        announcements: await tx.all<Announcement>(
-          'announcements',
-          { event_id: ctx.event.id },
-          { created_at: -1 },
-          20,
-        ),
-        events: await tx.all<Event>(
-          'events',
-          { id: { $in: joins.map((m) => m.event_id) } },
-          { created_at: -1 },
-        ),
+        notifications: state.notifications,
+        schedule: state.schedule,
+        announcements: state.announcements,
+        events: state.events,
         serverTime: now(),
         activityCursor: activity[0]?.id ?? 0,
         hasMoreActivity: activity.length === 200,

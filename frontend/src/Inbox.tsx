@@ -1,30 +1,21 @@
 import { CheckSquare, Megaphone } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import { Modal, Empty, ago } from './components';
-import { request } from './use-rally';
 export function Inbox({
   data,
   onClose,
   onTask,
-  onRefresh,
+  onRead,
   notify,
 }: {
   data: Snapshot;
   onClose: () => void;
   onTask: (id: string) => void;
-  onRefresh: () => Promise<void>;
+  onRead: (ids: string[]) => Promise<void>;
   notify: (message: string) => void;
 }) {
-  const unread = data.notifications.filter((n) => !n.read_at),
-    persona = data.event.is_demo ? data.me.role : 'self';
-  const mark = async (ids: string[]) => {
-    await request(
-      `/events/${data.event.id}/notifications/read`,
-      { method: 'POST', body: JSON.stringify({ ids }) },
-      persona,
-    );
-    await onRefresh();
-  };
+  const unread = data.notifications.filter((n) => !n.read_at);
+  const mark = (ids: string[]) => onRead(ids).catch((error) => notify((error as Error).message));
   return (
     <Modal title="Updates for you" onClose={onClose}>
       <div className="inbox-toolbar">
@@ -56,11 +47,10 @@ export function Inbox({
               className={`inbox-item ${!n.read_at ? 'unread' : ''}`}
               onClick={async () => {
                 try {
-                  await mark([n.id]);
+                  if (!n.read_at) void mark([n.id]);
                   if (n.task_id) {
                     onClose();
-                    if (data.tasks.some((t) => t.id === n.task_id)) onTask(n.task_id);
-                    else notify('This task is no longer assigned to you.');
+                    onTask(n.task_id);
                   }
                 } catch (e) {
                   notify((e as Error).message);

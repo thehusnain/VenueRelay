@@ -23,6 +23,11 @@ export function CreateTask({
     [due, setDue] = useState('');
   const submitting = useRef(false);
   const [saving, setSaving] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+    heading.current?.scrollIntoView({ block: 'start' });
+  }, [step]);
   const org = data.me.role === 'organiser';
   const next = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -59,7 +64,7 @@ export function CreateTask({
       <p className="step-progress">
         {org ? 'Add a task' : 'Ask for help'} · Step {step + 1} of 3
       </p>
-      <h1>
+      <h1 ref={heading} tabIndex={-1}>
         {
           [
             org ? 'What needs doing?' : 'What do you need help with?',
@@ -107,7 +112,6 @@ export function CreateTask({
                 minLength={3}
                 maxLength={140}
                 placeholder="e.g. Clear the accessible entrance"
-                autoFocus
               />
             </label>
             <details className="optional-fields">
@@ -135,7 +139,6 @@ export function CreateTask({
                 required
                 maxLength={120}
                 placeholder="e.g. North entrance"
-                autoFocus
               />
             </label>
             <label htmlFor="task-urgency">
@@ -157,7 +160,7 @@ export function CreateTask({
               <strong>{title}</strong>
               <p>
                 <MapPin size={16} />
-                {location}
+                <span>{location}</span>
               </p>
               <p>
                 {priority === 'urgent'
@@ -174,9 +177,9 @@ export function CreateTask({
                   Choose a person
                   <select
                     id="task-person"
+                    aria-label="Choose a person"
                     value={owner}
                     onChange={(e) => setOwner(e.target.value)}
-                    autoFocus
                   >
                     <option value="">I’ll choose someone later</option>
                     {data.members
@@ -239,6 +242,13 @@ export function TaskView({
     [assignmentVersion, setAssignmentVersion] = useState(task.version),
     [assignmentDirty, setAssignmentDirty] = useState(false),
     [selectedOwner, setSelectedOwner] = useState(task.owner_id ?? '');
+  const noteHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (target) {
+      noteHeading.current?.focus({ preventScroll: true });
+      noteHeading.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [target]);
   useEffect(() => {
     if (!assignmentDirty) {
       setSelectedOwner(task.owner_id ?? '');
@@ -276,11 +286,11 @@ export function TaskView({
       <div className="task-facts">
         <span>
           <MapPin size={17} />
-          {task.location}
+          <span>{task.location}</span>
         </span>
         <span>
           <UserRound size={17} />
-          {owner?.name ?? 'No one chosen yet'}
+          <span>{owner?.name ?? 'No one chosen yet'}</span>
         </span>
         {task.due_at ? (
           <span>
@@ -320,6 +330,16 @@ export function TaskView({
                 }
               }}
             >
+              <h2 ref={noteHeading} tabIndex={-1}>
+                {target === 'blocked'
+                  ? 'Ask the organiser for help'
+                  : 'Send the result for a check'}
+              </h2>
+              <p className="field-hint">
+                {target === 'blocked'
+                  ? 'Explain what is stopping the work so the organiser can help.'
+                  : 'Describe what you finished. The organiser checks the result before closing the task.'}
+              </p>
               <label htmlFor="task-note">
                 {target === 'blocked' ? 'What is stopping you?' : 'What did you do?'}
                 <textarea
@@ -330,7 +350,6 @@ export function TaskView({
                   minLength={5}
                   maxLength={2000}
                   rows={4}
-                  autoFocus
                 />
               </label>
               <div className="step-actions">
@@ -338,7 +357,7 @@ export function TaskView({
                   Cancel
                 </button>
                 <button className="button primary">
-                  {target === 'blocked' ? 'Ask for help' : 'Let the organiser know'}
+                  {target === 'blocked' ? 'Ask for help' : 'Send for review'}
                   <ArrowRight size={18} />
                 </button>
               </div>

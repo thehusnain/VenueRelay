@@ -18,11 +18,13 @@ The outbox uses a stable key per intent. After a lost acknowledgement, retrying 
 
 Background Sync is optional. Where it is unavailable, foreground and reopen retries provide recovery. Do not erase browser data or uninstall the app while changes are waiting.
 
-Each service worker reads its own versioned cache. Older retained caches cannot replace the current shell or logo. Updates wait until it is safe to reload; **More → Install VenueRelay & notifications** exposes the update action when available.
+Each service worker reads its own versioned cache. Older retained caches cannot replace the current shell or logo. Updates wait until it is safe to reload; **More → Alerts & installation** exposes the update action when available.
 
 ## Notifications and QR codes
 
-In-app updates are durable and do not need browser permissions. Optional browser push requires HTTPS, VAPID configuration and the person's explicit permission. Permission is requested only when they choose to enable it.
+In-app updates are durable and do not need browser permissions. Opening a notification navigates immediately; its read acknowledgement is saved in the device outbox and retried safely. New unread updates show an actionable banner while the app is visible. **More → Alerts & installation → Turn on alert sound** unlocks a short chime with a real user gesture. No sound is played for the existing inbox on initial load or for duplicate refreshes.
+
+Browser push requires HTTPS and explicit permission. The MongoDB backend retains its own VAPID pair unless environment keys override it. Push links include the event, task and notification IDs so a tap opens the correct event, including after sign-in. The service worker requests normal sound and vibration where supported; OS silent/Focus settings take precedence. On iPhone, background web notifications require the Home Screen app. Website-controlled installation prompts are not supported by iOS, including Chrome on iOS. No unsupported one-click installer or browser redirect is shown.
 
 QR scanning uses the camera only after **Start camera**. Image upload and pasted links remain available when camera access fails. Only links belonging to the same VenueRelay origin are accepted.
 

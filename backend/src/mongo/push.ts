@@ -8,9 +8,46 @@ import { MongoStore } from './store.ts';
 export class MongoPush {
   constructor(
     readonly store: MongoStore,
-    readonly settings?: PushSettings,
+    public settings?: PushSettings,
     readonly deliver = webpush.sendNotification,
   ) {}
+  async configure(origin: string) {
+    if (this.settings) return;
+    const key = 'browser-push';
+    let saved = await this.store.get<PushSettings>('server_settings', { key });
+    if (!saved) {
+      const pair = webpush.generateVAPIDKeys();
+      try {
+        await this.store.update(
+          'server_settings',
+          { key },
+          {
+            $setOnInsert: {
+              key,
+              ...pair,
+              subject: origin.replace(/^http:/, 'https:'),
+              created_at: now(),
+            },
+          },
+          true,
+        );
+      } catch (error) {
+        if ((error as { code?: number }).code !== 11000) throw error;
+      }
+      saved = await this.store.get<PushSettings>('server_settings', { key });
+    }
+    ensure(
+      saved?.publicKey && saved.privateKey && saved.subject,
+      503,
+      'PUSH_UNAVAILABLE',
+      'Notification setup could not be loaded. Please retry.',
+    );
+    this.settings = {
+      publicKey: saved.publicKey,
+      privateKey: saved.privateKey,
+      subject: saved.subject,
+    };
+  }
   async removeSubscription(subscriptionId: string, store = this.store) {
     await store.remove('push_deliveries', { subscription_id: subscriptionId });
     await store.remove('push_subscriptions', { id: subscriptionId });
@@ -115,10 +152,11 @@ export class MongoPush {
         member_id: string;
         user_id: string;
       }>('push_subscriptions', { id: job.subscription_id });
-      const note = await this.store.get<{ read_at: string | null; task_id: string }>(
-        'notifications',
-        { id: job.notification_id },
-      );
+      const note = await this.store.get<{
+        read_at: string | null;
+        task_id: string;
+        event_id: string;
+      }>('notifications', { id: job.notification_id });
       if (
         !sub ||
         !note ||
@@ -143,6 +181,8 @@ export class MongoPush {
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify({
             id: job.notification_id,
+            eventId: note.event_id,
+            taskId: note.task_id || undefined,
             url: note.task_id ? '/tasks/' + note.task_id : '/',
           }),
           {

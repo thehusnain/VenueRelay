@@ -30,7 +30,8 @@
     "check:deployment": "node scripts/check-deployment.mjs",
     "test:accounts": "node tests/browser.mjs account",
     "test:attendees": "node tests/browser.mjs attendee",
-    "test:mobile": "node tests/browser.mjs mobile"
+    "test:mobile": "node tests/browser.mjs mobile",
+    "test:flow": "node tests/browser.mjs flow"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.3.0",

@@ -402,6 +402,65 @@ test('concurrent staff invitations reject duplicates and safely replace or cance
   );
   assert.equal((await backend.domain.integrity(ctx)).ok, true);
 });
+test(
+  'a public attendee request immediately invalidates its connected staff event',
+  { timeout: 15000 },
+  async () => {
+    const { ctx, lead } = await fixture();
+    const link = await api(`/events/${ctx.event.id}/attendee-links`, {}, lead.session);
+    const ws = new WebSocket(
+      origin.replace('http:', 'ws:') + `/api/v1/events/${ctx.event.id}/live`,
+      { origin: mail.origin, headers: { Cookie: 'rally_session=' + lead.session } },
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const changed = new Promise<{ type: string; eventId: string }>((resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error('Attendee request did not refresh staff promptly')),
+        5000,
+      );
+      ws.on('message', (data) => {
+        const message = JSON.parse(String(data));
+        if (message.type === 'event.changed') {
+          clearTimeout(timer);
+          resolve(message);
+        }
+      });
+    });
+    try {
+      await once(ws, 'open');
+      const { token } = await import('../backend/src/auth.ts');
+      const response = await api(
+        `/attendee-events/${ctx.event.id}/requests`,
+        { title: 'Visitor needs directions', location: 'West gate', receiptKey: token() },
+        '',
+        { 'X-VenueRelay-Event-Key': link.data.token, 'Idempotency-Key': id() },
+      );
+      assert.equal(response.response.status, 201);
+      assert.deepEqual(await changed, { type: 'event.changed', eventId: ctx.event.id });
+    } finally {
+      clearTimeout(timer);
+      ws.terminate();
+    }
+  },
+);
+test('hosted push config persists one key pair across processes and never exposes the private key', async () => {
+  const a = new MongoPush(store),
+    b = new MongoPush(store);
+  await Promise.all([
+    a.configure('https://venuerelay.onrender.com'),
+    b.configure('https://venuerelay.onrender.com'),
+  ]);
+  assert.equal(a.settings!.publicKey, b.settings!.publicKey);
+  assert.equal(a.settings!.privateKey, b.settings!.privateKey);
+  assert.equal(
+    await store.collection('server_settings').countDocuments({ key: 'browser-push' }),
+    1,
+  );
+  const response = await api('/push/public-key');
+  assert.equal(response.data.enabled, true);
+  assert.equal(response.data.publicKey, a.settings!.publicKey);
+  assert.equal(JSON.stringify(response.data).includes(a.settings!.privateKey), false);
+});
 test('API keys are event-scoped, revocable and never exposed in audit responses', async () => {
   const { ctx } = await fixture(),
     key = await backend.domain.createKey(ctx, 'Integration');

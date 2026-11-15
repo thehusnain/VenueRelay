@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { syncOutbox } from './sync-engine';
+import { notificationLink } from '../../shared/notification-link';
 const worker = self as unknown as ServiceWorkerGlobalScope;
 const assets: string[] = JSON.parse('__RALLY_PRECACHE__');
 const CACHE = 'rally-pwa-__RALLY_VERSION__';
@@ -70,33 +71,45 @@ worker.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') void worker.skipWaiting();
 });
 worker.addEventListener('push', (event) => {
-  let payload: { id?: string; url?: string } = {};
+  let payload: { id?: string; url?: string; eventId?: string; taskId?: string } = {};
   try {
-    payload = event.data?.json() ?? {};
+    const parsed = event.data?.json();
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed;
   } catch {}
-  const path = payload.url && /^\/tasks\/[A-Za-z0-9_-]+$/.test(payload.url) ? payload.url : '/';
-  event.waitUntil(
-    worker.registration.showNotification('VenueRelay update', {
-      body: 'Your event has a new update. Open VenueRelay to see the details.',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: 'rally-' + (payload.id ?? 'update'),
-      data: { url: path },
-    }),
-  );
+  const path = notificationLink(payload, worker.location.origin);
+  const notification: NotificationOptions & { vibrate: number[] } = {
+    body: 'Your event has a new update. Open VenueRelay to see the details.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'rally-' + (payload.id ?? 'update'),
+    silent: false,
+    vibrate: [180, 80, 180],
+    data: { url: path },
+  };
+  event.waitUntil(worker.registration.showNotification('VenueRelay update', notification));
 });
 worker.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url ?? '/', worker.location.origin);
-  if (url.origin !== worker.location.origin) return;
+  const path = notificationLink({ url: event.notification.data?.url }, worker.location.origin);
+  const url = new URL(path, worker.location.origin);
   event.waitUntil(
     (async () => {
       const windows = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windows) {
-        if ('focus' in client) {
-          await (client as WindowClient).navigate(url.href);
-          await (client as WindowClient).focus();
-          return;
+        if ('focus' in client && !/^\/(attend\/|request$)/.test(new URL(client.url).pathname)) {
+          try {
+            const navigated = await (client as WindowClient).navigate(url.href);
+            if (navigated) {
+              await navigated.focus();
+              return;
+            }
+          } catch {
+            client.postMessage({ type: 'rally:open-notification', url: path });
+            try {
+              await (client as WindowClient).focus();
+              return;
+            } catch {}
+          }
         }
       }
       await worker.clients.openWindow(url.href);

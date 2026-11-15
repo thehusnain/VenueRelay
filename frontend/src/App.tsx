@@ -27,6 +27,8 @@ import { AttendeePortal, AttendeeAccess } from './AttendeePortal';
 import { AccountSecurity } from './AccountSecurity';
 import { InvitationDialog } from './Invitations';
 import type { Invitation } from '../../shared/contracts';
+import { notificationLink } from '../../shared/notification-link';
+import { NotificationAlerts } from './notification-alerts';
 function useLocation() {
   const [route, setRoute] = useState(() => ({ path: location.pathname, fragment: location.hash }));
   useEffect(() => {
@@ -74,6 +76,44 @@ export function App() {
     setSelectedInvitation(undefined);
     setDialog('invite');
   };
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.has('event') && params.has('notification'))
+      sessionPreference.set(
+        'rally:notification-target',
+        notificationLink({ url: location.href }, location.origin),
+      );
+    const message = (event: MessageEvent) => {
+      if (event.data?.type !== 'rally:open-notification') return;
+      const target = notificationLink({ url: event.data.url }, location.origin);
+      location.assign(target);
+    };
+    navigator.serviceWorker?.addEventListener('message', message);
+    return () => navigator.serviceWorker?.removeEventListener('message', message);
+  }, []);
+  useEffect(() => {
+    if (rally.stage !== 'workspace' || !data) return;
+    const target = sessionPreference.get('rally:notification-target');
+    if (!target || new URL(target, location.origin).searchParams.get('event') !== data.event.id)
+      return;
+    const timer = setTimeout(() => {
+      sessionPreference.remove('rally:notification-target');
+      navigate(target);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [rally.stage, data?.me.id]);
+  const openedNotification = useRef('');
+  useEffect(() => {
+    if (rally.stage !== 'workspace' || !data) return;
+    const params = new URLSearchParams(location.search),
+      noteId = params.get('notification');
+    const key = data.me.id + ':' + noteId;
+    if (!noteId || params.get('event') !== data.event.id || openedNotification.current === key)
+      return;
+    openedNotification.current = key;
+    void rally.markRead([noteId]).catch((error) => rally.setToast((error as Error).message));
+    if (!path.startsWith('/tasks/')) setInbox(true);
+  }, [rally.stage, path, data?.me.id]);
   useEffect(() => {
     const invitation = new URLSearchParams(location.search).get('invite');
     if (invitation) {
@@ -251,7 +291,9 @@ export function App() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <div className={`rally-app page-${currentPage || path.slice(1) || 'home'}`}>
+      <div
+        className={`rally-app page-${currentPage || path.slice(1) || 'home'} ${path === '/new-task' ? 'is-task-form' : selected ? 'is-task-detail' : ''}`}
+      >
         <header className="app-header">
           <div className="app-header-inner">
             <div className="app-identity">
@@ -309,7 +351,7 @@ export function App() {
                       setDialog('pwa');
                     }}
                   >
-                    Install VenueRelay & notifications
+                    Alerts & installation
                   </button>
                   <button
                     onClick={() => {
@@ -628,6 +670,15 @@ export function App() {
         </div>
       ) : null}
       {browserTools}
+      <NotificationAlerts
+        data={data}
+        onOpen={(note) => {
+          if (!note.read_at)
+            void rally.markRead([note.id]).catch((error) => rally.setToast(error.message));
+          if (note.task_id) openTask(note.task_id);
+          else setInbox(true);
+        }}
+      />
       {dialog === 'invite' ? (
         <InvitationDialog
           key={selectedInvitation?.id ?? 'new'}
@@ -668,7 +719,7 @@ export function App() {
           data={data}
           onClose={() => setInbox(false)}
           onTask={openTask}
-          onRefresh={rally.refresh}
+          onRead={rally.markRead}
           notify={rally.setToast}
         />
       ) : null}

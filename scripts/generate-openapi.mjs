@@ -362,7 +362,7 @@ add('/bootstrap', 'post', 'Open an event or return real-account onboarding', {
     ],
   },
   description:
-    'Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
+    'Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public demo account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
 });
 add('/events', 'post', 'Create clean event', {
   body: object({ name: string, venue: string, date: { type: 'string', format: 'date' } }, [

@@ -3,6 +3,7 @@ import { Download } from 'lucide-react';
 import { Modal } from './components';
 import { request } from './use-rally';
 import type { Snapshot } from '../../shared/contracts';
+import { playAlertSound, useAlertSound } from './notification-alerts';
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: string }>;
@@ -97,6 +98,7 @@ export function PwaTools({
     [busy, setBusy] = useState(false),
     [installing, setInstalling] = useState(false);
   const installed = useInstalled();
+  const sound = useAlertSound(data?.user.id ?? '');
   const supported =
     typeof window !== 'undefined' &&
     window.isSecureContext &&
@@ -216,8 +218,75 @@ export function PwaTools({
   };
   if (!open) return null;
   return (
-    <Modal title="Install VenueRelay and notifications" onClose={onClose}>
+    <Modal title="Alerts & installation" onClose={onClose}>
       <div className="pwa-options">
+        <section>
+          <h3>Event notifications</h3>
+          {!data ? (
+            <p>Sign in and open an event first.</p>
+          ) : !supported ? (
+            <p>
+              Background notifications are not available in this browser window. On iPhone, they
+              require the Home Screen app and notification permission. In-app alerts and the bell
+              work here.
+            </p>
+          ) : !push ? (
+            <p role="status">Checking notification availability…</p>
+          ) : !push.enabled ? (
+            <p>Browser push is not configured on this server. Your in-app updates still work.</p>
+          ) : subscribed ? (
+            <button className="button secondary" onClick={() => void disable()}>
+              Turn off browser notifications
+            </button>
+          ) : (
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => void notifications()}
+            >
+              Enable browser notifications
+            </button>
+          )}
+        </section>
+        <section>
+          <h3>Sound while VenueRelay is open</h3>
+          <p>
+            Hear a short chime when a new update arrives. Your phone controls the sound of
+            notifications outside the app.
+          </p>
+          {data ? (
+            <div className="button-row">
+              <button
+                className="button secondary"
+                onClick={() =>
+                  void sound
+                    .change(!sound.enabled)
+                    .then(() =>
+                      setMessage(
+                        sound.enabled ? 'Alert sound turned off.' : 'Alert sound turned on.',
+                      ),
+                    )
+                    .catch((error) => setMessage(error.message))
+                }
+              >
+                {sound.enabled ? 'Turn off alert sound' : 'Turn on alert sound'}
+              </button>
+              {sound.enabled ? (
+                <button
+                  className="text-link"
+                  onClick={() => {
+                    if (!playAlertSound())
+                      void sound.change(true).catch((error) => setMessage(error.message));
+                  }}
+                >
+                  Test sound
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <p>Sign in to choose your alert settings.</p>
+          )}
+        </section>
         <section>
           <h3>VenueRelay on your Home Screen</h3>
           <p>
@@ -238,31 +307,6 @@ export function PwaTools({
               testing.
             </p>
           ) : null}
-        </section>
-        <section>
-          <h3>Event notifications</h3>
-          {!data ? (
-            <p>Sign in and open an event first.</p>
-          ) : !supported ? (
-            <p>
-              This browser does not offer push here. Your mobile browser may require you to open the
-              installed app first. Updates remain available in the bell.
-            </p>
-          ) : !push?.enabled ? (
-            <p>Browser push is not configured on this server. Your in-app updates still work.</p>
-          ) : subscribed ? (
-            <button className="button secondary" onClick={() => void disable()}>
-              Turn off browser notifications
-            </button>
-          ) : (
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => void notifications()}
-            >
-              Enable browser notifications
-            </button>
-          )}
         </section>
         <section>
           <h3>Offline work</h3>

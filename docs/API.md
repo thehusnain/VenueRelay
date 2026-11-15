@@ -29,6 +29,7 @@ Errors have `{"error":{"code":"...","message":"...","details":{}}}`. Preserve wa
 | `GET /events/{id}/live` | WebSocket upgrade; local same-origin cookie or hosted `?ticket=VALUE`, with an allowed Origin |
 | `GET /events/{id}/snapshot` | Current role-filtered event records |
 | `GET /events/{id}/activity?after=ID` | Cursor-based accessible history |
+| `POST /events/{id}/notifications/read` | Acknowledge up to 100 owned notification IDs with `{ids:[...]}`; repeated acknowledgements are safe |
 | `GET /push/public-key` | Push availability and public VAPID key |
 | `GET /events/{id}/push/subscription` | Whether the current session/member is subscribed |
 | `POST /events/{id}/push/subscription` | Save browser-provided `{endpoint,keys:{p256dh,auth}}` |
@@ -36,7 +37,9 @@ Errors have `{"error":{"code":"...","message":"...","details":{}}}`. Preserve wa
 
 WebSocket messages are `{type:"connected",eventId}` and `{type:"event.changed",eventId}`. Refetch the authorised snapshot on invalidation; missed messages are recovered by reconnect refresh/polling. Session revocation closes the socket with 4401. WebSocket payloads do not contain task records or accept commands.
 
-Push requires browser permission, VAPID settings and an own signed-in membership. Subscriptions to supported browser push providers are accepted; arbitrary URLs are rejected. No private VAPID key is returned. Browser push delivery does not replace durable inbox/activity records.
+MongoDB deployments create and retain VAPID keys automatically unless environment keys are supplied. Push requires browser permission and an own signed-in membership. Subscriptions to supported browser push providers are accepted; arbitrary URLs are rejected. No private VAPID key is returned. Push payloads include `id`, `eventId`, optional `taskId` and a same-origin `url`; the app opens the correct event/task after sign-in. Browser push delivery does not replace durable inbox/activity records.
+
+Read acknowledgements accept `X-Rally-Expected-Actor` and only affect the current member’s notifications. Keep a read acknowledgement on the device until `{ok:true}` is received; retries after lost responses do not duplicate work.
 
 ## Staff accounts
 

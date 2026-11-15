@@ -19,6 +19,7 @@ async function main() {
     if (config.mongoUri) {
       mongo = await MongoStore.connect(config.mongoUri, config.database);
       backend = new MongoBackend(mongo, { mail, secure: config.secure, demo: config.demo });
+      await backend.prepare();
       await backend.ensureDemo();
       stopWorkers = backend.startWorkers();
     } else {

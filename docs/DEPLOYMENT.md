@@ -25,7 +25,7 @@ Set the following environment variables. Existing values set directly in Render 
 | `ALLOWED_ORIGINS` | `https://venuerelay.onrender.com` |
 | `COOKIE_SECURE` | `true` |
 | `EMAIL_TRANSPORT` | `disabled` |
-| `DEMO_ACCOUNT_ENABLED` | `true` for judging |
+| `DEMO_ACCOUNT_ENABLED` | `true` for the public demo |
 | `MONGODB_URI` | Keep the existing private Atlas `mongodb+srv://` connection string |
 | `MONGODB_DATABASE` | Keep the existing database name |
 
@@ -39,7 +39,7 @@ New staff accounts use a unique username and password. They need no email, OTP o
 
 Share invitation links or QR codes directly with the intended person. Links expire after 48 hours, are stored hashed and can be accepted by one account. Never post real invitation links publicly.
 
-Browser push is optional and has no email dependency. Generate a VAPID pair with `npm run push:keys`, then set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and a valid `VAPID_SUBJECT` privately in Render. In-app notifications work without these settings.
+Browser push has no email or paid provider dependency. At startup, the MongoDB backend creates one VAPID key pair in its private `server_settings` collection if no environment pair was supplied. Concurrent starts reuse the stored pair, and restarts retain it. Only the public key is exposed by the API. Keep this collection in secure database backups. Existing `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` settings override the stored pair; `npm run push:keys` remains available for an explicit deployment configuration.
 
 ## Check after deployment
 
@@ -53,12 +53,12 @@ Then use a private browser window:
 2. Create a username/password staff account, save its recovery code and create an empty event.
 3. Invite a separate staff account as a volunteer. Assign a task, complete it as the volunteer, then confirm it as the organiser.
 4. Open **Saved records** on desktop, or **More → Connection help** on a phone. Confirm the record check passes.
-5. Queue a task while offline, reload, reconnect and confirm exactly one task appears. Repeat the documented lost-response and conflict tests locally before judging.
+5. Queue a task while offline, reload, reconnect and confirm exactly one task appears. Repeat the documented lost-response and conflict tests locally before deployment.
 6. Check a phone-sized browser, the team invitation dialog, sign-in errors and keyboard navigation.
 7. Share an attendee QR from Your team, submit a request without signing in, and track it through completion. Disable the shared link and confirm the private tracking link still works.
 8. Where the browser offers installation, **Install** should open the native confirmation directly. Other browsers should show the working website without installation instructions.
 
-Existing installed clients may finish using an older service worker. Close and reopen the app, or use **More → Install VenueRelay & notifications → Update VenueRelay and reload** once pending work is saved. Never clear device storage while unsent work is waiting.
+Existing installed clients may finish using an older service worker. Close and reopen the app, or use **More → Alerts & installation → Update VenueRelay and reload** once pending work is saved. Never clear device storage while unsent work is waiting.
 
 ## Storage and operations
 

@@ -1,6 +1,6 @@
 # Architecture
 
-The React 19/TypeScript/Vite frontend and Node.js 24 HTTP API are retained. Hosted records use the native MongoDB driver with Atlas; the automatic local judge demo keeps its SQLite adapter. Both adapters share the task validation/transition engine and sample generator. The PWA is the website; there is no native client project.
+The React 19/TypeScript/Vite frontend and Node.js 24 HTTP API are retained. Hosted records use the native MongoDB driver with Atlas; the automatic local demo keeps its SQLite adapter. Both adapters share the task validation/transition engine and sample generator. The PWA is the website; there is no native client project.
 
 SQLite uses WAL, foreign keys and full synchronous commits. Each operational command validates event membership/role and the expected task version inside a transaction. State, command journal, activity and inbox records commit together. `(actor_id, request_key)` is unique, and a replay must have the same request hash. Immutable journal triggers and the integrity endpoint provide record checks.
 
@@ -12,7 +12,7 @@ One Render Node process serves the built website, PWA assets, HTTP API, WebSocke
 
 HTTP auth cookies are host-only, HttpOnly and SameSite=Lax; the proxy keeps them first-party. Direct cross-origin WebSocket connections use a 30-second one-use ticket stored hashed in MongoDB, bound to origin/event/persona/session. The server consumes it atomically and rechecks membership/session. A reconnect always requests a new ticket. No session credentials enter WebSocket URLs. Exact origin allowlists and API body limits remain in force.
 
-The public judge account is explicitly enabled on Render, flagged as demo and denied real-event creation/joining. Authenticated real accounts create empty events. Email remains optional for sample judging but is required for real registration and recovery.
+The public demo account is explicitly enabled on Render, flagged as demo and denied real-event creation/joining. Authenticated real accounts create empty events. Staff register with a username and password and use private recovery codes. Attendees submit through shared QR links without accounts. Email is optional for legacy integrations.
 
 ## Device storage and sync
 

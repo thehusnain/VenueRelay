@@ -2,6 +2,16 @@
 
 Verified on 15 November 2026 against disposable local databases. These results describe the revised source; live deployment validation is recorded separately below.
 
+## Request speed, alerts and phone forms
+
+The new `npm run test:flow` journey passed in Chromium and WebKit. With the read request deliberately held, a notification opened its task in 205ms in Chromium and 422ms in the final WebKit run. The unread badge responded locally and its acknowledgement remained queued until confirmed. These are local interaction measurements, not production network timings.
+
+The same journey held command responses and full snapshot refreshes. A new request displayed its saved-on-device waiting row, then creation, start, completion and organiser confirmation appeared directly from real server acknowledgements. A new attendee request triggered a visible actionable alert and a real Web Audio chime was scheduled after user activation. Notification links survived sign-in and selected the correct event even when the account owned a newer event. Final integrity: **7 commands, 7 activity entries, zero version mismatches, missing history or broken references** at `2026-11-15T19:01:24.288Z`.
+
+The final 320px captures cover request location/review, waiting requests, completion, alerts and settings. A 360×420 check covers completion with limited height. Buttons remain reachable by scrolling; redundant save popups no longer cover them. The 90-state responsive/axe matrix, eight real service-worker/PWA checks and both emulated installation lifecycles passed. The full MongoDB offline/conflict browser journey also passed at `2026-11-15T19:00:15.502Z`: **39 commands, 39 activity entries and zero invariant failures**. A refresh during demo role switching had caused a false account-change error; context loads now fence those refreshes. Older task versions from later snapshots cannot replace a newer confirmed version within the same member/event view; absent tasks remain absent.
+
+MongoDB integration tests verify automatically generated VAPID keys persist across restarts and concurrent initialisation, private keys stay private, and public attendee requests emit immediate event-scoped WebSocket invalidation. Unit tests cover safe notification destinations, durable read retries after a lost response, confirmed versions and cryptographic request IDs on older browsers. Production push configuration was previously disabled; the revised startup enables it without a separate paid service.
+
 ## Mobile loading and staff invitations
 
 The updated mobile journey passed **52 checks in Chromium and 52 in WebKit**, with touch input enabled, against disposable local databases. The MongoDB run matches the single-origin Render setup. It covers a centered loading group in portrait/landscape, fresh username signup and event setup, invitation creation, native and denied-clipboard fallback copying, pending status after reload, duplicate rejection, replacement of a lost link, invalidation of the original link, a separate staff account joining the correct event despite owning a newer event, cancellation and retained invitation history. The final Chromium and WebKit checks completed at `2026-11-15T17:39:42.751Z` and `2026-11-15T17:39:55.602Z` with zero uncaught JavaScript errors. Each rendered state passed overflow and axe checks. The navigation matrix uses the app's touch controls; direct-route loading is also covered by the 90-state design matrix.
@@ -24,8 +34,8 @@ API tests cover username uniqueness, staff invitation and recovery, guest capabi
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 60 passed |
-| `npm run test:mongo` | 16 passed against a disposable MongoDB replica set |
+| `npm test` | 65 passed |
+| `npm run test:mongo` | 18 passed against a disposable MongoDB replica set |
 | `npm run build` | TypeScript and production Vite build passed |
 | Design browser matrix | 90 page/viewport combinations: no horizontal overflow or automated axe WCAG findings |
 | Layout browser checks | 21 checks passed, including 320×568 phones and 1280×600 laptops |
@@ -34,6 +44,7 @@ API tests cover username uniqueness, staff invitation and recovery, guest capabi
 | Installation events | Android/iPhone identities: direct native prompt, dismissal, retry, installed state and no unsupported installation instructions |
 | Account browser journey | Signup without email, recovery-code download, empty event setup, code replacement and password recovery passed on a 390px phone viewport |
 | Mobile invitation journey | 52 checks each in Chromium and WebKit: phone, landscape, short dialogs, copy fallback, duplicate handling and invitation lifecycle |
+| Request and notification journey | Five journeys in Chromium and WebKit, including delayed acknowledgements, immediate task updates, alert sound scheduling and notification sign-in links |
 
 The design matrix covers welcome, sign-in, registration, account recovery, confirmation/reset links, home, tasks, plan, team, activity, integrations, connection help, task detail, all creation steps and updates. Widths: 320, 375, 768, 1024 and 1440px. Additional usability checks include 390, 600 and 844px landscape layouts. Inputs use 16px text on phones; navigation retains visible labels and targets of at least 44px.
 

@@ -28,7 +28,7 @@ test('cloud startup requires explicit durable storage, secure cookies and exact 
     assert.throws(() => runtimeSettings({ ...env, ...bad }));
   assert.equal(runtimeSettings({ ...env, DEMO_ACCOUNT_ENABLED: 'true' }).demo, true);
 });
-test('local judge startup stays database-free and explicit local MongoDB is supported', () => {
+test('local startup stays database-free and explicit local MongoDB is supported', () => {
   const local = runtimeSettings({});
   assert.equal(local.mongoUri, undefined);
   assert.equal(local.demo, true);

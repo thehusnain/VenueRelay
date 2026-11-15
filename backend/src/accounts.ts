@@ -429,7 +429,7 @@ export async function handleAccountRoute(options: {
       found?.password_hash && matches,
       401,
       'INVALID_CREDENTIALS',
-      'Username, email or password is incorrect. Check your details or reset your password.',
+      'Username or password is incorrect. Check your details or reset your password.',
     );
     ensure(
       store.get<User>('SELECT password_hash FROM users WHERE id=?', found.id)?.password_hash ===

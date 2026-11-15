@@ -31,4 +31,4 @@ Stop: Ctrl+C
 
 Repository: https://github.com/thehusnain/VenueRelay. If the form asks for a demo video, link a short public recording of the working app and recovery journey; a demo recording is not included in this repository.
 
-Hosted judging URL: **https://venuerelay.onrender.com**. Choose Explore the demo or use the credentials above. The Render blueprint explicitly enables the demo account. Setup: [DEPLOYMENT.md](DEPLOYMENT.md). The service already exists; updates must be deployed to it.
+Live URL: **https://venuerelay.onrender.com**. Choose Explore the demo or use the credentials above. The Render blueprint explicitly enables the demo account. Setup: [DEPLOYMENT.md](DEPLOYMENT.md). The service already exists; updates must be deployed to it.

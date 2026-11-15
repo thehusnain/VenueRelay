@@ -3256,3 +3256,135 @@ pre {
     font-size: 16px;
   }
 }
+.pending-task-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.pending-task {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pending-task h2 {
+  font-size: 16px;
+  margin-block: 8px;
+}
+.pending-task p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+.pending-task p > span {
+  min-width: 0;
+}
+.pending-task-status {
+  font-size: 12px;
+  color: var(--warning);
+}
+.notification-alert {
+  position: fixed;
+  z-index: 30;
+  top: calc(90px + env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(410px, calc(100vw - 32px));
+  padding: 18px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px #18382a30;
+}
+.notification-alert > svg {
+  color: var(--brand);
+  margin-top: 4px;
+}
+.notification-alert > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notification-alert p {
+  font-size: 13px;
+}
+.notification-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.notification-alert > .icon-button {
+  flex-shrink: 0;
+  margin: -8px -8px 0 0;
+}
+.task-next-step form > label {
+  margin-top: 18px;
+}
+.task-facts > span > span,
+.request-summary p > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .is-task-form .app-header,
+  .is-task-detail .app-header {
+    position: static;
+  }
+  .task-wizard > .back-link,
+  .task-view > .back-link {
+    margin-bottom: 10px;
+  }
+  .task-wizard h1,
+  .task-view h1 {
+    font-size: 26px;
+  }
+  .wizard-stepper {
+    margin-block: 18px;
+    padding-bottom: 16px;
+  }
+  .task-wizard form,
+  .task-next-step,
+  .assignment {
+    padding: 18px;
+  }
+  .task-wizard input,
+  .task-wizard textarea,
+  .task-wizard select,
+  .task-view input,
+  .task-view textarea,
+  .task-view select {
+    scroll-margin-block: 24px 100px;
+  }
+  .task-next-step .button,
+  .assignment form > .button {
+    width: 100%;
+  }
+  .task-next-step > .button-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .task-next-step form > h2 {
+    font-size: 18px;
+    scroll-margin-top: 24px;
+  }
+  .notification-alert {
+    right: 16px;
+    top: calc(90px + env(safe-area-inset-top));
+    padding: 16px;
+  }
+}
+@media (max-width: 480px) {
+  .step-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .step-actions .button {
+    width: 100%;
+  }
+}

@@ -40,11 +40,20 @@ export class MongoAccounts {
     return this.userForSession(hash(raw));
   }
   async userForSession(sessionHash: string, store = this.store) {
-    const session = await store.get<{ user_id: string }>('sessions', {
-      token_hash: sessionHash,
-      expires_at: { $gt: now() },
-    });
-    return session ? store.get<User>('users', { id: session.user_id }) : undefined;
+    const rows = await store
+      .collection('sessions')
+      .aggregate(
+        [
+          { $match: { token_hash: sessionHash, expires_at: { $gt: now() } } },
+          { $lookup: { from: 'users', localField: 'user_id', foreignField: 'id', as: 'account' } },
+          { $unwind: '$account' },
+          { $replaceWith: '$account' },
+          { $project: { _id: 0 } },
+        ],
+        { session: store.session },
+      )
+      .toArray();
+    return rows[0] as unknown as User | undefined;
   }
   async require(req: IncomingMessage) {
     const user = await this.user(req);
@@ -425,7 +434,7 @@ export class MongoAccounts {
         found?.password_hash && matches,
         401,
         'INVALID_CREDENTIALS',
-        'Username, email or password is incorrect. Check your details or reset your password.',
+        'Username or password is incorrect. Check your details or reset your password.',
       );
       const nextRecovery = recoveryCode();
       user = await this.store.transaction(async (tx) => {

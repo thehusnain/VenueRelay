@@ -1595,7 +1595,7 @@
       "post": {
         "summary": "Open an event or return real-account onboarding",
         "operationId": "post__bootstrap",
-        "description": "Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.",
+        "description": "Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public demo account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.",
         "responses": {
           "200": {
             "description": "Success",

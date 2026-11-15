@@ -21,6 +21,8 @@ export class MongoBackend implements ApplicationBackend {
   readonly domain: MongoDomain;
   readonly push: MongoPush;
   private live?: ReturnType<typeof attachMongoRealtime>;
+  private preparing?: Promise<void>;
+  private wakeDelivery?: () => void;
   constructor(
     readonly store: MongoStore,
     readonly settings: {
@@ -42,6 +44,16 @@ export class MongoBackend implements ApplicationBackend {
   }
   health() {
     return this.store.ping();
+  }
+  prepare() {
+    return (this.preparing ??= this.push.configure(this.accounts.mail.origin).catch((error) => {
+      this.preparing = undefined;
+      throw error;
+    }));
+  }
+  async pushConfiguration() {
+    await this.prepare();
+    return { enabled: !!this.push.settings, publicKey: this.push.settings?.publicKey ?? null };
   }
   stopLive() {
     this.live?.stop();
@@ -132,7 +144,11 @@ export class MongoBackend implements ApplicationBackend {
         limit: (key, max, window) => this.accounts.limit(key, max, window),
       })
     ) {
-      if (method === 'POST') this.changed();
+      if (method === 'POST') {
+        const requestEvent = path.match(/^\/api\/v1\/attendee-events\/([^/]+)\/requests$/)?.[1];
+        this.changed(requestEvent ? decodeURIComponent(requestEvent) : undefined);
+        this.wakeDelivery?.();
+      }
       return;
     }
     if (path.startsWith('/api/v1/auth/')) {
@@ -155,7 +171,7 @@ export class MongoBackend implements ApplicationBackend {
         send({ requiresSetup: true, user: publicUser(user) });
         return;
       }
-      const ctx = await this.domain.context(req, event.id);
+      const ctx = await this.domain.context(req, event.id, this.store, user);
       send(await this.domain.snapshot(ctx));
       return;
     }
@@ -235,6 +251,7 @@ export class MongoBackend implements ApplicationBackend {
         ),
       );
       this.changed(ctx.event.id);
+      this.wakeDelivery?.();
       return;
     }
     if (resource === 'activity' && method === 'GET') {
@@ -255,6 +272,13 @@ export class MongoBackend implements ApplicationBackend {
       return;
     }
     if (resource === 'notifications/read' && method === 'POST') {
+      ensure(
+        !req.headers['x-rally-expected-actor'] ||
+          req.headers['x-rally-expected-actor'] === ctx.me.id,
+        409,
+        'ACTOR_CHANGED',
+        'Sign in with the account that saved this read status.',
+      );
       const p = await body();
       ensure(
         Array.isArray(p.ids) && p.ids.length <= 100 && p.ids.every((x) => typeof x === 'string'),
@@ -371,20 +395,25 @@ export class MongoBackend implements ApplicationBackend {
       running: Promise<void> | undefined;
     const tick = () => {
       if (!stopped && !running)
-        running = (async () => {
-          for (let i = 0; i < 10 && !stopped; i++) if (!(await this.accounts.deliver())) break;
-          await this.push.runBatch();
-        })()
+        running = Promise.all([
+          (async () => {
+            for (let i = 0; i < 10 && !stopped; i++) if (!(await this.accounts.deliver())) break;
+          })(),
+          this.prepare().then(() => this.push.runBatch()),
+        ])
+          .then(() => {})
           .catch(() => console.error('Delivery worker will retry'))
           .finally(() => {
             running = undefined;
           });
     };
     const timer = setInterval(tick, 5000);
+    this.wakeDelivery = tick;
     timer.unref();
     void tick();
     return async () => {
       stopped = true;
+      this.wakeDelivery = undefined;
       clearInterval(timer);
       await running;
     };

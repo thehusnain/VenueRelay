@@ -187,7 +187,11 @@ export function createApp(options: Options) {
           return;
         }
         if (path === '/api/v1/push/public-key' && method === 'GET') {
-          send({ enabled: !!browserPush, publicKey: browserPush?.publicKey ?? null });
+          send(
+            options.backend?.pushConfiguration
+              ? await options.backend.pushConfiguration()
+              : { enabled: !!browserPush, publicKey: browserPush?.publicKey ?? null },
+          );
           return;
         }
         if (path === '/api/docs' || path === '/api/docs/') {
@@ -371,6 +375,13 @@ export function createApp(options: Options) {
           return;
         }
         if (resource === 'notifications/read' && method === 'POST') {
+          ensure(
+            !req.headers['x-rally-expected-actor'] ||
+              req.headers['x-rally-expected-actor'] === ctx.me.id,
+            409,
+            'ACTOR_CHANGED',
+            'Sign in with the account that saved this read status.',
+          );
           const p = await body(req);
           ensure(
             Array.isArray(p.ids) &&

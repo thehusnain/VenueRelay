@@ -2,6 +2,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 export interface ApplicationBackend {
   readonly storage: string;
   health(): Promise<boolean>;
+  pushConfiguration?(): Promise<{ enabled: boolean; publicKey: string | null }>;
   handle(
     req: IncomingMessage,
     res: ServerResponse,

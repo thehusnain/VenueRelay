@@ -190,6 +190,7 @@ export class MongoStore {
         { key: { expires: 1 }, expireAfterSeconds: 0 },
       ],
       counters: [{ key: { name: 1 }, unique: true }],
+      server_settings: [{ key: { key: 1 }, unique: true }],
     };
     for (const [table, indexes] of Object.entries(definitions)) {
       await this.collection(table).createIndexes(indexes);

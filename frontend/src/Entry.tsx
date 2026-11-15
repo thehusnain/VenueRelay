@@ -180,8 +180,8 @@ export function Entry({
                     <span>One place.</span>
                   </h1>
                   <p>
-                    The doors are opening. The team is ready. Keep requests, people and plans
-                    together — even when the connection drops.
+                    Run your event from one place. Attendees ask for help, organisers assign the
+                    work, and volunteers or vendors complete it.
                   </p>
                   <div className="welcome-actions">
                     <button
@@ -466,7 +466,7 @@ function AccountPage({
           </label>
         ) : null}
         <label htmlFor="account-identity">
-          {mode === 'register' ? 'Choose a username' : 'Username or email'}
+          {mode === 'register' ? 'Choose a username' : 'Username'}
           <input
             id="account-identity"
             name="username"
@@ -590,7 +590,7 @@ function AccountPage({
             </p>
             <dl>
               <div>
-                <dt>Email</dt>
+                <dt>Account</dt>
                 <dd>{demoCredentials.email}</dd>
               </div>
               <div>

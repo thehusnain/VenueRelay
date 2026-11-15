@@ -6,12 +6,20 @@ import {
   type StoredIntent,
 } from './offline-store';
 import { fetchJson, RequestError } from './transport';
+import { intentId } from './intent-id';
 export interface SyncResult {
   saved: number;
   retry: boolean;
   authRequired: boolean;
 }
-export async function syncOutbox(scope?: string, api = ''): Promise<SyncResult> {
+export async function syncOutbox(
+  scope?: string,
+  api = '',
+  onConfirmed?: (
+    item: StoredIntent,
+    response: { entityId?: string; entityType?: string; entity?: object; ok?: boolean },
+  ) => Promise<void>,
+): Promise<SyncResult> {
   const result = { saved: 0, retry: false, authRequired: false },
     db = await deviceDB();
   const activeUser = await readState<string>('activeUser');
@@ -50,51 +58,70 @@ export async function syncOutbox(scope?: string, api = ''): Promise<SyncResult> 
       continue;
     }
     current.leaseUntil = Date.now() + 30000;
-    current.leaseToken = crypto.randomUUID();
+    current.leaseToken = intentId();
     const finish = async (value?: StoredIntent) => {
       const tx = db.transaction('outbox', 'readwrite');
       const latest = await tx.store.get(item.id);
       if (latest?.leaseToken === current.leaseToken) {
         if (value) await tx.store.put(value);
         else await tx.store.delete(item.id);
+      } else {
+        await tx.done;
+        return false;
       }
       await tx.done;
+      return true;
     };
     await tx.store.put(current);
     await tx.done;
     try {
-      const response = await fetchJson<{ entityId: string; entityType: string; entity: object }>(
-        `${api}/api/v1/events/${item.eventId}/commands`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': item.key,
-            'X-Rally-Persona': item.persona,
-            'X-Rally-Expected-Actor': item.actorId,
-          },
-          body: JSON.stringify({
-            action: item.action,
-            taskId: item.taskId,
-            expectedVersion: item.expectedVersion,
-            payload: item.payload,
-          }),
+      const read = item.action === 'notification.read';
+      const response = await fetchJson<{
+        entityId?: string;
+        entityType?: string;
+        entity?: object;
+        ok?: boolean;
+      }>(`${api}/api/v1/events/${item.eventId}/${read ? 'notifications/read' : 'commands'}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': item.key,
+          'X-Rally-Persona': item.persona,
+          'X-Rally-Expected-Actor': item.actorId,
         },
-      );
+        body: JSON.stringify(
+          read
+            ? { ids: item.payload.ids }
+            : {
+                action: item.action,
+                taskId: item.taskId,
+                expectedVersion: item.expectedVersion,
+                payload: item.payload,
+              },
+        ),
+      });
       if (
-        !response.entityId ||
-        !response.entityType ||
-        !response.entity ||
-        typeof response.entity !== 'object'
+        read
+          ? response.ok !== true
+          : !response.entityId ||
+            !response.entityType ||
+            !response.entity ||
+            typeof response.entity !== 'object'
       )
         throw new RequestError(
           502,
           'UNCONFIRMED_CHANGE',
           'The server did not confirm this change. It remains queued for a safe retry.',
         );
-      await finish();
-      result.saved++;
+      if (await finish()) {
+        result.saved++;
+        try {
+          await onConfirmed?.(item, response);
+        } catch {
+          /* The server acknowledgement remains authoritative; refresh can recover its view. */
+        }
+      }
     } catch (error) {
       current.leaseUntil = 0;
       if (

@@ -132,8 +132,9 @@ export class PushService {
       p256dh: string;
       auth: string;
       task_id: string;
+      event_id: string;
     }>(
-      "SELECT d.*,s.endpoint,s.p256dh,s.auth,n.task_id FROM push_deliveries d JOIN push_subscriptions s ON s.id=d.subscription_id JOIN notifications n ON n.id=d.notification_id JOIN members m ON m.id=s.member_id AND m.user_id=s.user_id JOIN sessions a ON a.token_hash=s.session_hash WHERE d.state='pending' AND d.next_attempt_at<=? AND d.lease_until<=? AND a.expires_at>? LIMIT 10",
+      "SELECT d.*,s.endpoint,s.p256dh,s.auth,n.task_id,n.event_id FROM push_deliveries d JOIN push_subscriptions s ON s.id=d.subscription_id JOIN notifications n ON n.id=d.notification_id JOIN members m ON m.id=s.member_id AND m.user_id=s.user_id JOIN sessions a ON a.token_hash=s.session_hash WHERE d.state='pending' AND d.next_attempt_at<=? AND d.lease_until<=? AND a.expires_at>? LIMIT 10",
       Date.now(),
       Date.now(),
       now(),
@@ -156,6 +157,8 @@ export class PushService {
           subscription,
           JSON.stringify({
             id: job.notification_id,
+            eventId: job.event_id,
+            taskId: job.task_id || undefined,
             url: job.task_id ? '/tasks/' + job.task_id : '/',
           }),
           {

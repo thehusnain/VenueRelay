@@ -12,6 +12,7 @@ import { Modal, eventDate } from './components';
 import { QrCode } from './qr';
 import { fetchJson, RequestError } from './transport';
 import { request } from './use-rally';
+import { intentId } from './intent-id';
 
 interface SavedRequest {
   key: string;
@@ -182,7 +183,7 @@ export function AttendeePortal({
       return;
     }
     const intent: SavedRequest = {
-      key: crypto.randomUUID(),
+      key: intentId(),
       input: {
         name: String(values.name || '').trim(),
         title,

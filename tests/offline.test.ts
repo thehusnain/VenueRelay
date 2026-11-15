@@ -154,6 +154,55 @@ test('legacy outbox migration retains IDs and quarantines unreadable entries wit
   }
 });
 
+test('notification reads survive a lost acknowledgement and retry without changing task history', async () => {
+  await empty();
+  const f = fixture(),
+    original = globalThis.fetch;
+  let lost = true,
+    readAt: string | undefined,
+    confirmed = 0;
+  try {
+    await writeState('activeUser', f.ctx.user.id);
+    await addIntent(f.snapshot, {
+      key: 'read-retry',
+      eventId: f.ctx.event.id,
+      persona: 'self',
+      action: 'notification.read',
+      payload: { ids: ['note-1'] },
+      createdAt: now(),
+    });
+    globalThis.fetch = async (url, options) => {
+      if (String(url).endsWith('/auth/me')) return Response.json({ user: { id: f.ctx.user.id } });
+      assert.ok(String(url).endsWith('/notifications/read'));
+      assert.deepEqual(JSON.parse(String(options?.body)), { ids: ['note-1'] });
+      readAt ??= now();
+      if (lost) {
+        lost = false;
+        throw new TypeError('ack lost');
+      }
+      return Response.json({ ok: true });
+    };
+    assert.equal((await syncOutbox()).retry, true);
+    const firstStamp = readAt;
+    const item = (await readQueue())[0];
+    await (await deviceDB()).put('outbox', { ...item, nextAttemptAt: 0 });
+    assert.equal(
+      (
+        await syncOutbox(undefined, '', async () => {
+          confirmed++;
+        })
+      ).saved,
+      1,
+    );
+    assert.equal(confirmed, 1);
+    assert.equal(readAt, firstStamp);
+    assert.equal((await readQueue()).length, 0);
+    assert.equal(integrity(f.store, f.ctx).commands, 0);
+  } finally {
+    globalThis.fetch = original;
+    f.store.close();
+  }
+});
 test('an expired old worker cannot resurrect an intent already confirmed by another tab', async () => {
   await empty();
   const f = fixture(),
