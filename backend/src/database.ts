@@ -16,6 +16,7 @@ export class Store {
       '002_accounts.sql',
       '003_pwa.sql',
       '004_account_access.sql',
+      '005_attendee_access.sql',
     ];
     const version = (this.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version;

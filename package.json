@@ -28,7 +28,8 @@
     "test:mongo": "node --import tsx --test --test-isolation=none tests/mongo.integration.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate-mongo.ts",
     "check:deployment": "node scripts/check-deployment.mjs",
-    "test:accounts": "node tests/browser.mjs account"
+    "test:accounts": "node tests/browser.mjs account",
+    "test:attendees": "node tests/browser.mjs attendee"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.3.0",

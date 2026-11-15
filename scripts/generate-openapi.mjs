@@ -84,6 +84,7 @@ schemas.Announcement = object(
 schemas.User = object({
   id: string,
   email: nullable,
+  username: nullable,
   name: string,
   emailVerified: { type: 'boolean' },
   accessGranted: { type: 'boolean' },
@@ -186,6 +187,19 @@ const spec = {
   paths: {},
   components: {
     securitySchemes: {
+      attendeeLink: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-VenueRelay-Event-Key',
+        description:
+          'Reusable event help capability from an organiser-generated QR/link. Cannot access staff routes.',
+      },
+      attendeeReceipt: {
+        type: 'http',
+        scheme: 'bearer',
+        description:
+          'vr_guest_ followed by the private 43-character receipt key. Read-only access to exactly one attendee request.',
+      },
       session: { type: 'apiKey', in: 'cookie', name: 'rally_session' },
       bearer: {
         type: 'http',
@@ -208,6 +222,7 @@ function add(
     description = '',
     parameters = [],
     publicAccess = false,
+    security,
     status = 200,
   } = {},
 ) {
@@ -235,7 +250,8 @@ function add(
     parameters = [{ name: 'eventId', in: 'path', required: true, schema: string }, ...parameters];
   if (parameters.length) operation.parameters = parameters;
   if (body) operation.requestBody = { required: true, ...json(body) };
-  if (publicAccess) operation.security = [];
+  if (security) operation.security = security;
+  else if (publicAccess) operation.security = [];
   (spec.paths['/api/v1' + path] ??= {})[method] = operation;
 }
 add('/auth/register', 'post', 'Create account', {
@@ -243,13 +259,18 @@ add('/auth/register', 'post', 'Create account', {
   body: object(
     {
       name: string,
-      email: { type: 'string', format: 'email' },
+      email: {
+        type: 'string',
+        format: 'email',
+        description: 'Legacy email-account registration. New staff accounts use username.',
+      },
+      username: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9_.-]{2,29}$' },
       password: { type: 'string', minLength: 10, maxLength: 200 },
     },
-    ['name', 'email', 'password'],
+    ['name', 'password'],
   ),
   description:
-    'Creates a password account and session. With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.',
+    'Creates a staff username/password account and session without email. Provide username (3–30 ASCII characters); legacy clients may instead provide email. Usernames are normalised to lowercase and unique. Username accounts always receive immediate access and a private recovery code. No attendee signup is needed for public QR requests. Legacy email behavior: With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.',
 });
 add('/auth/recovery-code', 'post', 'Replace your private recovery code', {
   body: object({ password: string }, ['password']),
@@ -262,10 +283,11 @@ add('/auth/recover-account', 'post', 'Reset password using a private recovery co
   body: object(
     {
       email: { type: 'string', format: 'email' },
+      username: string,
       recoveryCode: string,
       password: { type: 'string', minLength: 10, maxLength: 200 },
     },
-    ['email', 'recoveryCode', 'password'],
+    ['recoveryCode', 'password'],
   ),
   response: object({ ok: { type: 'boolean' }, recoveryCode: string }, ['ok', 'recoveryCode']),
   description:
@@ -273,8 +295,16 @@ add('/auth/recover-account', 'post', 'Reset password using a private recovery co
 });
 add('/auth/login', 'post', 'Sign in', {
   publicAccess: true,
-  body: object({ email: string, password: string }, ['email', 'password']),
+  body: object({ username: string, email: string, password: string }, ['password']),
+  description:
+    'Supply username and password. The username field also accepts an existing email identifier. Legacy clients may continue to send email instead. Case-insensitive usernames; HttpOnly session cookie or API bearer session.',
 });
+for (const path of ['/auth/register', '/auth/login', '/auth/recover-account']) {
+  spec.paths['/api/v1' + path].post.requestBody.content['application/json'].schema.anyOf = [
+    { required: ['username'] },
+    { required: ['email'] },
+  ];
+}
 add('/auth/verify-email', 'post', 'Confirm email ownership', {
   publicAccess: true,
   body: object({ token: string }, ['token']),
@@ -446,6 +476,93 @@ add('/events/{eventId}/live', 'get', 'Upgrade to authenticated event WebSocket',
   status: 101,
   description:
     'Connect with ws/wss and an allowed Origin. Local same-origin connections use the session cookie. Hosted MongoDB connections use a fresh one-use ticket from POST /events/{eventId}/live-ticket in the ticket query parameter. Optional local persona query and ticket personas are restricted to the owning demo account. Receives connected and event.changed messages containing only eventId. On invalidation refetch the role-filtered snapshot. Reconnect with backoff; polling is a fallback. Auth is rechecked on heartbeat and account changes; session revocation closes with 4401. Commands always use HTTP with idempotency keys.',
+});
+schemas.AttendeeEvent = object({ id: string, name: string, venue: string, date: string }, [
+  'id',
+  'name',
+  'venue',
+  'date',
+]);
+schemas.AttendeeRequestInput = object(
+  {
+    name: string,
+    title: string,
+    location: string,
+    description: string,
+    priority: { type: 'string', enum: ['normal', 'high', 'urgent'] },
+    receiptKey: { type: 'string', pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true },
+  },
+  ['title', 'location', 'receiptKey'],
+);
+schemas.AttendeeRequestView = object(
+  {
+    event: ref('AttendeeEvent'),
+    request: object(
+      Object.fromEntries(
+        [
+          'id',
+          'title',
+          'description',
+          'location',
+          'priority',
+          'status',
+          'resolution',
+          'created_at',
+          'updated_at',
+        ].map((key) => [key, string]),
+      ),
+    ),
+    updates: { type: 'array', items: object({ status: string, createdAt: string }) },
+  },
+  ['event', 'request', 'updates'],
+);
+add('/events/{eventId}/attendee-links', 'get', 'List attendee access link metadata', {
+  description: 'Organiser only. Never returns raw capabilities or request receipts.',
+});
+add('/events/{eventId}/attendee-links', 'post', 'Create a reusable attendee QR/link capability', {
+  body: object({}),
+  status: 201,
+  response: object({ id: string, token: string }, ['id', 'token']),
+  description:
+    'Own signed-in organiser only; integration tokens denied. Returns a token once. Share /attend/EVENT_ID#key=TOKEN. At most ten active links per event. No automatic retry. Link creation is recorded in the activity journal.',
+});
+add(
+  '/events/{eventId}/attendee-links/{linkId}',
+  'delete',
+  'Disable new requests through an attendee link',
+  {
+    parameters: [{ name: 'linkId', in: 'path', required: true, schema: string }],
+    description:
+      'Own signed-in organiser only. Naturally idempotent, with one audit entry. Existing private receipt links remain usable. Previously committed matching request replays remain available.',
+  },
+);
+add('/attendee-events/{eventId}', 'get', 'Read public event help metadata', {
+  security: [{ attendeeLink: [] }],
+  response: ref('AttendeeEvent'),
+  description:
+    'Only name, venue, date and ID. No account/session needed. Missing or invalid capability:404; disabled capability:410. Request reads share a per-peer budget of 1200/minute.',
+});
+add('/attendee-events/{eventId}/requests', 'post', 'Submit an account-free attendee request', {
+  security: [{ attendeeLink: [] }],
+  body: ref('AttendeeRequestInput'),
+  status: 201,
+  response: object({ requestId: string, replayed: { type: 'boolean' } }, ['requestId', 'replayed']),
+  parameters: [
+    {
+      name: 'Idempotency-Key',
+      in: 'header',
+      required: true,
+      schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,100}$' },
+    },
+  ],
+  description:
+    'Persist a random 32-byte base64url receiptKey and stable request key on the device BEFORE sending. Reuse both and the identical body after timeout/reload/reconnect. A new key is a new request. Transaction atomically creates a lightweight attendee reporter, one task, command, audit, notifications and hashed receipt; no user account or password hashing. Same key with changed body/link:409. Return does not contain receiptKey. Open /request#key=RECEIPT_KEY. 120 attempts/minute per event and 60/minute per server peer. Respect Retry-After; no unbounded retries. Names are self-reported, not verified. Public input cannot assign owners or change task status.',
+});
+add('/attendee-requests', 'get', 'Read exactly one request using its private receipt', {
+  security: [{ attendeeReceipt: [] }],
+  response: ref('AttendeeRequestView'),
+  description:
+    'Authorization: Bearer vr_guest_RECEIPT_KEY. Only its event metadata, request and status history; no member list, account data, raw audit snapshots or unrelated requests. No write access. The browser refreshes every 15 seconds while visible. Anyone holding the link can read it; keep it private. Missing/unknown receipts:404. Receipt remains valid when the public event link is disabled. Tokens remain in URL fragments, not query strings or server access-log paths.',
 });
 writeFileSync(
   new URL('../docs/openapi.json', import.meta.url),

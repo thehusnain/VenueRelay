@@ -21,7 +21,15 @@ import type { Snapshot, Pending } from '../../shared/contracts';
 import { Avatar, ActivityList, Empty, eventDate, time } from './components';
 import { request, API } from './use-rally';
 import { statusLabels, type Status } from '../../shared/contracts';
-export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => void }) {
+export function TeamPage({
+  data,
+  onInvite,
+  onAttendees,
+}: {
+  data: Snapshot;
+  onInvite: () => void;
+  onAttendees: () => void;
+}) {
   return (
     <>
       <div className="section-intro">
@@ -29,39 +37,46 @@ export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => v
           <p>Clarity starts with knowing who owns what.</p>
         </div>
         {data.me.role === 'organiser' ? (
-          <button className="button primary" onClick={onInvite}>
-            <Plus size={16} />
-            Invite a teammate
-          </button>
+          <div className="button-row">
+            <button className="button secondary" onClick={onAttendees}>
+              Share attendee QR
+            </button>
+            <button className="button primary" onClick={onInvite}>
+              <Plus size={16} />
+              Invite a teammate
+            </button>
+          </div>
         ) : null}
       </div>
       <section className="team-directory" aria-label="Event team">
-        {data.members.map((m) => {
-          const count = data.tasks.filter(
-            (t) => t.owner_id === m.id && !['closed', 'resolved'].includes(t.status),
-          ).length;
-          return (
-            <article className={`person-credential ${m.role}`} key={m.id}>
-              <Avatar member={m} size="large" />
-              <div className="credential-person">
-                <h2>
-                  {m.name}
-                  {m.id === data.me.id ? <span className="person-you">You</span> : null}
-                </h2>
-                <p>
-                  {m.team}
-                  <span> · {m.role}</span>
-                </p>
-              </div>
-              <div className="credential-bottom">
-                <span>
-                  {count} {data.me.role === 'organiser' ? 'active' : 'visible'}{' '}
-                  {count === 1 ? 'task' : 'tasks'}
-                </span>
-              </div>
-            </article>
-          );
-        })}
+        {data.members
+          .filter((m) => !m.user_id.startsWith('guest:'))
+          .map((m) => {
+            const count = data.tasks.filter(
+              (t) => t.owner_id === m.id && !['closed', 'resolved'].includes(t.status),
+            ).length;
+            return (
+              <article className={`person-credential ${m.role}`} key={m.id}>
+                <Avatar member={m} size="large" />
+                <div className="credential-person">
+                  <h2>
+                    {m.name}
+                    {m.id === data.me.id ? <span className="person-you">You</span> : null}
+                  </h2>
+                  <p>
+                    {m.team}
+                    <span> · {m.role}</span>
+                  </p>
+                </div>
+                <div className="credential-bottom">
+                  <span>
+                    {count} {data.me.role === 'organiser' ? 'active' : 'visible'}{' '}
+                    {count === 1 ? 'task' : 'tasks'}
+                  </span>
+                </div>
+              </article>
+            );
+          })}
       </section>
       <details className="role-explanation">
         <summary>Who can do what?</summary>
@@ -85,7 +100,7 @@ export function TeamPage({ data, onInvite }: { data: Snapshot; onInvite: () => v
             [
               'attendee',
               'Attendees',
-              'Request help, follow your own requests and read the shared event schedule and announcements.',
+              'Use an event QR without an account to request help and track that request privately. Signed-in legacy/demo attendees also see the shared plan and announcements.',
             ],
           ].map(([role, title, description]) => (
             <article className="permission-panel" key={role}>

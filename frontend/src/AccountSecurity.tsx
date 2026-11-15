@@ -3,11 +3,11 @@ import { Download, ShieldCheck } from 'lucide-react';
 import { Modal } from './components';
 import { request } from './use-rally';
 
-export function downloadRecoveryCode(email: string, code: string) {
+export function downloadRecoveryCode(identifier: string, code: string) {
   const url = URL.createObjectURL(
     new Blob(
       [
-        `VenueRelay recovery code\nEmail: ${email}\nCode: ${code}\nKeep this private. It can reset your password.\n`,
+        `VenueRelay recovery code\nAccount: ${identifier}\nCode: ${code}\nKeep this private. It can reset your password.\n`,
       ],
       { type: 'text/plain' },
     ),
@@ -19,7 +19,13 @@ export function downloadRecoveryCode(email: string, code: string) {
   URL.revokeObjectURL(url);
 }
 
-export function AccountSecurity({ email, onClose }: { email: string; onClose: () => void }) {
+export function AccountSecurity({
+  identifier,
+  onClose,
+}: {
+  identifier: string;
+  onClose: () => void;
+}) {
   const [code, setCode] = useState('');
   const resultHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -49,7 +55,7 @@ export function AccountSecurity({ email, onClose }: { email: string; onClose: ()
           </div>
           <button
             className="button secondary full-width"
-            onClick={() => downloadRecoveryCode(email, code)}
+            onClick={() => downloadRecoveryCode(identifier, code)}
           >
             <Download size={17} />
             Download recovery code

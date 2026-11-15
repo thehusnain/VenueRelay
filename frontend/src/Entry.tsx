@@ -128,7 +128,7 @@ export function Entry({
               }
               onNavigate={onNavigate}
               onReady={onReady}
-              email={account?.email ?? ''}
+              identifier={account?.username ?? account?.email ?? ''}
               onDemo={openDemo}
               demoBusy={demoBusy}
               demoError={demoError}
@@ -196,7 +196,7 @@ export function Entry({
                     </button>
                   </div>
                   <p className="welcome-reassurance">
-                    No email confirmation. No extra apps. Just your team, connected.
+                    Staff use a username. Attendees scan a QR. No email needed.
                   </p>
                   {error || demoError ? (
                     <p className="form-error" role="alert">
@@ -290,7 +290,7 @@ export function Entry({
 }
 function AccountPage({
   mode,
-  email,
+  identifier,
   onNavigate,
   onReady,
   onDemo,
@@ -298,7 +298,7 @@ function AccountPage({
   demoError,
 }: {
   mode: 'signin' | 'register' | 'forgot';
-  email: string;
+  identifier: string;
   onNavigate: (p: string) => void;
   onReady: () => Promise<void>;
   onDemo: () => Promise<void>;
@@ -316,12 +316,12 @@ function AccountPage({
     [errorField, setErrorField] = useState(''),
     [show, setShow] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
-  const [emailValue, setEmailValue] = useState(email),
+  const [identifierValue, setIdentifierValue] = useState(identifier),
     [passwordValue, setPasswordValue] = useState(''),
     [demoFilled, setDemoFilled] = useState(false);
   const signInButton = useRef<HTMLButtonElement>(null);
   const fillDemo = () => {
-    setEmailValue(demoCredentials.email);
+    setIdentifierValue(demoCredentials.email);
     setPasswordValue(demoCredentials.password);
     setError('');
     setErrorField('');
@@ -364,8 +364,14 @@ function AccountPage({
       setError(message);
       setErrorField(
         e instanceof RequestError &&
-          ['INVALID_EMAIL', 'EMAIL_DOMAIN', 'EMAIL_EXISTS'].includes(e.code)
-          ? 'email'
+          [
+            'INVALID_EMAIL',
+            'EMAIL_DOMAIN',
+            'EMAIL_EXISTS',
+            'INVALID_USERNAME',
+            'USERNAME_EXISTS',
+          ].includes(e.code)
+          ? 'identity'
           : message.startsWith('Password')
             ? 'password'
             : '',
@@ -401,7 +407,7 @@ function AccountPage({
         <button
           className="button secondary full-width"
           onClick={() => {
-            downloadRecoveryCode(emailValue, recovery);
+            downloadRecoveryCode(identifierValue, recovery);
           }}
         >
           <Download size={17} />
@@ -436,7 +442,7 @@ function AccountPage({
           {mode === 'signin'
             ? 'Sign in to pick up where you left off.'
             : mode === 'register'
-              ? 'Your name, email and a password. You can start straight away.'
+              ? 'Choose a username and password for your staff account. No email needed.'
               : 'Use the recovery code you saved when you created your account. No email needed.'}
         </p>
       </div>
@@ -454,27 +460,34 @@ function AccountPage({
             />
           </label>
         ) : null}
-        <label htmlFor="account-email">
-          Email address
+        <label htmlFor="account-identity">
+          {mode === 'register' ? 'Choose a username' : 'Username or email'}
           <input
-            id="account-email"
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
+            id="account-identity"
+            name="username"
+            type="text"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoComplete="username"
             required
-            maxLength={254}
-            value={emailValue}
+            maxLength={mode === 'register' ? 30 : 254}
+            pattern={mode === 'register' ? '[a-zA-Z][a-zA-Z0-9_.-]{2,29}' : undefined}
+            title={
+              mode === 'register'
+                ? '3–30 characters, starting with a letter. Use letters, numbers, dots, underscores or hyphens.'
+                : undefined
+            }
+            value={identifierValue}
             onChange={(e) => {
-              setEmailValue(e.target.value);
+              setIdentifierValue(e.target.value);
               setDemoFilled(false);
             }}
-            aria-invalid={errorField === 'email' || undefined}
-            aria-describedby={errorField === 'email' ? 'account-email-error' : undefined}
+            aria-invalid={errorField === 'identity' || undefined}
+            aria-describedby={errorField === 'identity' ? 'account-identity-error' : undefined}
           />
         </label>
-        {errorField === 'email' ? (
-          <p className="inline-error" id="account-email-error">
+        {errorField === 'identity' ? (
+          <p className="inline-error" id="account-identity-error">
             {error}
           </p>
         ) : null}

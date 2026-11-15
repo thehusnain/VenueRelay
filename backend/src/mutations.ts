@@ -153,7 +153,7 @@ export function planCommand(ctx: Context, input: CommandInput, members: Member[]
     entityType = 'announcement';
     message = text(p.message, 'Announcement', 1000, 5);
     after = { id: id(), event_id: ctx.event.id, actor_id: ctx.me.id, message, created_at: stamp };
-    recipients = members.map((m) => m.id);
+    recipients = members.filter((m) => !m.user_id.startsWith('guest:')).map((m) => m.id);
   } else throw new ApiError(422, 'VALIDATION_ERROR', 'Unknown command action.');
   return { entityType, entityId: after.id, before, after, recipients, message };
 }

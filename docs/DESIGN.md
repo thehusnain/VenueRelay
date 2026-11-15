@@ -37,10 +37,13 @@ Dialogs use native `dialog`, Escape, focus containment, scrolling within the vie
 
 ## Account and device flows
 
-The sign-in form comes before optional demo details. Demo access is one click. Signup shows a private recovery code before continuing to setup; Account security can replace it after password confirmation. Real events begin empty and guide organisers to invitations and the first task.
+The sign-in form comes before optional demo details. Demo access is one click. Staff signup uses a username and password, with a private recovery code before continuing to setup; Account security can replace it after password confirmation. Real events begin empty and guide organisers to invitations and the first task.
 
 Install controls appear only while a browser-provided install event is available. They open the native prompt directly. Unsupported browsers retain the website without manual installation steps. Save status distinguishes confirmed work, pending changes and an interrupted connection.
 
 ## Validation
 
 Automated browser checks cover narrow phones, tablets, desktop, short viewports, keyboard focus, dialogs, search recovery, role switching and WCAG rules through axe-core. Results and remaining device limits are recorded in [VALIDATION.md](VALIDATION.md).
+
+
+Attendees use a separate narrow request form reached through a shared QR/link. It has no account fields or staff controls. After submission, a private tracking view shows only that request, its status and updates, plus a clearly labelled link-saving action. Public entry tokens and private receipt tokens stay in URL fragments. The staff sharing dialog provides a QR, copyable link and controls to disable links. Guest reporters stay out of the staff roster.

@@ -30,7 +30,7 @@ async (existingPage, options = {}) => {
       }
     }
     await page.goto(base);
-    const fixture = await context.request.post(base + '/api/v1/auth/demo', {data:{}}); assert(fixture.ok(), 'Create isolated test fixture'); await page.evaluate(()=>sessionStorage.setItem('rally:demo','yes')); await page.goto(base);
+    const fixture = await context.request.post(base + (options.hosted ? '/api/v1/auth/login' : '/api/v1/auth/demo'), {data: options.hosted ? {email:'demo@rally.local',password:'RallyDemo2026!'} : {}}); assert(fixture.ok(), 'Create isolated test fixture'); await page.evaluate(()=>sessionStorage.setItem('rally:demo','yes')); await page.goto(base);
     await page.locator('.event-cover h1').waitFor();
     for (const width of [1440, 1024, 768, 375, 320]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 812 });

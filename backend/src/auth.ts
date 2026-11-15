@@ -9,6 +9,7 @@ export const now = () => new Date().toISOString();
 export interface User {
   id: string;
   email: string | null;
+  username?: string | null;
   name: string;
   password_hash?: string | null;
   email_verified_at?: string | null;
@@ -52,7 +53,7 @@ export function currentUser(store: Store, req: IncomingMessage): User | undefine
   const value = sessionValue(req);
   if (!value) return;
   return store.get<User>(
-    'SELECT u.id,u.email,u.name,u.email_verified_at,u.access_approved_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
+    'SELECT u.id,u.email,u.username,u.name,u.email_verified_at,u.access_approved_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
     hash(value),
     now(),
   );
@@ -61,6 +62,7 @@ export function publicUser(user: User) {
   return {
     id: user.id,
     email: user.email,
+    username: user.username ?? null,
     name: user.name,
     emailVerified: !user.email || !!user.email_verified_at,
     accessGranted: !user.email || !!user.email_verified_at || !!user.access_approved_at,
@@ -87,9 +89,25 @@ export function recoveryHash(value: unknown) {
     /^[a-f0-9]{40}$/.test(code),
     401,
     'INVALID_RECOVERY',
-    'Email or recovery code is incorrect.',
+    'Username, email or recovery code is incorrect.',
   );
   return hash(code);
+}
+export function normaliseUsername(value: unknown) {
+  const username = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  ensure(
+    /^[a-z][a-z0-9_.-]{2,29}$/.test(username),
+    422,
+    'INVALID_USERNAME',
+    'Use 3–30 characters: start with a letter, then use letters, numbers, dots, underscores or hyphens.',
+  );
+  return username;
+}
+export function accountIdentity(p: Record<string, unknown>) {
+  const raw = p.username ?? p.email;
+  if (typeof raw === 'string' && raw.includes('@'))
+    return { field: 'email' as const, value: raw.trim().toLowerCase() };
+  return { field: 'username' as const, value: normaliseUsername(raw) };
 }
 export function requireUser(store: Store, req: IncomingMessage) {
   const user = currentUser(store, req);

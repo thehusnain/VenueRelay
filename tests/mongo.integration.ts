@@ -658,3 +658,164 @@ test('Render no-email signup and recovery are transactional, keep event records 
     await isolated.close();
   }
 });
+
+test('public attendees submit once without accounts, remain private and preserve records through rollback and revocation', async () => {
+  const isolated = await MongoStore.connect(replica.getUri(), 'rally_public_attendees');
+  const native = new MongoBackend(isolated, { mail: { ...mail, mode: 'disabled' } });
+  const server = createApp({ backend: native });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port;
+  const http = async (
+    path: string,
+    body?: unknown,
+    cookie = '',
+    headers: Record<string, string> = {},
+    method = body === undefined ? 'GET' : 'POST',
+  ) => {
+    const response = await fetch(base + '/api/v1' + path, {
+      method,
+      headers: { 'Content-Type': 'application/json', Cookie: cookie, ...headers },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    return {
+      status: response.status,
+      data: await response.json(),
+      cookie: response.headers.get('set-cookie')?.split(';')[0],
+    };
+  };
+  const { token } = await import('../backend/src/auth.ts');
+  try {
+    const lead = await http('/auth/register', {
+      username: 'event_lead',
+      name: 'Event lead',
+      password: 'staff password 2026',
+    });
+    assert.equal(lead.status, 200, JSON.stringify(lead.data));
+    assert.equal(lead.data.user.email, null);
+    assert.equal(
+      (await http('/auth/login', { username: 'EVENT_LEAD', password: 'staff password 2026' }))
+        .status,
+      200,
+    );
+    const event = await http(
+      '/events',
+      { name: 'Public community day', venue: 'Town hall', date: '2026-12-01' },
+      lead.cookie,
+    );
+    assert.equal(event.status, 201, JSON.stringify(event.data));
+    const eventId = event.data.eventId;
+    const link = await http(`/events/${eventId}/attendee-links`, {}, lead.cookie);
+    assert.equal(link.status, 201, JSON.stringify(link.data));
+    const headers = {
+      'X-VenueRelay-Event-Key': link.data.token,
+      'Idempotency-Key': 'guest-parallel-key',
+    };
+    const input = {
+      title: 'Help finding the quiet area',
+      location: 'Main entrance',
+      receiptKey: token(),
+    };
+    const replies = await Promise.all(
+      [1, 2, 3].map(() => http(`/attendee-events/${eventId}/requests`, input, '', headers)),
+    );
+    assert.ok(
+      replies.every((r) => r.status === 201),
+      JSON.stringify(replies),
+    );
+    assert.equal(new Set(replies.map((r) => r.data.requestId)).size, 1);
+    assert.equal(replies.filter((r) => !r.data.replayed).length, 1);
+    assert.equal(await isolated.collection('users').countDocuments(), 1);
+    assert.equal(await isolated.collection('tasks').countDocuments(), 1);
+    const track = () =>
+      http('/attendee-requests', undefined, '', {
+        Authorization: 'Bearer vr_guest_' + input.receiptKey,
+      });
+    const view = await track();
+    assert.equal(view.status, 200);
+    assert.equal(view.data.request.title, input.title);
+    assert.equal(view.data.members, undefined);
+    assert.equal(
+      (
+        await http(`/events/${eventId}/snapshot`, undefined, '', {
+          Authorization: 'Bearer vr_guest_' + input.receiptKey,
+        })
+      ).status,
+      401,
+    );
+    const snapshot = await http(`/events/${eventId}/snapshot`, undefined, lead.cookie);
+    const task = snapshot.data.tasks[0];
+    let version = task.version;
+    for (const [action, payload] of [
+      ['task.assign', { ownerId: snapshot.data.me.id }],
+      ['task.status', { status: 'in_progress' }],
+      ['task.status', { status: 'resolved', resolution: 'Walked the guest to the quiet area.' }],
+      ['task.status', { status: 'closed' }],
+    ] as const) {
+      const result = await http(
+        `/events/${eventId}/commands`,
+        { action, taskId: task.id, expectedVersion: version, payload },
+        lead.cookie,
+        { 'Idempotency-Key': token() },
+      );
+      assert.equal(result.status, 200);
+      version = result.data.entity.version;
+    }
+    assert.equal((await track()).data.request.status, 'closed');
+    const original = MongoStore.prototype.insert;
+    MongoStore.prototype.insert = function (table, value) {
+      if (this.name === 'rally_public_attendees' && table === 'attendee_receipts')
+        throw new Error('Injected receipt failure');
+      return original.call(this, table, value);
+    };
+    try {
+      const failed = await http(
+        `/attendee-events/${eventId}/requests`,
+        { ...input, receiptKey: token() },
+        '',
+        { ...headers, 'Idempotency-Key': 'guest-rollback-key' },
+      );
+      assert.equal(failed.status, 500);
+    } finally {
+      MongoStore.prototype.insert = original;
+    }
+    assert.equal(await isolated.collection('tasks').countDocuments(), 1);
+    assert.equal(await isolated.collection('members').countDocuments(), 2);
+    assert.equal(
+      (
+        await http(
+          `/events/${eventId}/attendee-links/${link.data.id}`,
+          undefined,
+          lead.cookie,
+          {},
+          'DELETE',
+        )
+      ).status,
+      200,
+    );
+    assert.equal((await http(`/attendee-events/${eventId}`, undefined, '', headers)).status, 410);
+    assert.equal((await track()).status, 200);
+    assert.equal(
+      (await http(`/attendee-events/${eventId}/requests`, input, '', headers)).status,
+      201,
+    );
+    const integrity = await http(`/events/${eventId}/integrity`, undefined, lead.cookie);
+    assert.equal(integrity.data.ok, true, JSON.stringify(integrity.data));
+    assert.equal(integrity.data.commands, integrity.data.activity);
+    const recovered = await http('/auth/recover-account', {
+      username: 'event_lead',
+      recoveryCode: lead.data.recoveryCode,
+      password: 'recovered staff password',
+    });
+    assert.equal(recovered.status, 200);
+    assert.equal(
+      (await http('/auth/login', { username: 'event_lead', password: 'recovered staff password' }))
+        .status,
+      200,
+    );
+  } finally {
+    native.stopLive();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await isolated.close();
+  }
+});

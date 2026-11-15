@@ -107,6 +107,11 @@ export class MongoStore {
   async initialise() {
     const definitions: Record<string, IndexDescription[]> = {
       users: [
+        {
+          key: { username: 1 },
+          unique: true,
+          partialFilterExpression: { username: { $type: 'string' } },
+        },
         { key: { id: 1 }, unique: true },
         {
           key: { email: 1 },
@@ -145,6 +150,15 @@ export class MongoStore {
       invitations: [
         { key: { id: 1 }, unique: true },
         { key: { token_hash: 1 }, unique: true },
+      ],
+      attendee_links: [
+        { key: { id: 1 }, unique: true },
+        { key: { token_hash: 1 }, unique: true },
+        { key: { event_id: 1 } },
+      ],
+      attendee_receipts: [
+        { key: { token_hash: 1 }, unique: true },
+        { key: { event_id: 1, request_key: 1 }, unique: true },
       ],
       api_keys: [
         { key: { id: 1 }, unique: true },

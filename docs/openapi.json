@@ -23,7 +23,7 @@
       "post": {
         "summary": "Create account",
         "operationId": "post__auth_register",
-        "description": "Creates a password account and session. With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.",
+        "description": "Creates a staff username/password account and session without email. Provide username (3–30 ASCII characters); legacy clients may instead provide email. Usernames are normalised to lowercase and unique. Username accounts always receive immediate access and a private recovery code. No attendee signup is needed for public QR requests. Legacy email behavior: With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.",
         "responses": {
           "200": {
             "description": "Success",
@@ -148,7 +148,12 @@
                   },
                   "email": {
                     "type": "string",
-                    "format": "email"
+                    "format": "email",
+                    "description": "Legacy email-account registration. New staff accounts use username."
+                  },
+                  "username": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{2,29}$"
                   },
                   "password": {
                     "type": "string",
@@ -158,8 +163,19 @@
                 },
                 "required": [
                   "name",
-                  "email",
                   "password"
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "username"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  }
                 ]
               }
             }
@@ -453,6 +469,9 @@
                     "type": "string",
                     "format": "email"
                   },
+                  "username": {
+                    "type": "string"
+                  },
                   "recoveryCode": {
                     "type": "string"
                   },
@@ -463,9 +482,20 @@
                   }
                 },
                 "required": [
-                  "email",
                   "recoveryCode",
                   "password"
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "username"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  }
                 ]
               }
             }
@@ -478,7 +508,7 @@
       "post": {
         "summary": "Sign in",
         "operationId": "post__auth_login",
-        "description": "",
+        "description": "Supply username and password. The username field also accepts an existing email identifier. Legacy clients may continue to send email instead. Case-insensitive usernames; HttpOnly session cookie or API bearer session.",
         "responses": {
           "200": {
             "description": "Success",
@@ -598,6 +628,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "username": {
+                    "type": "string"
+                  },
                   "email": {
                     "type": "string"
                   },
@@ -606,8 +639,19 @@
                   }
                 },
                 "required": [
-                  "email",
                   "password"
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "username"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "email"
+                    ]
+                  }
                 ]
               }
             }
@@ -4249,10 +4293,860 @@
           }
         ]
       }
+    },
+    "/api/v1/events/{eventId}/attendee-links": {
+      "get": {
+        "summary": "List attendee access link metadata",
+        "operationId": "get__events_eventId_attendee_links",
+        "description": "Organiser only. Never returns raw capabilities or request receipts.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create a reusable attendee QR/link capability",
+        "operationId": "post__events_eventId_attendee_links",
+        "description": "Own signed-in organiser only; integration tokens denied. Returns a token once. Share /attend/EVENT_ID#key=TOKEN. At most ten active links per event. No automatic retry. Link creation is recorded in the activity journal.",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "token"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{eventId}/attendee-links/{linkId}": {
+      "delete": {
+        "summary": "Disable new requests through an attendee link",
+        "operationId": "delete__events_eventId_attendee_links_linkId",
+        "description": "Own signed-in organiser only. Naturally idempotent, with one audit entry. Existing private receipt links remain usable. Previously committed matching request replays remain available.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/attendee-events/{eventId}": {
+      "get": {
+        "summary": "Read public event help metadata",
+        "operationId": "get__attendee_events_eventId",
+        "description": "Only name, venue, date and ID. No account/session needed. Missing or invalid capability:404; disabled capability:410. Request reads share a per-peer budget of 1200/minute.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendeeEvent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "attendeeLink": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendee-events/{eventId}/requests": {
+      "post": {
+        "summary": "Submit an account-free attendee request",
+        "operationId": "post__attendee_events_eventId_requests",
+        "description": "Persist a random 32-byte base64url receiptKey and stable request key on the device BEFORE sending. Reuse both and the identical body after timeout/reload/reconnect. A new key is a new request. Transaction atomically creates a lightweight attendee reporter, one task, command, audit, notifications and hashed receipt; no user account or password hashing. Same key with changed body/link:409. Return does not contain receiptKey. Open /request#key=RECEIPT_KEY. 120 attempts/minute per event and 60/minute per server peer. Respect Retry-After; no unbounded retries. Names are self-reported, not verified. Public input cannot assign owners or change task status.",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "requestId",
+                    "replayed"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendeeRequestInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "attendeeLink": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendee-requests": {
+      "get": {
+        "summary": "Read exactly one request using its private receipt",
+        "operationId": "get__attendee_requests",
+        "description": "Authorization: Bearer vr_guest_RECEIPT_KEY. Only its event metadata, request and status history; no member list, account data, raw audit snapshots or unrelated requests. No write access. The browser refreshes every 15 seconds while visible. Anyone holding the link can read it; keep it private. Missing/unknown receipts:404. Receipt remains valid when the public event link is disabled. Tokens remain in URL fragments, not query strings or server access-log paths.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendeeRequestView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "attendeeReceipt": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "securitySchemes": {
+      "attendeeLink": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-VenueRelay-Event-Key",
+        "description": "Reusable event help capability from an organiser-generated QR/link. Cannot access staff routes."
+      },
+      "attendeeReceipt": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "vr_guest_ followed by the private 43-character receipt key. Read-only access to exactly one attendee request."
+      },
       "session": {
         "type": "apiKey",
         "in": "cookie",
@@ -4531,6 +5425,12 @@
               "null"
             ]
           },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -4784,6 +5684,123 @@
             "format": "date-time"
           }
         }
+      },
+      "AttendeeEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "venue": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "venue",
+          "date"
+        ]
+      },
+      "AttendeeRequestInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "receiptKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "title",
+          "location",
+          "receiptKey"
+        ]
+      },
+      "AttendeeRequestView": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/AttendeeEvent"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            }
+          },
+          "updates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "event",
+          "request",
+          "updates"
+        ]
       }
     }
   }

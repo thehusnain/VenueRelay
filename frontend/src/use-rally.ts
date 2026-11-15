@@ -104,7 +104,11 @@ export function useRally() {
           if (run !== generation.current) return;
           setAccount(auth.user);
           setDelivery(auth.delivery);
-          if (!auth.user.email && sessionPreference.get('rally:demo') !== 'yes') {
+          if (
+            !auth.user.email &&
+            !auth.user.username &&
+            sessionPreference.get('rally:demo') !== 'yes'
+          ) {
             setStage('welcome');
             setData(null);
             current.current = null;
@@ -117,7 +121,7 @@ export function useRally() {
             return;
           }
           const invitation = sessionPreference.get('rally:invitation');
-          if (invitation && auth.user.email) {
+          if (invitation && (auth.user.username || auth.user.email)) {
             await request('/invitations/accept', {
               method: 'POST',
               body: JSON.stringify({ token: invitation }),

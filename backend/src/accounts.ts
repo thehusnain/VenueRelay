@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Store } from './database.ts';
 import {
   currentUser,
+  normaliseUsername,
+  accountIdentity,
   endSession,
   hash,
   id,
@@ -130,44 +132,53 @@ export async function registerAccount(
   settings: EmailSettings,
   checkDomain = checkEmailDomain,
 ) {
-  const email = normaliseEmail(p.email),
+  const username = p.username !== undefined ? normaliseUsername(p.username) : null;
+  const email = username ? null : normaliseEmail(p.email),
     name = text(p.name, 'Name', 80, 2),
     password = passwordInput(p.password);
   ensure(
-    !store.get('SELECT id FROM users WHERE email=?', email),
+    !store.get(
+      'SELECT id FROM users WHERE ' + (username ? 'username' : 'email') + '=?',
+      username ?? email,
+    ),
     409,
-    'EMAIL_EXISTS',
-    'This email already has an account. Sign in or reset your password.',
+    username ? 'USERNAME_EXISTS' : 'EMAIL_EXISTS',
+    'This sign-in name already has an account. Sign in or reset your password.',
   );
-  if (settings.mode !== 'disabled') await checkDomain(email);
+  if (email && settings.mode !== 'disabled') await checkDomain(email);
   const saved = await passwordHash(password);
   const secret = recoveryCode();
   return store.transaction(() => {
     ensure(
-      !store.get('SELECT id FROM users WHERE email=?', email),
+      !store.get(
+        'SELECT id FROM users WHERE ' + (username ? 'username' : 'email') + '=?',
+        username ?? email,
+      ),
       409,
-      'EMAIL_EXISTS',
-      'This email already has an account. Sign in instead.',
+      username ? 'USERNAME_EXISTS' : 'EMAIL_EXISTS',
+      'This sign-in name already has an account. Sign in instead.',
     );
     const user: User = {
       id: id(),
       email,
+      username,
       name,
       email_verified_at: null,
-      access_approved_at: settings.mode === 'disabled' ? now() : null,
+      access_approved_at: username || settings.mode === 'disabled' ? now() : null,
     };
     store.run(
-      'INSERT INTO users (id,email,name,password_hash,created_at,email_verified_at,access_approved_at,recovery_code_hash) VALUES (?,?,?,?,?,NULL,?,?)',
+      'INSERT INTO users (id,email,name,password_hash,created_at,email_verified_at,access_approved_at,recovery_code_hash,username) VALUES (?,?,?,?,?,NULL,?,?,?)',
       user.id,
       email,
       name,
       saved,
       now(),
       user.access_approved_at ?? null,
-      secret ? recoveryHash(secret) : null,
+      recoveryHash(secret),
+      username,
     );
     record(store, user.id, 'registered');
-    if (settings.mode !== 'disabled') issueProof(store, user, 'verify', settings);
+    if (email && settings.mode !== 'disabled') issueProof(store, user, 'verify', settings);
     return { ...user, recoveryCode: secret };
   });
 }
@@ -306,7 +317,7 @@ export async function handleAccountRoute(options: {
   if (route === 'recovery-code') {
     const account = currentUser(store, req);
     ensure(
-      account?.email && account.email !== demoCredentials.email,
+      (account?.username || account?.email) && account?.email !== demoCredentials.email,
       403,
       'ACCOUNT_REQUIRED',
       'Sign in to your own account first.',
@@ -336,19 +347,19 @@ export async function handleAccountRoute(options: {
     return;
   }
   if (route === 'recover-account') {
-    const email = normaliseEmail(p.email);
+    const identity = accountIdentity(p);
     limitAttempt(store, 'recovery-ip:' + ip, 20, 900000);
-    limitAttempt(store, 'recovery:' + email, 5, 900000);
+    limitAttempt(store, 'recovery:' + identity.value, 5, 900000);
     const proof = recoveryHash(p.recoveryCode);
     const saved = await passwordHash(passwordInput(p.password));
     const next = recoveryCode();
     store.transaction(() => {
       const user = store.get<User>(
-        'SELECT * FROM users WHERE email=? AND recovery_code_hash=?',
-        email,
+        'SELECT * FROM users WHERE ' + identity.field + '=? AND recovery_code_hash=?',
+        identity.value,
         proof,
       );
-      ensure(user, 401, 'INVALID_RECOVERY', 'Email or recovery code is incorrect.');
+      ensure(user, 401, 'INVALID_RECOVERY', 'Username, email or recovery code is incorrect.');
       store.run(
         'UPDATE users SET password_hash=?,recovery_code_hash=? WHERE id=?',
         saved,
@@ -403,10 +414,13 @@ export async function handleAccountRoute(options: {
     user = created;
     recoverySecret = created.recoveryCode;
   } else if (route === 'login') {
-    const email = normaliseEmail(p.email),
+    const identity = accountIdentity(p),
       password = passwordInput(p.password, 1);
-    limitAttempt(store, 'login:' + ip + email, 10, 900000);
-    const found = store.get<User>('SELECT * FROM users WHERE email=?', email);
+    limitAttempt(store, 'login:' + ip + identity.value, 10, 900000);
+    const found = store.get<User>(
+      'SELECT * FROM users WHERE ' + identity.field + '=?',
+      identity.value,
+    );
     const saved =
       found?.password_hash ??
       'not-a-real-salt:00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
@@ -415,7 +429,7 @@ export async function handleAccountRoute(options: {
       found?.password_hash && matches,
       401,
       'INVALID_CREDENTIALS',
-      'Email or password is incorrect. Check your details or reset your password.',
+      'Username, email or password is incorrect. Check your details or reset your password.',
     );
     ensure(
       store.get<User>('SELECT password_hash FROM users WHERE id=?', found.id)?.password_hash ===
@@ -427,6 +441,7 @@ export async function handleAccountRoute(options: {
     user = {
       id: found.id,
       email: found.email,
+      username: found.username,
       name: found.name,
       email_verified_at: found.email_verified_at,
       access_approved_at: found.access_approved_at,
@@ -445,6 +460,7 @@ export async function handleAccountRoute(options: {
       });
     }
     if (
+      user.email &&
       !user.email_verified_at &&
       settings.mode !== 'disabled' &&
       !store.get(

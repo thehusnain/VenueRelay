@@ -2,12 +2,20 @@
 
 Verified on 15 November 2026 against disposable local databases. These results describe the revised source; live deployment validation is recorded separately below.
 
+## Staff usernames and account-free attendees
+
+The staff signup/sign-in flow now supports usernames without email. Existing email/password accounts remain compatible. The new attendee journey passed in the browser against both SQLite and a disposable MongoDB replica set: organiser creates QR/link → guest submits without an account → committed response is lost → guest reloads offline → reconnect safely confirms one request → staff assign, complete and close it → private guest tracking shows the result after reload → shared-link revocation preserves existing tracking.
+
+The MongoDB browser check reported **zero guest signup/login calls, 7 commands, 7 activity entries, 0 incorrect versions, 0 missing history entries, 0 broken references and 0 JavaScript errors** at `2026-11-15T16:27:25.252Z`. A separate 320px run with long unbroken title, location and venue values passed pending/tracking overflow and axe checks at `2026-11-15T16:35:42.059Z`.
+
+API tests cover username uniqueness, staff invitation and recovery, guest capability isolation, unknown receipts, mismatched retry payloads, simultaneous duplicate requests, revocation/replay, QR fragment/origin validation and rollback when receipt storage fails. MongoDB tests exercise the same concurrency and rollback invariants. The updated 90-state design matrix and 21 short-viewport checks passed. Browser checks also confirm that skip navigation preserves private keys and browser Back restores the correct request after a fragment change. Public help reads are bounded and refresh every 15 seconds while visible; this is not a load test or unlimited-capacity claim.
+
 ## Automated checks
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 54 passed |
-| `npm run test:mongo` | 14 passed against a disposable MongoDB replica set |
+| `npm test` | 59 passed |
+| `npm run test:mongo` | 15 passed against a disposable MongoDB replica set |
 | `npm run build` | TypeScript and production Vite build passed |
 | Design browser matrix | 90 page/viewport combinations: no horizontal overflow or automated axe WCAG findings |
 | Layout browser checks | 21 checks passed, including 320×568 phones and 1280×600 laptops |
@@ -32,7 +40,7 @@ At the final record check: **29 commands, 29 activity entries, 0 incorrect task 
 
 MongoDB tests separately cover transactional rollback, simultaneous duplicate commands, version conflicts, real separate accounts, invitation reuse, event-scoped integration tokens, authenticated sockets, push retries, session revocation and a read-only SQLite import that refuses a populated destination.
 
-## No-email account checks
+## Legacy email-account regression checks
 
 Signup grants access while leaving `emailVerified=false`. Recovery secrets are stored hashed and omitted from account/snapshot responses. Invalid credentials cannot enable an existing account. Password recovery rotates the code, revokes sessions and leaves event records intact. Two simultaneous uses of one recovery code produce one success and one rejection, including on MongoDB. An authenticated user can replace a lost code after confirming their current password; the previous code then fails. Browser assertions confirm that signup, password recovery and code replacement move keyboard focus to the noneditable result heading.
 
@@ -42,7 +50,7 @@ Automated axe results are not an accessibility certification or a substitute for
 
 The production Atlas database was not modified by these local tests. Backups, restore procedures, event-scale load and long-running production operation require separate validation.
 
-## Release verification
+## Earlier live release verification
 
 Release `8351e31` was pushed to `thehusnain/VenueRelay` and the existing Render service deployed it. The live site served the matching frontend assets and both new recovery API operations. A fresh 390px browser session completed one-click demo sign-in and Home/Tasks navigation with no horizontal overflow or uncaught JavaScript errors. MongoDB health returned `ok`, and the signed-in account reported `EMAIL_TRANSPORT=disabled` and `accessGranted=true`. The live smoke check did not create test attendee tasks or change operational event records.
 

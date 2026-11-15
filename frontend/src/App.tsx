@@ -23,25 +23,30 @@ import { Modal } from './components';
 import { TeamPage, SchedulePage, LogPage, IntegrationPage, ReliabilityPage } from './Pages';
 import { SimpleForm } from './Dialogs';
 import { Inbox } from './Inbox';
+import { AttendeePortal, AttendeeAccess } from './AttendeePortal';
 import { AccountSecurity } from './AccountSecurity';
 function useLocation() {
-  const [path, setPath] = useState(location.pathname);
+  const [route, setRoute] = useState(() => ({ path: location.pathname, fragment: location.hash }));
   useEffect(() => {
-    const listener = () => setPath(location.pathname);
+    const listener = () => setRoute({ path: location.pathname, fragment: location.hash });
     addEventListener('popstate', listener);
-    return () => removeEventListener('popstate', listener);
+    addEventListener('hashchange', listener);
+    return () => {
+      removeEventListener('popstate', listener);
+      removeEventListener('hashchange', listener);
+    };
   }, []);
   const navigate = (next: string) => {
-    if (location.pathname !== next) history.pushState({}, '', next);
-    setPath(next);
+    if (location.pathname + location.hash !== next) history.pushState({}, '', next);
+    setRoute({ path: location.pathname, fragment: location.hash });
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
-  return { path, navigate };
+  return { ...route, navigate };
 }
 export function App() {
   const rally = useRally(),
     { data, pending, connection } = rally,
-    { path, navigate } = useLocation();
+    { path, fragment, navigate } = useLocation();
   const [search, setSearch] = useState(''),
     [dialog, setDialog] = useState(''),
     [inbox, setInbox] = useState(false),
@@ -108,12 +113,20 @@ export function App() {
         data={data}
         waiting={!!pending.length}
       />
-      {dialog === 'security' && rally.account?.email ? (
-        <AccountSecurity email={rally.account.email} onClose={() => setDialog('')} />
+      {dialog === 'security' && (rally.account?.username || rally.account?.email) ? (
+        <AccountSecurity
+          identifier={rally.account!.username ?? rally.account!.email ?? ''}
+          onClose={() => setDialog('')}
+        />
+      ) : null}
+      {dialog === 'attendees' && data ? (
+        <AttendeeAccess data={data} onClose={() => setDialog('')} />
       ) : null}
       {dialog === 'qr' ? <QrScanner onClose={() => setDialog('')} onRead={scanned} /> : null}
     </>
   );
+  if (/^\/attend\/[^/]+$/.test(path) || path === '/request')
+    return <AttendeePortal key={path + fragment} path={path} onNavigate={go} />;
   const entryPath = [
     '/sign-in',
     '/create-account',
@@ -283,7 +296,9 @@ export function App() {
                     Scan a QR code
                   </button>
                   <strong>{data.me.name}</strong>
-                  <span className="account-caption">{data.user.email ?? 'Sample account'}</span>
+                  <span className="account-caption">
+                    {data.user.username ?? data.user.email ?? 'Sample account'}
+                  </span>
                   {data.events.length > 1 ? (
                     <label htmlFor="switch-event">
                       Change event
@@ -339,10 +354,18 @@ export function App() {
                       >
                         Send a team update
                       </button>
+                      <button
+                        onClick={() => {
+                          if (more.current) more.current.open = false;
+                          setDialog('attendees');
+                        }}
+                      >
+                        Share attendee QR
+                      </button>
                       <button onClick={() => go('/connections')}>Connect another app</button>
                       <button
                         onClick={() => {
-                          if (data.user.email) setDialog('event');
+                          if (data.user.username || data.user.email) setDialog('event');
                           else account();
                           if (more.current) more.current.open = false;
                         }}
@@ -359,7 +382,7 @@ export function App() {
                   >
                     How to use VenueRelay
                   </button>
-                  {!data.user.email ? (
+                  {!data.user.email && !data.user.username ? (
                     <button onClick={account}>Create your own account</button>
                   ) : null}
                   {!data.event.is_demo ? (
@@ -378,7 +401,7 @@ export function App() {
                       go('/');
                     }}
                   >
-                    {data.user.email ? 'Sign out' : 'Leave the sample event'}
+                    {data.user.email || data.user.username ? 'Sign out' : 'Leave the sample event'}
                   </button>
                 </div>
               </details>
@@ -526,7 +549,11 @@ export function App() {
                 {path === '/schedule' ? (
                   <SchedulePage data={data} onAdd={() => setDialog('schedule')} />
                 ) : path === '/team' ? (
-                  <TeamPage data={data} onInvite={() => setDialog('invite')} />
+                  <TeamPage
+                    data={data}
+                    onInvite={() => setDialog('invite')}
+                    onAttendees={() => setDialog('attendees')}
+                  />
                 ) : path === '/history' ? (
                   <LogPage data={data} onTask={openTask} onExport={() => void exportRecords()} />
                 ) : path === '/connections' && org ? (

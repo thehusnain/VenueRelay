@@ -33,3 +33,8 @@ Vite builds a module service worker with a precache manifest containing the actu
 Browser push subscriptions belong to the current session and member. Persistent delivery jobs have unique notification/subscription pairs, expiring leases and bounded retries. Existing inbox records remain authoritative. Push delivery is at-least-once under ambiguous failures; stable tags limit duplicate display. External email remains the existing separate leased outbox, disabled by default; local preview mode is available for email tests.
 
 MongoDB Atlas provides durable hosted storage independently of Render process restarts. Local SQLite remains on the developer’s disk. Browser storage eviction, provider outages, capacity and database restoration still require operational planning; this app does not claim unlimited capacity or distributed disaster recovery. See DEPLOYMENT.md for setup, limits and optional read-only-source migration.
+
+
+## Account-free attendee entry
+
+Staff accounts have an optional, unique normalised username; legacy email accounts remain supported. Attendees do not create users or sessions. A reusable, revocable event capability permits only public help metadata and request creation. Each request creates a lightweight attendee member for reporter/audit references, with a `guest:` user reference that cannot authenticate. A separate hashed receipt capability grants read-only access to one request. Submission and receipt creation share the same transaction as task, journal and notifications. Shared-link revocation does not remove receipts. Guest reporters are excluded from the staff roster and broadcast notification fanout. Public entry is rate limited.

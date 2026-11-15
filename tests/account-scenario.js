@@ -27,10 +27,10 @@ async (existingPage, options = {}) => {
     assert(!issues.length, JSON.stringify(issues));
   };
   try {
-    const email = 'mobile-' + Date.now() + '@example.com';
+    const email = 'mobile_' + Date.now();
     await page.goto(base + '/create-account');
     await page.getByLabel('Your name', { exact: true }).fill('Mobile event lead');
-    await page.getByLabel('Email address', { exact: true }).fill(email);
+    await page.getByLabel('Choose a username', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill('mobile password 2026');
     await page.getByRole('button', { name: 'Create my account', exact: true }).click();
     await page.getByRole('heading', { name: 'Your account is ready.', exact: true }).waitFor();
@@ -88,7 +88,7 @@ async (existingPage, options = {}) => {
     await page.locator('.more-menu summary').click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.goto(base + '/forgot-password');
-    await page.getByLabel('Email address', { exact: true }).fill(email);
+    await page.getByLabel('Username or email', { exact: true }).fill(email);
     await page.getByLabel('Recovery code', { exact: true }).fill(freshCode);
     await page.getByLabel('New password', { exact: true }).fill('new mobile password 2026');
     await page.getByRole('button', { name: 'Reset password', exact: true }).click();
@@ -104,7 +104,7 @@ async (existingPage, options = {}) => {
       fullPage: true,
     });
     await page.getByRole('button', { name: 'Sign in with new password', exact: true }).click();
-    await page.getByLabel('Email address', { exact: true }).fill(email);
+    await page.getByLabel('Username or email', { exact: true }).fill(email);
     await page.getByLabel('Password', { exact: true }).fill('new mobile password 2026');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('heading', { name: 'Mobile community day', exact: true }).waitFor();

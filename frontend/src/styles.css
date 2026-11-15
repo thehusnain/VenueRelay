@@ -2888,3 +2888,142 @@ pre {
   display: grid;
   gap: 8px;
 }
+/* Attendees use a separate, account-free request flow. */
+.attendee-main {
+  width: 100%;
+  max-width: 650px;
+  margin: 25px auto 50px;
+  padding-inline: var(--page-gutter);
+}
+.attendee-main h1 {
+  font-size: clamp(26px, 4vw, 36px);
+}
+.attendee-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 14px;
+}
+.attendee-form,
+.attendee-request,
+.attendee-pending {
+  margin-top: 26px;
+}
+.attendee-main .form-error-summary {
+  margin-top: 22px;
+}
+.attendee-form > .field-hint {
+  margin-top: 20px;
+}
+.attendee-loading {
+  margin-top: 30px;
+  color: var(--muted);
+}
+.attendee-location {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.attendee-tracking {
+  border-top: 1px solid var(--border);
+  padding-top: 25px;
+  margin-top: 30px;
+}
+.attendee-tracking h2 {
+  font-size: 17px;
+}
+.attendee-tracking p,
+.attendee-pending p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-block: 12px 20px;
+}
+.attendee-tracking textarea {
+  margin-block: 8px 14px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.attendee-history {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.attendee-history li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 5px 12px;
+  font-size: 12px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.attendee-history time {
+  color: var(--muted);
+  font-size: 11px;
+}
+.attendee-pending .text-link {
+  display: flex;
+}
+.attendee-access > p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.attendee-access > .button,
+.attendee-share-result {
+  margin-top: 22px;
+}
+.attendee-share-result textarea {
+  margin-block: 8px 14px;
+  font-size: 13px;
+}
+.attendee-link-list {
+  margin-top: 25px;
+}
+.attendee-link-list > div {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-block: 15px;
+  border-top: 1px solid var(--border);
+}
+.attendee-link-list > div > span {
+  flex: 1;
+  min-width: 0;
+}
+.attendee-link-list strong {
+  display: block;
+  font-size: 12px;
+}
+.attendee-link-list small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+@media (max-width: 720px) {
+  .attendee-main {
+    margin-top: 18px;
+  }
+  .attendee-shell .entry-header > .text-link {
+    font-size: 11px;
+  }
+  .attendee-main input,
+  .attendee-main select,
+  .attendee-main textarea,
+  .attendee-access textarea {
+    font-size: 16px;
+  }
+}
+.attendee-main {
+  overflow-wrap: anywhere;
+}
+.attendee-event > span,
+.attendee-location > span {
+  min-width: 0;
+}

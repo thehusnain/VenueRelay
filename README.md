@@ -17,11 +17,20 @@ Open **http://127.0.0.1:3001**. The app creates a local SQLite database automati
 
 Choose **Explore the demo** for immediate access, or create an account and an empty event. The optional demo credentials are `demo@rally.local` / `RallyDemo2026!`.
 
-## Accounts without email
+## Staff accounts and attendee access
 
-`EMAIL_TRANSPORT=disabled` is the default. Sign up with a name, email address and password, save the private recovery code, then create or join an event. The email is a sign-in identifier; the app does not claim that ownership was verified. Invitations are secret, single-use links shared by the organiser.
+Organisers, volunteers and vendors use **username + password** accounts. Signup needs a name, a unique username and a password, with no email or OTP. Save the private recovery code. Existing email/password accounts continue to work through the same sign-in field.
 
-Use **Forgot your password?** with the saved recovery code to reset access. Resetting rotates the code and signs out existing sessions. Save the replacement code. Optional email verification and email reset APIs remain available when an email transport is configured.
+Staff join an event through a personal, single-use invitation with an organiser-selected role. Attendees do not need accounts:
+
+1. Open **Your team → Share attendee QR**, then create an attendee link.
+2. Share or print the QR/link for the event.
+3. Attendees open it, describe what they need and where, then submit.
+4. Each request gets a private tracking link. Staff assign, complete and check the work in the normal task flow.
+
+The shared attendee link can accept many requests. A private tracking link reveals only its own request. Keep tracking links private. The organiser can disable a shared QR/link without deleting requests or breaking existing tracking links.
+
+Use **Forgot your password?** with the saved recovery code to recover a staff account. **More → Account security** can replace a lost recovery code while signed in. `EMAIL_TRANSPORT=disabled` remains the default; no email provider or paid login service is required.
 
 ## Reliability and access
 
@@ -58,6 +67,7 @@ npm run test:usability
 npm run test:pwa
 npm run test:install
 npm run test:accounts
+npm run test:attendees
 ```
 
 See [validation results](docs/VALIDATION.md) and the [judge walkthrough](docs/DEMO.md).

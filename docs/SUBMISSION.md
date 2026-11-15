@@ -16,7 +16,7 @@ DEMO ACCOUNT
 Email: demo@rally.local
 Password: RallyDemo2026!
 
-The verified demo account and sample event are created automatically on a fresh local startup. No registration, email verification, API key or database installation is required for this account. More → Try a different role lets you inspect organiser, volunteer, vendor and attendee views. These are public demo credentials for sample data only. Open demo event signs in directly; optional credentials remain available under View demo credentials. Real users create an empty event with one short form, invite teammates with specific roles, then add and assign their own tasks.
+The verified demo account and sample event are created automatically on a fresh local startup. No registration, email verification, API key or database installation is required for this account. More → Try a different role lets you inspect organiser, volunteer, vendor and attendee views. These are public demo credentials for sample data only. Open demo event signs in directly; optional credentials remain available under View demo credentials. Staff use username/password accounts, create an empty event, and invite teammates with specific roles. Attendees scan a shared QR, submit without signup, and keep a private tracking link.
 
 Suggested journey: attendee requests help → organiser assigns a person → volunteer starts work and submits a result → organiser confirms completion → attendee reads the update. More → Connection help shows waiting changes and can check record integrity.
 

@@ -64,7 +64,7 @@ export interface Snapshot {
   events: Event[];
   schedule: Schedule[];
   announcements: Announcement[];
-  user: { id: string; name: string; email: string | null };
+  user: { id: string; name: string; email: string | null; username?: string | null };
   serverTime: string;
   activityCursor: number;
   hasMoreActivity: boolean;
@@ -109,8 +109,39 @@ export interface Account {
   id: string;
   name: string;
   email: string | null;
+  username?: string | null;
   emailVerified: boolean;
   accessGranted?: boolean;
+}
+export interface AttendeeEvent {
+  id: string;
+  name: string;
+  venue: string;
+  date: string;
+}
+export interface AttendeeRequestInput {
+  name?: string;
+  title: string;
+  location: string;
+  description?: string;
+  priority?: 'normal' | 'high' | 'urgent';
+  receiptKey: string;
+}
+export interface AttendeeRequestView {
+  event: AttendeeEvent;
+  request: Pick<
+    Task,
+    | 'id'
+    | 'title'
+    | 'description'
+    | 'location'
+    | 'priority'
+    | 'status'
+    | 'resolution'
+    | 'created_at'
+    | 'updated_at'
+  >;
+  updates: { status: Status; createdAt: string }[];
 }
 export interface Delivery {
   mode: 'smtp' | 'brevo' | 'preview' | 'disabled';

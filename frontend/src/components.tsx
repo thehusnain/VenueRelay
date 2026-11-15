@@ -168,17 +168,21 @@ export function ActivityList({
                     ? 'assigned a task'
                     : a.action === 'task.status'
                       ? `set a task to ${statusLabels[entity.status as keyof typeof statusLabels] ?? entity.status}`
-                      : a.action === 'schedule.create'
-                        ? 'added a programme session'
-                        : a.action === 'announcement.create'
-                          ? 'posted an announcement'
-                          : a.action === 'member.join'
-                            ? 'joined the event'
-                            : a.action === 'invitation.create'
-                              ? 'created an invitation'
-                              : a.action === 'integration.create'
-                                ? 'created an integration token'
-                                : 'revoked an integration token'}
+                      : a.action === 'attendee_link.create'
+                        ? 'created an attendee access link'
+                        : a.action === 'attendee_link.revoke'
+                          ? 'disabled an attendee access link'
+                          : a.action === 'schedule.create'
+                            ? 'added a programme session'
+                            : a.action === 'announcement.create'
+                              ? 'posted an announcement'
+                              : a.action === 'member.join'
+                                ? 'joined the event'
+                                : a.action === 'invitation.create'
+                                  ? 'created an invitation'
+                                  : a.action === 'integration.create'
+                                    ? 'created an integration token'
+                                    : 'revoked an integration token'}
               </p>
               {a.entity_type === 'task' && onTask ? (
                 <button className="text-link" onClick={() => onTask(a.entity_id)}>

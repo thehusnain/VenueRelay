@@ -30,10 +30,15 @@ The automated lost-response scenario lets the server commit before aborting its 
 
 ## Show an actual account
 
-Create an account with your name, email and password. Save the recovery code and continue. Add the event name, date and place in one form. The event starts with no sample work and only its organiser. Invite a teammate, choose a role, and share the secret link or QR code directly. The recipient signs up with their own account and accepts the invitation. Assign a task, complete it as the teammate and confirm it as the organiser. Use the saved recovery code to reset the password without email; save the replacement code and sign back into the same records. More → Account security can replace a lost code while you are signed in.
+Create a staff account with your name, username and password. Save the recovery code and continue. Add the event name, date and place in one form. The event starts with no sample work and only its organiser. Invite a teammate, choose a role, and share the secret link or QR code directly. The recipient signs up with their own account and accepts the invitation. Assign a task, complete it as the teammate and confirm it as the organiser. Use the saved recovery code to reset the password without email; save the replacement code and sign back into the same records. More → Account security can replace a lost code while you are signed in.
 
 ## Show integration readiness
 
 As an organiser, open **More → Connect another app**. Create an event key and call the documented snapshot/command API. Revoke it and show access is denied. **More → What changed** offers the activity log and complete event export. API documentation is served at `/api/openapi.json`.
 
 See [validation](VALIDATION.md) for measured results and [PWA instructions](PWA.md) for browser installation and phone access. No public deployment is needed.
+
+
+## No-signup attendee demonstration
+
+Open **Your team → Share attendee QR → Create attendee QR & link**. Open the link in a private browser window, describe a request and submit without registering. Save its private tracking link. In the organiser window, assign, complete and confirm the resulting task. Refresh the attendee link to see the finished result. Disable the shared event link; existing tracking still works. Repeat with a dropped response/offline reload to demonstrate one correct request after retry. The browser test is `npm run test:attendees`.

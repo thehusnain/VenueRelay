@@ -38,14 +38,29 @@ WebSocket messages are `{type:"connected",eventId}` and `{type:"event.changed",e
 
 Push requires browser permission, VAPID settings and an own signed-in membership. Subscriptions to supported browser push providers are accepted; arbitrary URLs are rejected. No private VAPID key is returned. Browser push delivery does not replace durable inbox/activity records.
 
-## Accounts
+## Staff accounts
 
-`POST /auth/register` accepts `{name,email,password}`. With `EMAIL_TRANSPORT=disabled` (default), it returns `{user,delivery,recoveryCode}` and a session cookie. `user.accessGranted` is true and `user.emailVerified` remains false. Save `recoveryCode` privately: it is returned once and stored only as a hash. Never log it. `GET /auth/me` does not return it.
+`POST /auth/register` accepts `{name,username,password}`. Usernames are case-insensitive, unique and 3–30 ASCII characters, beginning with a letter. Signup returns `{user,delivery,recoveryCode}` and a session cookie. No email or OTP is required. `POST /auth/login` accepts `{username,password}`. Existing clients may continue sending `email`; existing email/password accounts retain their records and membership.
 
-`POST /auth/recover-account` accepts `{email,recoveryCode,password}`. It atomically changes the password, rotates the code, cancels pending resets and revokes existing sessions. The success response contains a replacement `recoveryCode`; save it and sign in again. Invalid, used or unknown proofs return the same 401 error; per-account and IP limits apply. Do not blindly retry a lost recovery response: try signing in with the new password.
+Save the recovery code privately. `POST /auth/recover-account` accepts `{username,recoveryCode,password}`, changes the password, rotates the code and revokes sessions atomically. It also accepts the legacy `email` field. `POST /auth/recovery-code` accepts `{password}` for the signed-in staff account and replaces its private code. Neither endpoint changes event records. Optional legacy email verification/reset endpoints remain documented for existing integrations.
 
-`POST /auth/recovery-code` accepts `{password}` for your own signed-in account and returns a replacement code once. The previous code stops working. Demo accounts are denied. This is also available through More → Account security.
+## Account-free attendees
 
-Optional email verification and reset endpoints remain documented for deployments with an email transport. Preview mode creates private files for local testing and is rejected in production. Event access and email ownership are separate facts.
+| Endpoint | Access and purpose |
+| --- | --- |
+| `GET /events/{id}/attendee-links` | Organiser: link metadata; never raw tokens |
+| `POST /events/{id}/attendee-links` | Signed-in organiser: returns `{id,token}` once; no automatic retry |
+| `DELETE /events/{id}/attendee-links/{linkId}` | Signed-in organiser: disable public entry; idempotent and audited |
+| `GET /attendee-events/{id}` | `X-VenueRelay-Event-Key: TOKEN`: event name, venue, date and ID only |
+| `POST /attendee-events/{id}/requests` | Same event key plus `Idempotency-Key`: create one attendee request |
+| `GET /attendee-requests` | `Authorization: Bearer vr_guest_RECEIPT_KEY`: read exactly one request and its status history |
+
+Share `/attend/EVENT_ID#key=TOKEN`. An attendee device generates a random 32-byte base64url `receiptKey` and a separate stable request key, and persists both with the form **before** sending `{title,location,priority,description,name,receiptKey}`. Name and details are optional. Reuse the same keys and body after an outage, lost acknowledgement or reload. A mismatch returns 409; a confirmed replay returns the original request. The browser retains an unconfirmed intent and retries on reconnect/reopen. No attendee account, password or staff session is created.
+
+The private URL is `/request#key=RECEIPT_KEY`. Tokens stay in URL fragments instead of server request paths/query strings. Tokens are stored hashed server-side. Anyone holding a private link can read that request; it has no staff permissions and cannot list other requests. The visible tracking page refreshes every 15 seconds. The public event capability cannot assign owners, update statuses, or read staff data. Names are self-reported.
+
+Each submission atomically creates its lightweight reporter, task, command, activity entry, notifications and receipt. A failed receipt write rolls everything back. Disabling a public QR/link rejects new access with 410 but preserves existing private tracking and confirmed replays. There may be at most ten active links per event.
+
+Public request attempts are bounded to 120/minute per event and 60/minute per server peer; public reads share a 1200/minute peer budget. Respect `Retry-After` and retain the original intent. A shared connection may reach a limit at a busy event. These bounds protect entry points; they are not a load-capacity guarantee.
 
 Render serves the website and HTTP API from the same origin so cookies stay first-party. Request a fresh ticket for each direct Render WebSocket connection. Keep established `X-Rally-*` headers, cookies and device-storage identifiers for backward compatibility after the VenueRelay rename. The production adapter shares task rules with the local SQLite adapter; production requires MongoDB transactions.

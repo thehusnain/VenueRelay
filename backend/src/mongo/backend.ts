@@ -1,6 +1,8 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { ApplicationBackend } from '../backend.ts';
 import { MongoStore } from './store.ts';
+import { publicAttendeeRoute } from '../attendees.ts';
+import { MongoAttendees } from './attendees.ts';
 import { MongoAccounts } from './accounts.ts';
 import { MongoDomain } from './domain.ts';
 import { MongoPush } from './push.ts';
@@ -118,6 +120,21 @@ export class MongoBackend implements ApplicationBackend {
     body: () => Promise<Record<string, unknown>>,
     send: (value: unknown, status?: number) => void,
   ) {
+    const attendees = new MongoAttendees(this.store, this.accounts);
+    if (
+      await publicAttendeeRoute({
+        path,
+        method,
+        req,
+        service: attendees,
+        body,
+        send,
+        limit: (key, max, window) => this.accounts.limit(key, max, window),
+      })
+    ) {
+      if (method === 'POST') this.changed();
+      return;
+    }
     if (path.startsWith('/api/v1/auth/')) {
       const route = path.slice('/api/v1/auth/'.length);
       const result = await this.accounts.handle(
@@ -145,7 +162,7 @@ export class MongoBackend implements ApplicationBackend {
     if (path === '/api/v1/events' && method === 'POST') {
       const user = await this.accounts.require(req);
       ensure(
-        user.email,
+        user.email || user.username,
         403,
         'ACCOUNT_REQUIRED',
         'Create and verify an account to start an event.',
@@ -166,6 +183,20 @@ export class MongoBackend implements ApplicationBackend {
     ensure(match, 404, 'NOT_FOUND', 'Endpoint not found.');
     const ctx = await this.domain.context(req, decodeURIComponent(match[1])),
       resource = match[2] ?? 'snapshot';
+    if (resource === 'attendee-links' && method === 'GET') {
+      send({ items: await attendees.links(ctx) });
+      return;
+    }
+    if (resource === 'attendee-links' && method === 'POST') {
+      send(await attendees.createLink(ctx), 201);
+      this.changed(ctx.event.id);
+      return;
+    }
+    if (resource.startsWith('attendee-links/') && method === 'DELETE') {
+      send(await attendees.revoke(ctx, resource.slice(15)));
+      this.changed(ctx.event.id);
+      return;
+    }
     if (resource === 'snapshot' && method === 'GET') {
       send(await this.domain.snapshot(ctx));
       return;

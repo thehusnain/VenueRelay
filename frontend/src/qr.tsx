@@ -13,10 +13,15 @@ export function parseRallyLink(value: string, origin: string) {
     throw new Error(
       'This QR code belongs to another website. Use an invitation from this VenueRelay server.',
     );
+  if (
+    (/^\/attend\/[A-Za-z0-9_-]{1,100}$/.test(url.pathname) || url.pathname === '/request') &&
+    /^[A-Za-z0-9_-]{43}$/.test(new URLSearchParams(url.hash.slice(1)).get('key') ?? '')
+  )
+    return { path: url.pathname + url.hash };
   const invite = url.searchParams.get('invite');
   if (invite && /^[A-Za-z0-9_-]{20,200}$/.test(invite)) return { invite, path: '/sign-in' };
   if (/^\/tasks\/[A-Za-z0-9_-]{1,100}$/.test(url.pathname)) return { path: url.pathname };
-  throw new Error('Scan a VenueRelay invitation or task QR code.');
+  throw new Error('Scan a VenueRelay attendee, invitation or task QR code.');
 }
 export function QrCode({ value }: { value: string }) {
   const [image, setImage] = useState('');

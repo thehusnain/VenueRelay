@@ -35,7 +35,7 @@ Deploy the reviewed commit on the existing service. `render.yaml` documents the 
 
 ## Accounts
 
-With email disabled, signup grants event access immediately and returns a private recovery code once. `emailVerified` stays false. Existing unconfirmed accounts can sign in with their password to enable access and receive a recovery code. Public demo accounts cannot use recovery codes.
+New staff accounts use a unique username and password. They need no email, OTP or additional provider. Existing email/password accounts continue to work. Private recovery codes replace emailed resets for the normal interface. Public demo accounts cannot use recovery codes. Attendees use a shared event QR/link and a private receipt link; they never register.
 
 Share invitation links or QR codes directly with the intended person. Links expire after 48 hours, are stored hashed and can be accepted by one account. Never post real invitation links publicly.
 
@@ -50,12 +50,13 @@ npm run check:deployment -- https://venuerelay.onrender.com
 Then use a private browser window:
 
 1. Open the home page and choose **Explore the demo**.
-2. Create a real account, save its recovery code and create an empty event.
-3. Invite a separate account as a volunteer. Assign a task, complete it as the volunteer, then confirm it as the organiser.
+2. Create a username/password staff account, save its recovery code and create an empty event.
+3. Invite a separate staff account as a volunteer. Assign a task, complete it as the volunteer, then confirm it as the organiser.
 4. Open **Saved records** on desktop, or **More → Connection help** on a phone. Confirm the record check passes.
 5. Queue a task while offline, reload, reconnect and confirm exactly one task appears. Repeat the documented lost-response and conflict tests locally before judging.
 6. Check a phone-sized browser, the team invitation dialog, sign-in errors and keyboard navigation.
-7. Where the browser offers installation, **Install** should open the native confirmation directly. Other browsers should show the working website without installation instructions.
+7. Share an attendee QR from Your team, submit a request without signing in, and track it through completion. Disable the shared link and confirm the private tracking link still works.
+8. Where the browser offers installation, **Install** should open the native confirmation directly. Other browsers should show the working website without installation instructions.
 
 Existing installed clients may finish using an older service worker. Close and reopen the app, or use **More → Install VenueRelay & notifications → Update VenueRelay and reload** once pending work is saved. Never clear device storage while unsent work is waiting.
 

@@ -171,7 +171,6 @@ export function SimpleForm({
                 <select name="role" aria-label="Role">
                   <option value="volunteer">Volunteer · helps with tasks</option>
                   <option value="vendor">Vendor · runs a stall or service</option>
-                  <option value="attendee">Attendee · can ask for help</option>
                 </select>
               </label>
               <div className="form-note">
@@ -183,8 +182,8 @@ export function SimpleForm({
           {kind === 'announcement' ? (
             <>
               <p className="form-intro">
-                A persistent update for everyone in the event. All members receive an in-app
-                notification.
+                A persistent update for signed-in event members. Attendee tracking links show
+                updates to their own request.
               </p>
               <label>
                 Announcement

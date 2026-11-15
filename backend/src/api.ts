@@ -5,6 +5,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { Store } from './database.ts';
+import { SqliteAttendees, publicAttendeeRoute } from './attendees.ts';
+import { limitAttempt } from './accounts.ts';
 import { handleAccountRoute } from './accounts.ts';
 import { emailSettings, type EmailSettings, checkEmailDomain } from './email.ts';
 import { currentUser, requireUser, hash, id, now, publicUser, sessionValue } from './auth.ts';
@@ -133,7 +135,7 @@ export function createApp(options: Options) {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, Idempotency-Key, X-Rally-Persona, X-Rally-Client, X-Rally-Expected-Actor',
+        'Content-Type, Authorization, Idempotency-Key, X-Rally-Persona, X-Rally-Client, X-Rally-Expected-Actor, X-VenueRelay-Event-Key',
       );
     }
     if (req.method === 'OPTIONS') {
@@ -213,6 +215,19 @@ export function createApp(options: Options) {
           await options.backend.handle(req, res, path, method, () => body(req), send);
           return;
         }
+        const attendees = new SqliteAttendees(store);
+        if (
+          await publicAttendeeRoute({
+            path,
+            method,
+            req,
+            service: attendees,
+            body: () => body(req),
+            send,
+            limit: (key, max, window) => limitAttempt(store, key, max, window),
+          })
+        )
+          return;
         if (path.startsWith('/api/v1/auth/')) {
           await handleAccountRoute({
             store,
@@ -233,7 +248,7 @@ export function createApp(options: Options) {
             'SELECT e.id FROM events e JOIN members m ON e.id=m.event_id WHERE m.user_id=? ORDER BY e.is_demo ASC,e.created_at DESC LIMIT 1',
             user.id,
           );
-          if (user.email && !existing) {
+          if ((user.email || user.username) && !existing) {
             send({ requiresSetup: true, user: publicUser(user) });
             return;
           }
@@ -255,7 +270,7 @@ export function createApp(options: Options) {
         if (path === '/api/v1/events' && method === 'POST') {
           const user = requireUser(store, req);
           ensure(
-            user.email,
+            user.email || user.username,
             403,
             'ACCOUNT_REQUIRED',
             'Create an account and confirm your email to start a real event.',
@@ -273,6 +288,18 @@ export function createApp(options: Options) {
         ensure(match, 404, 'NOT_FOUND', 'Endpoint not found.');
         const ctx = context(store, req, currentUser(store, req), decodeURIComponent(match[1])),
           resource = match[2] ?? 'snapshot';
+        if (resource === 'attendee-links' && method === 'GET') {
+          send({ items: attendees.links(ctx) });
+          return;
+        }
+        if (resource === 'attendee-links' && method === 'POST') {
+          send(attendees.createLink(ctx), 201);
+          return;
+        }
+        if (resource.startsWith('attendee-links/') && method === 'DELETE') {
+          send(attendees.revoke(ctx, resource.slice(15)));
+          return;
+        }
         if (resource === 'push/subscription' && method === 'GET') {
           send({
             enabled: !!store.get(

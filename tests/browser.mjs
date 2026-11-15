@@ -2,7 +2,7 @@ import QRCode from 'qrcode';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-const mode = ['design', 'pwa', 'layout', 'usability', 'install', 'account'].includes(
+const mode = ['design', 'pwa', 'layout', 'usability', 'install', 'account', 'attendee'].includes(
   process.argv[2],
 )
   ? process.argv[2]

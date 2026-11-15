@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MongoStore } from './store.ts';
 import {
   hash,
+  normaliseUsername,
+  accountIdentity,
   id,
   now,
   token,
@@ -202,7 +204,7 @@ export class MongoAccounts {
     if (route === 'recovery-code') {
       const user = await this.user(req);
       ensure(
-        user?.email && !(user as User & { is_demo?: boolean }).is_demo,
+        (user?.username || user?.email) && !(user as User & { is_demo?: boolean }).is_demo,
         403,
         'ACCOUNT_REQUIRED',
         'Sign in to your own account first.',
@@ -234,19 +236,19 @@ export class MongoAccounts {
       return { recoveryCode: secret };
     }
     if (route === 'recover-account') {
-      const email = normaliseEmail(p.email);
+      const identity = accountIdentity(p);
       await this.limit('recovery-ip:' + ip, 20, 900000);
-      await this.limit('recovery:' + email, 5, 900000);
+      await this.limit('recovery:' + identity.value, 5, 900000);
       const proof = recoveryHash(p.recoveryCode);
       const saved = await passwordHash(passwordInput(p.password));
       const next = recoveryCode();
       await this.store.transaction(async (tx) => {
         const user = await tx.get<User>('users', {
-          email,
+          [identity.field]: identity.value,
           recovery_code_hash: proof,
           is_demo: { $ne: true },
         });
-        ensure(user, 401, 'INVALID_RECOVERY', 'Email or recovery code is incorrect.');
+        ensure(user, 401, 'INVALID_RECOVERY', 'Username, email or recovery code is incorrect.');
         await tx.update(
           'users',
           { id: user.id },
@@ -362,27 +364,29 @@ export class MongoAccounts {
     let user: User;
     let recoverySecret: string | undefined;
     if (route === 'register') {
-      const email = normaliseEmail(p.email),
+      const username = p.username !== undefined ? normaliseUsername(p.username) : null;
+      const email = username ? null : normaliseEmail(p.email),
         name = text(p.name, 'Name', 80, 2),
         password = passwordInput(p.password);
-      await this.limit('register:' + email, 5, 3600000);
-      if (this.mail.mode !== 'disabled') await this.checkDomain(email);
+      await this.limit('register:' + (username ?? email), 5, 3600000);
+      if (email && this.mail.mode !== 'disabled') await this.checkDomain(email);
       const saved = await passwordHash(password);
       recoverySecret = recoveryCode();
       try {
         user = await this.store.transaction(async (tx) => {
           ensure(
-            !(await tx.get('users', { email })),
+            !(await tx.get('users', username ? { username } : { email })),
             409,
-            'EMAIL_EXISTS',
-            'This email already has an account. Sign in or reset your password.',
+            username ? 'USERNAME_EXISTS' : 'EMAIL_EXISTS',
+            'This sign-in name already has an account. Sign in or reset your password.',
           );
           const created = {
             id: id(),
             email,
+            username,
             name,
             email_verified_at: null,
-            access_approved_at: this.mail.mode === 'disabled' ? now() : null,
+            access_approved_at: username || this.mail.mode === 'disabled' ? now() : null,
           };
           await tx.insert('users', {
             ...created,
@@ -392,19 +396,27 @@ export class MongoAccounts {
             recovery_code_hash: recoverySecret ? recoveryHash(recoverySecret) : null,
           });
           await this.record(tx, created.id, 'registered');
-          if (this.mail.mode !== 'disabled') await this.proof(tx, created, 'verify');
+          if (email && this.mail.mode !== 'disabled') await this.proof(tx, created, 'verify');
           return created;
         });
       } catch (e) {
         if ((e as { code?: number }).code === 11000)
-          throw new ApiError(409, 'EMAIL_EXISTS', 'This email already has an account.');
+          throw new ApiError(
+            409,
+            username ? 'USERNAME_EXISTS' : 'EMAIL_EXISTS',
+            'This sign-in name already has an account.',
+          );
         throw e;
       }
     } else if (route === 'login') {
-      const email = normaliseEmail(p.email),
+      const identity = accountIdentity(p),
         password = passwordInput(p.password, 1);
-      await this.limit('login:' + email, email === 'demo@rally.local' ? 100 : 10, 900000);
-      const found = await this.store.get<User>('users', { email });
+      await this.limit(
+        'login:' + identity.value,
+        identity.value === 'demo@rally.local' ? 100 : 10,
+        900000,
+      );
+      const found = await this.store.get<User>('users', { [identity.field]: identity.value });
       const saved =
         found?.password_hash ??
         'invalid:00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
@@ -413,7 +425,7 @@ export class MongoAccounts {
         found?.password_hash && matches,
         401,
         'INVALID_CREDENTIALS',
-        'Email or password is incorrect. Check your details or reset your password.',
+        'Username, email or password is incorrect. Check your details or reset your password.',
       );
       const nextRecovery = recoveryCode();
       user = await this.store.transaction(async (tx) => {
@@ -446,6 +458,7 @@ export class MongoAccounts {
           await this.record(tx, current.id, 'account_access_enabled');
         }
         if (
+          current.email &&
           !current.email_verified_at &&
           this.mail.mode !== 'disabled' &&
           !(await tx.get('account_tokens', {
