@@ -28,7 +28,7 @@ The browser journey completed attendee request → organiser assignment → volu
 - Reporter updates persisted, acknowledgement worked and dialog keyboard focus returned correctly.
 - Attendee controls did not offer organiser-only actions.
 
-At the final record check: **29 commands, 29 activity entries, 0 incorrect task versions, 0 missing history entries and 0 broken references**. Check time: `2026-11-15T15:20:38.797Z`. This was an isolated local fixture.
+At the final record check: **29 commands, 29 activity entries, 0 incorrect task versions, 0 missing history entries and 0 broken references**. Check time: `2026-11-15T15:20:38.797Z`. This was an isolated SQLite fixture. The same full browser failure journey subsequently passed against a disposable MongoDB replica set served by one Node process, matching the Render topology. Its final check at `2026-11-15T15:50:13.536Z` also reported 29 commands, 29 activity entries and zero invariant failures.
 
 MongoDB tests separately cover transactional rollback, simultaneous duplicate commands, version conflicts, real separate accounts, invitation reuse, event-scoped integration tokens, authenticated sockets, push retries, session revocation and a read-only SQLite import that refuses a populated destination.
 
@@ -44,4 +44,6 @@ The production Atlas database was not modified by these local tests. Backups, re
 
 ## Release verification
 
-Use [the Render deployment checks](DEPLOYMENT.md) after publishing. Confirm the deployment serves the reviewed build, passes MongoDB health, exposes OpenAPI and supports same-origin sign-in. Existing Render dashboard build commands and environment values can override repository defaults.
+Release `8351e31` was pushed to `thehusnain/VenueRelay` and the existing Render service deployed it. The live site served the matching frontend assets and both new recovery API operations. A fresh 390px browser session completed one-click demo sign-in and Home/Tasks navigation with no horizontal overflow or uncaught JavaScript errors. MongoDB health returned `ok`, and the signed-in account reported `EMAIL_TRANSPORT=disabled` and `accessGranted=true`. The live smoke check did not create test attendee tasks or change operational event records.
+
+Use [the Render deployment checks](DEPLOYMENT.md) for later releases. Confirm the deployment serves the reviewed build, passes MongoDB health, exposes OpenAPI and supports same-origin sign-in. Existing Render dashboard build commands and environment values can override repository defaults.
