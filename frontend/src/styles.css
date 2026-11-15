@@ -24,6 +24,8 @@
   box-sizing: border-box;
 }
 html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scrollbar-color: #a4b5aa var(--bg);
   scroll-padding-block: 100px;
 }
@@ -106,6 +108,8 @@ strong {
   outline-offset: 3px;
 }
 h1[tabindex='-1']:focus,
+h2[tabindex='-1']:focus,
+h3[tabindex='-1']:focus,
 main[tabindex='-1']:focus {
   outline: none;
 }
@@ -665,10 +669,44 @@ pre {
   margin-top: 12px;
 }
 .opening {
-  padding-block: 60px;
+  width: min(100%, 360px);
+  margin-inline: auto;
+  text-align: center;
+  padding-block: 32px;
+}
+.is-loading > .entry-header,
+.is-loading > .entry-footer {
+  display: none;
+}
+.is-loading > .entry-main {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  min-height: 100dvh;
+  flex: 1;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+.opening-logo {
+  display: block;
+  margin: 0 auto 22px;
+}
+.opening h1 {
+  font-size: clamp(23px, 5vw, 28px);
+}
+.opening-motto {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.opening-status {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
 }
 .loading-line {
-  margin-top: 20px;
+  margin: 24px auto 0;
+  width: min(240px, 100%);
   height: 3px;
   border-radius: 4px;
   background: var(--border);
@@ -2039,13 +2077,17 @@ pre {
 /* Dialogs and device features */
 .modal {
   position: fixed;
+  inset: auto 0;
+  top: calc(var(--modal-viewport-top, 0px) + var(--modal-viewport-height, 100dvh) / 2);
+  transform: translateY(-50%);
+  margin: 0 auto;
   border: 0;
   border-radius: 16px;
   background: var(--surface);
   color: var(--fg);
   padding: 26px;
   width: min(560px, calc(100vw - 32px));
-  max-height: calc(100dvh - 48px);
+  max-height: calc(var(--modal-viewport-height, 100dvh) - 48px);
   overflow-y: auto;
   overscroll-behavior: contain;
   box-shadow: 0 20px 70px #15352a33;
@@ -2074,6 +2116,9 @@ pre {
   margin-bottom: 20px;
   color: var(--muted);
   font-size: 13px;
+}
+.modal .form-error {
+  color: var(--error);
 }
 .form-grid {
   display: grid;
@@ -2213,13 +2258,125 @@ pre {
 .invitation-result {
   overflow-wrap: anywhere;
 }
+.invitation-result h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand);
+  margin-bottom: 12px;
+}
 .invitation-result p {
   font-size: 12px;
   margin-bottom: 16px;
   color: var(--muted);
 }
-.invitation-result input {
+.invitation-link {
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  background: var(--surface-subtle);
+}
+.invitation-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.invitation-share-actions > .primary {
+  flex: 1;
+}
+.copy-status {
+  display: block;
+  min-height: 24px;
+  margin-top: 6px;
+  color: var(--success);
   font-size: 12px;
+}
+.invitation-qr {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 6px;
+}
+.invitation-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+.form-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.form-note svg {
+  margin-top: 2px;
+  color: var(--brand);
+}
+.invitation-panel {
+  margin-bottom: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.team-directory-heading {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+.invitation-panel .panel-heading {
+  margin-bottom: 8px;
+}
+.invitation-empty {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 60ch;
+}
+.invitation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding-block: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.invitation-person {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.invitation-person p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.invitation-role {
+  text-transform: capitalize;
+}
+.invitation-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.invitation-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+.invitation-status.pending {
+  color: var(--warning);
+}
+.invitation-status.accepted {
+  color: var(--success);
+}
+.cancel-invitation {
+  color: var(--error);
+}
+.invitation-history {
+  margin-top: 16px;
 }
 .help-content p {
   margin-top: 12px;
@@ -2304,6 +2461,8 @@ pre {
   }
   .app-main {
     padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    padding-inline: max(var(--page-gutter), env(safe-area-inset-left))
+      max(var(--page-gutter), env(safe-area-inset-right));
   }
 
   .home-workspace {
@@ -2346,6 +2505,9 @@ pre {
     gap: 12px;
     padding-block: 16px;
     flex-wrap: wrap;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    padding-inline: max(var(--page-gutter), env(safe-area-inset-left))
+      max(var(--page-gutter), env(safe-area-inset-right));
   }
   .entry-navigation {
     order: 3;
@@ -2402,6 +2564,7 @@ pre {
   .entry-footer {
     font-size: 10px;
     padding-block: 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
   .entry-workflow {
     padding-block: 30px;
@@ -2420,8 +2583,9 @@ pre {
     height: 31px;
   }
   .app-header-inner {
-    padding: 10px 16px;
-    min-height: 84px;
+    padding: calc(10px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px
+      max(16px, env(safe-area-inset-left));
+    min-height: 76px;
     gap: 10px;
     align-items: center;
   }
@@ -2475,8 +2639,9 @@ pre {
   }
   .sample-strip {
     padding-inline: 20px;
-    gap: 14px;
     font-size: 10px;
+    flex-wrap: wrap;
+    gap: 4px 14px;
   }
   .sample-strip button {
     font-size: 10px;
@@ -2514,6 +2679,7 @@ pre {
   .next-actions > .section-heading {
     padding: 20px 18px 16px;
     gap: 12px;
+    flex-wrap: wrap;
   }
   .section-heading h2 {
     font-size: 15px;
@@ -2565,6 +2731,7 @@ pre {
   }
   .plain-task-place {
     font-size: 10px;
+    overflow-wrap: anywhere;
   }
   .plain-task-action > span {
     display: none;
@@ -2651,6 +2818,9 @@ pre {
   .simple-tabs button {
     font-size: 12px;
   }
+  .simple-tabs {
+    flex-wrap: wrap;
+  }
   .task-wizard h1,
   .task-view h1 {
     font-size: 28px;
@@ -2694,6 +2864,7 @@ pre {
   }
   .panel-heading {
     gap: 12px;
+    flex-wrap: wrap;
   }
   .panel-heading h2 {
     font-size: 15px;
@@ -2723,6 +2894,7 @@ pre {
     grid-column: 2;
     margin-left: 0;
     font-size: 10px;
+    white-space: normal;
   }
   .permissions-grid {
     grid-template-columns: 1fr;
@@ -2761,7 +2933,42 @@ pre {
   }
   .modal {
     padding: 22px 20px;
-    max-height: calc(100dvh - 32px);
+    max-height: calc(var(--modal-viewport-height, 100dvh) - 32px);
+  }
+  .modal-head {
+    margin-bottom: 20px;
+  }
+  .invitation-result .invitation-link,
+  .filter-field select,
+  .recovery-code-label textarea {
+    font-size: 16px;
+  }
+  .invitation-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .invitation-row-actions {
+    justify-content: flex-start;
+    gap: 4px 16px;
+  }
+  .invitation-row-actions .invitation-status {
+    flex-basis: 100%;
+  }
+  .task-facts > span,
+  .task-description,
+  .request-summary,
+  .activity-item p,
+  .cover-meta,
+  .schedule-session h2,
+  .schedule-session p,
+  .next-session,
+  .credential-person p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .step-actions .button {
+    flex: 1;
   }
   .modal-head h2 {
     font-size: 18px;
@@ -2773,11 +2980,28 @@ pre {
     margin-top: 4px;
   }
   .modal-actions .button {
-    flex: 1;
     padding-inline: 12px;
+    width: 100%;
+  }
+  .modal-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .modal-actions .primary {
+    grid-row: 1;
   }
   .toast {
     font-size: 11px;
+  }
+}
+@media (max-width: 480px) {
+  .page-team .section-intro > .button-row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-team .section-intro .primary {
+    order: -1;
   }
 }
 @media (max-width: 360px) {
@@ -2788,7 +3012,7 @@ pre {
     gap: 7px;
   }
   .app-header-inner {
-    padding-inline: 12px;
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
   }
   .sample-strip {
     padding-inline: 16px;
@@ -3026,4 +3250,9 @@ pre {
 .attendee-event > span,
 .attendee-location > span {
   min-width: 0;
+}
+@media (pointer: coarse) {
+  :root :is(input, select, textarea) {
+    font-size: 16px;
+  }
 }

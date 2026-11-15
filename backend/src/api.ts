@@ -19,6 +19,8 @@ import {
   execute,
   createEvent,
   invite,
+  listInvitations,
+  manageInvitation,
   acceptInvitation,
   createApiKey,
   integrity,
@@ -392,6 +394,31 @@ export function createApp(options: Options) {
         }
         if (resource === 'invitations' && method === 'POST') {
           send(invite(store, ctx, await body(req)), 201);
+          return;
+        }
+        if (resource === 'invitations' && method === 'GET') {
+          const offset = Number(url.searchParams.get('offset') ?? 0),
+            limit = Number(url.searchParams.get('limit') ?? 50);
+          ensure(
+            Number.isInteger(offset) &&
+              offset >= 0 &&
+              Number.isInteger(limit) &&
+              limit >= 1 &&
+              limit <= 100,
+            422,
+            'VALIDATION_ERROR',
+            'Use a non-negative offset and a limit between 1 and 100.',
+          );
+          send(listInvitations(store, ctx, offset, limit));
+          return;
+        }
+        const invitationAction = resource.match(/^invitations\/([^/]+)(\/renew)?$/);
+        if (
+          invitationAction &&
+          ((method === 'DELETE' && !invitationAction[2]) ||
+            (method === 'POST' && invitationAction[2]))
+        ) {
+          send(manageInvitation(store, ctx, invitationAction[1], method === 'POST'));
           return;
         }
         if (resource === 'integrity' && method === 'GET') {

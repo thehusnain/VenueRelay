@@ -63,14 +63,29 @@ export function Modal({
     const el = ref.current;
     if (!el) return;
     const previousFocus = document.activeElement as HTMLElement | null;
+    const mobile = matchMedia('(pointer: coarse)').matches || innerWidth <= 720;
+    if (mobile)
+      el.querySelectorAll('[autofocus]').forEach((input) => input.removeAttribute('autofocus'));
     el.showModal();
     const focusTarget =
-      el.querySelector<HTMLElement>('[autofocus], input, textarea, select') ??
+      (mobile
+        ? el.querySelector<HTMLElement>('h2')
+        : el.querySelector<HTMLElement>('[autofocus], input, textarea, select')) ??
       el.querySelector<HTMLElement>('button');
     focusTarget?.focus({ preventScroll: true });
+    const viewport = window.visualViewport;
+    const resize = () => {
+      el.style.setProperty('--modal-viewport-height', `${viewport?.height ?? innerHeight}px`);
+      el.style.setProperty('--modal-viewport-top', `${viewport?.offsetTop ?? 0}px`);
+    };
+    resize();
+    viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
       document.body.style.overflow = overflow;
       el.close();
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
@@ -117,7 +132,9 @@ export function Modal({
     >
       <div className="modal-head">
         <div>
-          <h2 id={titleId.current}>{title}</h2>
+          <h2 id={titleId.current} tabIndex={-1}>
+            {title}
+          </h2>
         </div>
         <button className="icon-button" onClick={onClose} aria-label="Close dialog">
           <X size={20} />
@@ -172,17 +189,21 @@ export function ActivityList({
                         ? 'created an attendee access link'
                         : a.action === 'attendee_link.revoke'
                           ? 'disabled an attendee access link'
-                          : a.action === 'schedule.create'
-                            ? 'added a programme session'
-                            : a.action === 'announcement.create'
-                              ? 'posted an announcement'
-                              : a.action === 'member.join'
-                                ? 'joined the event'
-                                : a.action === 'invitation.create'
-                                  ? 'created an invitation'
-                                  : a.action === 'integration.create'
-                                    ? 'created an integration token'
-                                    : 'revoked an integration token'}
+                          : a.action === 'invitation.renew'
+                            ? 'replaced an invitation link'
+                            : a.action === 'invitation.revoke'
+                              ? 'cancelled an invitation'
+                              : a.action === 'schedule.create'
+                                ? 'added a programme session'
+                                : a.action === 'announcement.create'
+                                  ? 'posted an announcement'
+                                  : a.action === 'member.join'
+                                    ? 'joined the event'
+                                    : a.action === 'invitation.create'
+                                      ? 'created an invitation'
+                                      : a.action === 'integration.create'
+                                        ? 'created an integration token'
+                                        : 'revoked an integration token'}
               </p>
               {a.entity_type === 'task' && onTask ? (
                 <button className="text-link" onClick={() => onTask(a.entity_id)}>

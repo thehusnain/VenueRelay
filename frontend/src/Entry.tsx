@@ -69,8 +69,11 @@ export function Entry({
   const authPath = ['/sign-in', '/create-account', '/forgot-password'].includes(path);
   const workflow =
     proof || authPath || ['loading', 'unavailable', 'verify', 'setup'].includes(stage);
+  const loading = stage === 'loading' && !authPath && !proof;
   return (
-    <div className={`entry-shell ${workflow ? 'is-workflow' : 'is-welcome'}`}>
+    <div
+      className={`entry-shell ${workflow ? 'is-workflow' : 'is-welcome'}${loading ? ' is-loading' : ''}`}
+    >
       <header className="entry-header">
         <div className="entry-identity">
           <Brand onClick={() => onNavigate('/')} />
@@ -134,10 +137,12 @@ export function Entry({
               demoError={demoError}
             />
           ) : stage === 'loading' ? (
-            <div className="opening">
+            <div className="opening" role="status">
+              <img className="opening-logo" src="/favicon.svg" width="56" height="56" alt="" />
               <h1>Opening VenueRelay…</h1>
-              <p>Finding your event.</p>
-              <div className="loading-line" />
+              <p className="opening-motto">Every team. Every update. One place.</p>
+              <div className="loading-line" aria-hidden="true" />
+              <p className="opening-status">Finding your event.</p>
             </div>
           ) : stage === 'unavailable' ? (
             <div className="entry-form">

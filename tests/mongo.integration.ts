@@ -350,6 +350,58 @@ test('invitations cannot be stolen or used twice; malformed actors and cross-eve
   assert.equal(response.response.status, 409);
   assert.equal(response.data.error.code, 'ACTOR_CHANGED');
 });
+test('concurrent staff invitations reject duplicates and safely replace or cancel links', async () => {
+  const { ctx, lead } = await fixture();
+  const attempts = await Promise.allSettled(
+    Array.from({ length: 8 }, (_, index) =>
+      backend.domain.invite(ctx, {
+        name: index % 2 ? '  AYESHA   Khan ' : 'Ayesha Khan',
+        role: index % 2 ? 'vendor' : 'volunteer',
+      }),
+    ),
+  );
+  const successes = attempts.filter((result) => result.status === 'fulfilled');
+  assert.equal(successes.length, 1);
+  for (const result of attempts)
+    if (result.status === 'rejected') assert.equal(result.reason.code, 'ALREADY_INVITED');
+  const created = (
+    successes[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof backend.domain.invite>>>
+  ).value;
+  const listed = await api(`/events/${ctx.event.id}/invitations`, undefined, lead.session);
+  assert.equal(listed.response.status, 200);
+  assert.equal(listed.data.pendingCount, 1);
+  assert.equal(listed.data.items[0].status, 'pending');
+  assert.ok(!JSON.stringify(listed.data).includes('token_hash'));
+  const worker = await account('Ayesha Khan');
+  const renewed = await backend.domain.manageInvitation(ctx, created.id, true);
+  assert.ok('token' in renewed && renewed.token);
+  await assert.rejects(backend.domain.accept(worker.user, created.token), {
+    code: 'INVITATION_EXPIRED',
+  });
+  await backend.domain.accept(worker.user, renewed.token!);
+  await assert.rejects(backend.domain.invite(ctx, { name: 'ayesha khan', role: 'volunteer' }), {
+    code: 'ALREADY_MEMBER',
+  });
+  const workerContext = await backend.domain.context(req(worker.session), ctx.event.id);
+  await assert.rejects(backend.domain.listInvitations(workerContext, 0, 50), { code: 'FORBIDDEN' });
+  const pending = await backend.domain.invite(ctx, { name: 'Hamza Ali', role: 'vendor' });
+  await backend.domain.manageInvitation(ctx, pending.id, false);
+  await backend.domain.manageInvitation(ctx, pending.id, false);
+  await assert.rejects(backend.domain.accept(worker.user, pending.token), {
+    code: 'INVITATION_EXPIRED',
+  });
+  await assert.rejects(backend.domain.manageInvitation(ctx, created.id, true), {
+    code: 'INVITATION_USED',
+  });
+  const history = await backend.domain.listInvitations(ctx, 0, 50);
+  assert.equal(history.pendingCount, 0);
+  assert.equal(history.items.find((row) => row.id === pending.id)?.status, 'cancelled');
+  assert.equal(
+    (await backend.domain.activity(ctx)).filter((row) => row.action === 'invitation.revoke').length,
+    1,
+  );
+  assert.equal((await backend.domain.integrity(ctx)).ok, true);
+});
 test('API keys are event-scoped, revocable and never exposed in audit responses', async () => {
   const { ctx } = await fixture(),
     key = await backend.domain.createKey(ctx, 'Integration');

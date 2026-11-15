@@ -276,6 +276,32 @@ export class MongoBackend implements ApplicationBackend {
       this.changed(ctx.event.id);
       return;
     }
+    if (resource === 'invitations' && method === 'GET') {
+      const url = new URL(req.url ?? '/', this.accounts.mail.origin),
+        offset = Number(url.searchParams.get('offset') ?? 0),
+        limit = Number(url.searchParams.get('limit') ?? 50);
+      ensure(
+        Number.isInteger(offset) &&
+          offset >= 0 &&
+          Number.isInteger(limit) &&
+          limit >= 1 &&
+          limit <= 100,
+        422,
+        'VALIDATION_ERROR',
+        'Use a non-negative offset and a limit between 1 and 100.',
+      );
+      send(await this.domain.listInvitations(ctx, offset, limit));
+      return;
+    }
+    const invitationAction = resource.match(/^invitations\/([^/]+)(\/renew)?$/);
+    if (
+      invitationAction &&
+      ((method === 'DELETE' && !invitationAction[2]) || (method === 'POST' && invitationAction[2]))
+    ) {
+      send(await this.domain.manageInvitation(ctx, invitationAction[1], method === 'POST'));
+      this.changed(ctx.event.id);
+      return;
+    }
     if (resource === 'integrity' && method === 'GET') {
       send(await this.domain.integrity(ctx));
       return;

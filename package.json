@@ -29,7 +29,8 @@
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate-mongo.ts",
     "check:deployment": "node scripts/check-deployment.mjs",
     "test:accounts": "node tests/browser.mjs account",
-    "test:attendees": "node tests/browser.mjs attendee"
+    "test:attendees": "node tests/browser.mjs attendee",
+    "test:mobile": "node tests/browser.mjs mobile"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.3.0",

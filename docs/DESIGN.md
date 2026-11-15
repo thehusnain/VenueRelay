@@ -35,6 +35,10 @@ Buttons use an 8px radius and a 44–46px minimum target height. Forms use visib
 
 Dialogs use native `dialog`, Escape, focus containment, scrolling within the viewport and focus return. No page entrance animation is used in the workspace. Loading feedback respects reduced motion.
 
+The initial loading state keeps its logo, motto and progress indicator in one centered group in both phone orientations. Dialogs follow the visual viewport height when the mobile keyboard changes the available space. Phone dialogs start focus on their heading so the keyboard opens only after a field is selected. Dialog actions stack on phones; invitation results put the link and copy action before the optional QR code.
+
+The team page shows pending invitations before the staff roster. Each invitation exposes its role, expiry and state, with share/replacement and cancellation controls. Previous invitations stay available in a disclosure. Long names wrap without displacing actions. The staff roster excludes guest request reporters.
+
 ## Account and device flows
 
 The sign-in form comes before optional demo details. Demo access is one click. Staff signup uses a username and password, with a private recovery code before continuing to setup; Account security can replace it after password confirmation. Real events begin empty and guide organisers to invitations and the first task.

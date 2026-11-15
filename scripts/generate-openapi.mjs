@@ -36,8 +36,22 @@ schemas.Task = object(
   },
   ['id', 'event_id', 'title', 'status', 'version'],
 );
-schemas.Member = object(
-  Object.fromEntries(['id', 'event_id', 'user_id', 'name', 'role', 'team'].map((k) => [k, string])),
+schemas.Member = object({
+  ...Object.fromEntries(
+    ['id', 'event_id', 'user_id', 'name', 'role', 'team'].map((k) => [k, string]),
+  ),
+  is_guest: { type: 'boolean' },
+});
+schemas.Invitation = object(
+  {
+    id: string,
+    name: string,
+    role: { type: 'string', enum: ['volunteer', 'vendor', 'attendee'] },
+    expiresAt: { type: 'string', format: 'date-time' },
+    createdAt: nullable,
+    status: { type: 'string', enum: ['pending', 'accepted', 'expired', 'cancelled'] },
+  },
+  ['id', 'name', 'role', 'expiresAt', 'createdAt', 'status'],
 );
 schemas.Event = object({
   ...Object.fromEntries(
@@ -424,7 +438,39 @@ add('/events/{eventId}/invitations', 'post', 'Create single-use invitation', {
   ),
   status: 201,
   description:
-    'Signed-in organiser only. Token returned once; hashed in storage, expires in 48 hours. No automatic retry.',
+    'Signed-in organiser only. Token returned once; hashed in storage, expires in 48 hours. A case/whitespace/Unicode-normalised name already pending or joined in this event gets 409 ALREADY_INVITED or ALREADY_MEMBER. Names are labels, not verified identity. No automatic retry.',
+});
+add('/events/{eventId}/invitations', 'get', 'List staff invitation status', {
+  parameters: [
+    { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+    {
+      name: 'limit',
+      in: 'query',
+      schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+    },
+  ],
+  response: object({
+    items: { type: 'array', items: ref('Invitation') },
+    pendingCount: integer,
+    nextOffset: { type: ['integer', 'null'] },
+  }),
+  description:
+    'Signed-in organiser only; integration tokens and other roles are denied. Pending invitations are first, then expiry descending. No raw token, token hash or accepting account identifier is returned.',
+});
+add(
+  '/events/{eventId}/invitations/{invitationId}/renew',
+  'post',
+  'Replace a lost invitation link',
+  {
+    parameters: [{ name: 'invitationId', in: 'path', required: true, schema: string }],
+    description:
+      'Signed-in organiser only. Rotates a pending or expired invitation token and restarts its 48-hour expiry. The previous link stops working immediately. Accepted or cancelled invitations cannot be renewed. Returns the new token once. No automatic retry.',
+  },
+);
+add('/events/{eventId}/invitations/{invitationId}', 'delete', 'Cancel a staff invitation', {
+  parameters: [{ name: 'invitationId', in: 'path', required: true, schema: string }],
+  description:
+    'Signed-in organiser only. Idempotently disables an unused invitation without deleting its record. Repeated cancellation creates no extra audit entries. Accepted invitations return 409 INVITATION_USED.',
 });
 add('/invitations/accept', 'post', 'Join invited event', {
   body: object({ token: string }, ['token']),

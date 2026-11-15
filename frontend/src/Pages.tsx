@@ -21,14 +21,22 @@ import type { Snapshot, Pending } from '../../shared/contracts';
 import { Avatar, ActivityList, Empty, eventDate, time } from './components';
 import { request, API } from './use-rally';
 import { statusLabels, type Status } from '../../shared/contracts';
+import type { Invitation } from '../../shared/contracts';
+import { InvitationPanel } from './Invitations';
 export function TeamPage({
   data,
   onInvite,
   onAttendees,
+  onShareInvitation,
+  invitationLinks,
+  onRefresh,
 }: {
   data: Snapshot;
   onInvite: () => void;
   onAttendees: () => void;
+  onShareInvitation: (invitation: Invitation) => void;
+  invitationLinks: Record<string, string>;
+  onRefresh: () => Promise<void>;
 }) {
   return (
     <>
@@ -48,9 +56,18 @@ export function TeamPage({
           </div>
         ) : null}
       </div>
+      {data.me.role === 'organiser' ? (
+        <InvitationPanel
+          data={data}
+          savedLinks={invitationLinks}
+          onShare={onShareInvitation}
+          onChanged={onRefresh}
+        />
+      ) : null}
+      <h2 className="team-directory-heading">Team members</h2>
       <section className="team-directory" aria-label="Event team">
         {data.members
-          .filter((m) => !m.user_id.startsWith('guest:'))
+          .filter((m) => !m.is_guest && !m.user_id.startsWith('guest:'))
           .map((m) => {
             const count = data.tasks.filter(
               (t) => t.owner_id === m.id && !['closed', 'resolved'].includes(t.status),

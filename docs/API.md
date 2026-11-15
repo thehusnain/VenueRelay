@@ -44,6 +44,21 @@ Push requires browser permission, VAPID settings and an own signed-in membership
 
 Save the recovery code privately. `POST /auth/recover-account` accepts `{username,recoveryCode,password}`, changes the password, rotates the code and revokes sessions atomically. It also accepts the legacy `email` field. `POST /auth/recovery-code` accepts `{password}` for the signed-in staff account and replaces its private code. Neither endpoint changes event records. Optional legacy email verification/reset endpoints remain documented for existing integrations.
 
+## Staff invitations
+
+Only a signed-in organiser can manage staff invitations. Integration keys and other roles cannot list, replace or cancel them.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /events/{id}/invitations` | Create `{name,role}`; return the single-use token once, valid for 48 hours |
+| `GET /events/{id}/invitations?offset=0&limit=50` | Read `{items,pendingCount,nextOffset}`; pending first, with accepted/expired/cancelled history |
+| `POST /events/{id}/invitations/{invitationId}/renew` | Replace a pending/expired link; invalidate the old token and return a fresh one once |
+| `DELETE /events/{id}/invitations/{invitationId}` | Cancel an unused invitation; repeated cancellation is idempotent |
+
+Names are compared within the event after Unicode normalisation, case folding and whitespace collapse. A name already pending returns `409 ALREADY_INVITED`; a joined name returns `409 ALREADY_MEMBER`. Names are labels rather than verified identity; use distinguishable names for different people. Concurrent invitations for the same normalised name cannot create duplicate pending records. Accepted or cancelled records cannot be renewed. Listing never returns raw tokens, hashes or the accepting account ID. Replacement and cancellation preserve the activity log. Creation and replacement must not be retried automatically after an unknown outcome; inspect the pending list first.
+
+The organiser can copy/share a new invitation while its dialog is open and reopen it in the same app session. After a reload, **Your team → Pending invitations → Replace link** issues a new shareable link. Recipients land in the invited event after authentication, including when they already have a newer event of their own.
+
 ## Account-free attendees
 
 | Endpoint | Access and purpose |

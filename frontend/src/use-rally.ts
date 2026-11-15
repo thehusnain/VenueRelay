@@ -122,11 +122,12 @@ export function useRally() {
           }
           const invitation = sessionPreference.get('rally:invitation');
           if (invitation && (auth.user.username || auth.user.email)) {
-            await request('/invitations/accept', {
+            const joined = await request<{ eventId: string }>('/invitations/accept', {
               method: 'POST',
               body: JSON.stringify({ token: invitation }),
             });
             sessionPreference.remove('rally:invitation');
+            eventId = joined.eventId;
           }
         }
         const next = eventId

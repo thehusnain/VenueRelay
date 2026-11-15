@@ -150,6 +150,7 @@ export class MongoStore {
       invitations: [
         { key: { id: 1 }, unique: true },
         { key: { token_hash: 1 }, unique: true },
+        { key: { event_id: 1, expires_at: -1 } },
       ],
       attendee_links: [
         { key: { id: 1 }, unique: true },

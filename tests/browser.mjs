@@ -1,16 +1,26 @@
 import QRCode from 'qrcode';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-const mode = ['design', 'pwa', 'layout', 'usability', 'install', 'account', 'attendee'].includes(
-  process.argv[2],
-)
+import { chromium, webkit } from 'playwright';
+const mode = [
+  'design',
+  'pwa',
+  'layout',
+  'usability',
+  'install',
+  'account',
+  'attendee',
+  'mobile',
+].includes(process.argv[2])
   ? process.argv[2]
   : 'browser';
-const browser = await chromium.launch({
+const engine = process.env.BROWSER_ENGINE === 'webkit' ? webkit : chromium;
+const browser = await engine.launch({
   headless: true,
-  ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
-  args: ['--no-sandbox'],
+  ...(engine === chromium && process.env.CHROMIUM_PATH
+    ? { executablePath: process.env.CHROMIUM_PATH }
+    : {}),
+  ...(engine === chromium ? { args: ['--no-sandbox'] } : {}),
 });
 try {
   const page = await browser.newPage();

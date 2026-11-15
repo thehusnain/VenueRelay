@@ -6,6 +6,7 @@ import { organiser } from '../permissions.ts';
 import { planCommand, type CommandInput } from '../mutations.ts';
 import { id, now, hash, token, requireVerified, publicUser, type User } from '../auth.ts';
 import { ensure, text, choice } from '../errors.ts';
+import { ensureInvitable, invitationView, type InvitationRecord } from '../invitations.ts';
 import type {
   Event,
   Member,
@@ -327,6 +328,7 @@ export class MongoDomain {
         tasks,
         members: visible.map(({ user_id, ...m }) => ({
           ...m,
+          is_guest: user_id.startsWith('guest:'),
           user_id: m.id === ctx.me.id ? user_id : '',
         })),
         activity,
@@ -367,6 +369,14 @@ export class MongoDomain {
       value = token(),
       inviteId = id();
     await this.store.transaction(async (tx) => {
+      // Serialise access changes for this event before checking names. A concurrent
+      // invitation or acceptance forces MongoDB to retry with the committed state.
+      await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
+      ensureInvitable(
+        name,
+        await tx.all<Member>('members', { event_id: ctx.event.id }),
+        await tx.all<InvitationRecord>('invitations', { event_id: ctx.event.id }),
+      );
       await tx.insert('invitations', {
         id: inviteId,
         event_id: ctx.event.id,
@@ -375,6 +385,8 @@ export class MongoDomain {
         name,
         expires_at: new Date(Date.now() + 172800000).toISOString(),
         used_by: null,
+        created_at: now(),
+        revoked_at: null,
       });
       await this.append(
         tx,
@@ -389,7 +401,95 @@ export class MongoDomain {
         { id: inviteId, name, role },
       );
     });
-    return { token: value, name, role, expiresInHours: 48 };
+    return { id: inviteId, token: value, name, role, expiresInHours: 48 };
+  }
+  async listInvitations(ctx: Context, offset: number, limit: number) {
+    organiser(ctx);
+    ensure(
+      !ctx.isIntegration,
+      403,
+      'FORBIDDEN',
+      'Use a signed-in organiser account to manage invitations.',
+    );
+    const rows = (await this.store.all<InvitationRecord>('invitations', { event_id: ctx.event.id }))
+      .map(invitationView)
+      .sort(
+        (a, b) =>
+          Number(b.status === 'pending') - Number(a.status === 'pending') ||
+          b.expiresAt.localeCompare(a.expiresAt) ||
+          b.id.localeCompare(a.id),
+      );
+    return {
+      items: rows.slice(offset, offset + limit),
+      nextOffset: rows.length > offset + limit ? offset + limit : null,
+      pendingCount: rows.filter((row) => row.status === 'pending').length,
+    };
+  }
+  async manageInvitation(ctx: Context, invitationId: string, renew: boolean) {
+    organiser(ctx);
+    ensure(
+      !ctx.isIntegration,
+      403,
+      'FORBIDDEN',
+      'Use a signed-in organiser account to manage invitations.',
+    );
+    return this.store.transaction(async (tx) => {
+      await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
+      const row = await tx.get<InvitationRecord>('invitations', {
+        id: invitationId,
+        event_id: ctx.event.id,
+      });
+      ensure(row, 404, 'NOT_FOUND', 'Invitation not found.');
+      ensure(
+        !row.used_by,
+        409,
+        'INVITATION_USED',
+        'This person has already joined. Find them in Your team.',
+      );
+      if (!renew && row.revoked_at) return { ok: true };
+      ensure(
+        !renew || !row.revoked_at,
+        410,
+        'INVITATION_CANCELLED',
+        'This invitation was cancelled. Create a new invitation instead.',
+      );
+      if (renew)
+        ensureInvitable(
+          row.name,
+          await tx.all<Member>('members', { event_id: ctx.event.id }),
+          await tx.all<InvitationRecord>('invitations', { event_id: ctx.event.id }),
+          row.id,
+        );
+      const value = renew ? token() : undefined;
+      await tx.update(
+        'invitations',
+        { id: row.id },
+        {
+          $set: renew
+            ? {
+                token_hash: hash(value!),
+                expires_at: new Date(Date.now() + 172800000).toISOString(),
+              }
+            : { revoked_at: now() },
+        },
+      );
+      const action = renew ? 'invitation.renew' : 'invitation.revoke';
+      await this.append(
+        tx,
+        ctx,
+        action + '-' + id(),
+        hash(row.id),
+        { id: row.id },
+        'invitation',
+        row.id,
+        action,
+        { id: row.id, name: row.name, role: row.role },
+        { id: row.id, name: row.name, role: row.role, status: renew ? 'pending' : 'cancelled' },
+      );
+      return renew
+        ? { id: row.id, token: value, name: row.name, role: row.role, expiresInHours: 48 }
+        : { ok: true };
+    });
   }
   async accept(user: User, value: string) {
     await this.realUser(user);
@@ -400,9 +500,10 @@ export class MongoDomain {
         role: Member['role'];
         expires_at: string;
         used_by: string | null;
+        revoked_at?: string | null;
       }>('invitations', { token_hash: hash(value) });
       ensure(
-        invitation && invitation.expires_at > now(),
+        invitation && !invitation.revoked_at && invitation.expires_at > now(),
         410,
         'INVITATION_EXPIRED',
         'This invitation is invalid or expired.',
@@ -414,6 +515,7 @@ export class MongoDomain {
         'This invitation has already been accepted.',
       );
       if (invitation.used_by === user.id) return { eventId: invitation.event_id };
+      await tx.update('events', { id: invitation.event_id }, { $inc: { access_revision: 1 } });
       ensure(
         !(await tx.get('members', { event_id: invitation.event_id, user_id: user.id })),
         409,

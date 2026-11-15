@@ -2,6 +2,16 @@
 
 Verified on 15 November 2026 against disposable local databases. These results describe the revised source; live deployment validation is recorded separately below.
 
+## Mobile loading and staff invitations
+
+The updated mobile journey passed **52 checks in Chromium and 52 in WebKit**, with touch input enabled, against disposable local databases. The MongoDB run matches the single-origin Render setup. It covers a centered loading group in portrait/landscape, fresh username signup and event setup, invitation creation, native and denied-clipboard fallback copying, pending status after reload, duplicate rejection, replacement of a lost link, invalidation of the original link, a separate staff account joining the correct event despite owning a newer event, cancellation and retained invitation history. The final Chromium and WebKit checks completed at `2026-11-15T17:39:42.751Z` and `2026-11-15T17:39:55.602Z` with zero uncaught JavaScript errors. Each rendered state passed overflow and axe checks. The navigation matrix uses the app's touch controls; direct-route loading is also covered by the 90-state design matrix.
+
+Phone widths include 320, 360, 390 and 414px, plus 844×390 landscape, 768px tablet and 1280px desktop. Short-viewport dialog checks use 360×420; these simulate available space and do not emulate a physical software keyboard. No real phone hardware was used. WebKit is browser-engine coverage, not a physical iPhone test. A separate hard-navigation probe found no errors after requests settled; rapid full-document test navigation had caused WebKit cancellation diagnostics, so the interaction matrix uses the real navigation controls.
+
+API tests additionally verify organiser-only metadata, absence of raw tokens/hashes in lists, pagination, old-link rejection, joined-name rejection, idempotent cancellation and activity integrity. Eight simultaneous MongoDB invitations for the same normalised name yield one success and seven `ALREADY_INVITED` rejections.
+
+Run `npm run test:mobile` against a local server using `RALLY_TEST_URL`; set `BROWSER_ENGINE=webkit` when Playwright WebKit and its dependencies are available.
+
 ## Staff usernames and account-free attendees
 
 The staff signup/sign-in flow now supports usernames without email. Existing email/password accounts remain compatible. The new attendee journey passed in the browser against both SQLite and a disposable MongoDB replica set: organiser creates QR/link → guest submits without an account → committed response is lost → guest reloads offline → reconnect safely confirms one request → staff assign, complete and close it → private guest tracking shows the result after reload → shared-link revocation preserves existing tracking.
@@ -14,8 +24,8 @@ API tests cover username uniqueness, staff invitation and recovery, guest capabi
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 59 passed |
-| `npm run test:mongo` | 15 passed against a disposable MongoDB replica set |
+| `npm test` | 60 passed |
+| `npm run test:mongo` | 16 passed against a disposable MongoDB replica set |
 | `npm run build` | TypeScript and production Vite build passed |
 | Design browser matrix | 90 page/viewport combinations: no horizontal overflow or automated axe WCAG findings |
 | Layout browser checks | 21 checks passed, including 320×568 phones and 1280×600 laptops |
@@ -23,6 +33,7 @@ API tests cover username uniqueness, staff invitation and recovery, guest capabi
 | PWA browser checks | 8 passed: cached shell, QR fallback, offline deep routes, paused-state recovery and API docs |
 | Installation events | Android/iPhone identities: direct native prompt, dismissal, retry, installed state and no unsupported installation instructions |
 | Account browser journey | Signup without email, recovery-code download, empty event setup, code replacement and password recovery passed on a 390px phone viewport |
+| Mobile invitation journey | 52 checks each in Chromium and WebKit: phone, landscape, short dialogs, copy fallback, duplicate handling and invitation lifecycle |
 
 The design matrix covers welcome, sign-in, registration, account recovery, confirmation/reset links, home, tasks, plan, team, activity, integrations, connection help, task detail, all creation steps and updates. Widths: 320, 375, 768, 1024 and 1440px. Additional usability checks include 390, 600 and 844px landscape layouts. Inputs use 16px text on phones; navigation retains visible labels and targets of at least 44px.
 

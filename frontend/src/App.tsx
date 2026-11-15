@@ -25,6 +25,8 @@ import { SimpleForm } from './Dialogs';
 import { Inbox } from './Inbox';
 import { AttendeePortal, AttendeeAccess } from './AttendeePortal';
 import { AccountSecurity } from './AccountSecurity';
+import { InvitationDialog } from './Invitations';
+import type { Invitation } from '../../shared/contracts';
 function useLocation() {
   const [route, setRoute] = useState(() => ({ path: location.pathname, fragment: location.hash }));
   useEffect(() => {
@@ -51,6 +53,27 @@ export function App() {
     [dialog, setDialog] = useState(''),
     [inbox, setInbox] = useState(false),
     more = useRef<HTMLDetailsElement>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<Invitation | undefined>(),
+    [invitationLinks, setInvitationLinks] = useState<Record<string, Record<string, string>>>({});
+  const [joiningInvitation, setJoiningInvitation] = useState(
+    () =>
+      !!new URLSearchParams(location.search).get('invite') ||
+      !!sessionPreference.get('rally:invitation'),
+  );
+  useEffect(() => {
+    if (
+      joiningInvitation &&
+      rally.stage === 'workspace' &&
+      !sessionPreference.get('rally:invitation')
+    ) {
+      setJoiningInvitation(false);
+      navigate('/');
+    }
+  }, [joiningInvitation, rally.stage, data?.me.id]);
+  const invite = () => {
+    setSelectedInvitation(undefined);
+    setDialog('invite');
+  };
   useEffect(() => {
     const invitation = new URLSearchParams(location.search).get('invite');
     if (invitation) {
@@ -99,6 +122,7 @@ export function App() {
       const target = parseRallyLink(value, location.origin);
       if (target.invite && !sessionPreference.set('rally:invitation', target.invite))
         throw new Error('Device storage is unavailable. Retry after enabling storage.');
+      if (target.invite) setJoiningInvitation(true);
       setDialog('');
       go(target.path);
     } catch (e) {
@@ -551,8 +575,14 @@ export function App() {
                 ) : path === '/team' ? (
                   <TeamPage
                     data={data}
-                    onInvite={() => setDialog('invite')}
+                    onInvite={invite}
                     onAttendees={() => setDialog('attendees')}
+                    onShareInvitation={(invitation) => {
+                      setSelectedInvitation(invitation);
+                      setDialog('invite');
+                    }}
+                    invitationLinks={invitationLinks[data.event.id] ?? {}}
+                    onRefresh={rally.refresh}
                   />
                 ) : path === '/history' ? (
                   <LogPage data={data} onTask={openTask} onExport={() => void exportRecords()} />
@@ -581,7 +611,7 @@ export function App() {
                 onCreate={create}
                 onTasks={() => go('/tasks')}
                 onSchedule={() => go('/schedule')}
-                onInvite={() => setDialog('invite')}
+                onInvite={invite}
               />
             )}
           </div>
@@ -598,9 +628,31 @@ export function App() {
         </div>
       ) : null}
       {browserTools}
-      {['invite', 'event', 'schedule', 'announcement'].includes(dialog) ? (
+      {dialog === 'invite' ? (
+        <InvitationDialog
+          key={selectedInvitation?.id ?? 'new'}
+          data={data}
+          invitation={selectedInvitation}
+          savedLink={
+            selectedInvitation ? invitationLinks[data.event.id]?.[selectedInvitation.id] : undefined
+          }
+          onClose={() => setDialog('')}
+          onChanged={rally.refresh}
+          onCreated={(id, link) =>
+            setInvitationLinks((previous) => ({
+              ...previous,
+              [data.event.id]: { ...previous[data.event.id], [id]: link },
+            }))
+          }
+          onPending={() => {
+            setDialog('');
+            go('/team');
+          }}
+        />
+      ) : null}
+      {['event', 'schedule', 'announcement'].includes(dialog) ? (
         <SimpleForm
-          kind={dialog as 'invite' | 'event' | 'schedule' | 'announcement'}
+          kind={dialog as 'event' | 'schedule' | 'announcement'}
           data={data}
           onClose={() => setDialog('')}
           mutate={rally.mutate}

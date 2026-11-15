@@ -11,7 +11,7 @@ Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **E
 5. Preview the organiser and confirm the task is done.
 6. Preview the attendee. The request is finished and **Updates** shows the result. The attendee cannot assign or finish other people's work.
 
-The sample selector is an owner-only rehearsal. For real collaboration, use separate registered accounts and **Your team → Invite someone**. Share each single-use invitation link with its intended person. Real events do not expose role preview.
+The sample selector is an owner-only rehearsal. For real collaboration, use separate registered accounts and **Your team → Invite a teammate**. Share each single-use invitation link with its intended person. Real events do not expose role preview.
 
 ## Interrupt the connection
 
@@ -31,6 +31,8 @@ The automated lost-response scenario lets the server commit before aborting its 
 ## Show an actual account
 
 Create a staff account with your name, username and password. Save the recovery code and continue. Add the event name, date and place in one form. The event starts with no sample work and only its organiser. Invite a teammate, choose a role, and share the secret link or QR code directly. The recipient signs up with their own account and accepts the invitation. Assign a task, complete it as the teammate and confirm it as the organiser. Use the saved recovery code to reset the password without email; save the replacement code and sign back into the same records. More → Account security can replace a lost code while you are signed in.
+
+The invitation dialog puts **Copy invitation** beside the readable link. **Your team → Pending invitations** shows who is waiting, their role and expiry. A duplicate name is rejected with a link back to this list. If the original link is lost after a reload, choose **Replace link**; the old link stops working. Cancel an unused invitation to disable it. Joined, expired and cancelled records remain under **Previous invitations**.
 
 ## Show integration readiness
 

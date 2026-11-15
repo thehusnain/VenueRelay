@@ -1,9 +1,8 @@
-import { QrCode } from './qr';
 import { useState, type FormEvent } from 'react';
-import { ArrowRight, Check, Clipboard, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import { Modal } from './components';
-import { request, API } from './use-rally';
+import { request } from './use-rally';
 export type Mutate = (
   action: string,
   payload: Record<string, unknown>,
@@ -21,19 +20,16 @@ export function SimpleForm({
   onDone,
   mutate,
 }: {
-  kind: 'event' | 'invite' | 'announcement' | 'schedule';
+  kind: 'event' | 'announcement' | 'schedule';
   data: Snapshot;
   onClose: () => void;
   onDone: (eventId?: string) => void;
   mutate: Mutate;
 }) {
   const [error, setError] = useState(''),
-    [busy, setBusy] = useState(false),
-    [link, setLink] = useState(''),
-    [copied, setCopied] = useState(false);
+    [busy, setBusy] = useState(false);
   const title = {
     event: 'Make room for a great event',
-    invite: 'Invite someone to your team',
     announcement: 'Send an update to your team',
     schedule: 'Add an activity to the event plan',
   }[kind];
@@ -68,15 +64,6 @@ export function SimpleForm({
         onDone(r.eventId);
         onClose();
       }
-      if (kind === 'invite') {
-        const r = await request(
-          `/events/${data.event.id}/invitations`,
-          { method: 'POST', body: JSON.stringify(p) },
-          data.event.is_demo ? data.me.role : 'self',
-        );
-        setLink(`${API || location.origin}/?invite=${encodeURIComponent(r.token)}`);
-        onDone();
-      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -85,163 +72,73 @@ export function SimpleForm({
   };
   return (
     <Modal title={title} onClose={onClose}>
-      {link ? (
-        <div className="invite-result">
-          <QrCode value={link} />
-          <div className="success-mark">
-            <Check size={24} />
-          </div>
-          <h3>Your invitation is ready</h3>
-          <p>
-            Share this link or QR code. Your teammate opens it, creates their own account or signs
-            in, and joins with the role you chose. The link can be used once and expires in 48
-            hours.
+      <form onSubmit={submit}>
+        {kind === 'event' ? (
+          <>
+            <p className="form-intro">Start with a clean workspace. Your demo stays separate.</p>
+            <label>
+              Event name
+              <input name="name" required minLength={3} maxLength={100} autoFocus />
+            </label>
+            <label>
+              Venue
+              <input name="venue" required maxLength={140} />
+            </label>
+            <label>
+              Event date
+              <input name="date" type="date" required />
+            </label>
+          </>
+        ) : null}
+        {kind === 'announcement' ? (
+          <>
+            <p className="form-intro">
+              A persistent update for signed-in event members. Attendee tracking links show updates
+              to their own request.
+            </p>
+            <label>
+              Announcement
+              <textarea name="message" required minLength={5} maxLength={1000} rows={5} autoFocus />
+            </label>
+          </>
+        ) : null}
+        {kind === 'schedule' ? (
+          <>
+            <label>
+              Session title
+              <input name="title" required minLength={3} maxLength={140} autoFocus />
+            </label>
+            <label>
+              Location
+              <input name="location" required maxLength={120} />
+            </label>
+            <div className="form-grid">
+              <label>
+                Starts at
+                <input name="startsAt" type="datetime-local" required />
+              </label>
+              <label>
+                Ends at
+                <input name="endsAt" type="datetime-local" required />
+              </label>
+            </div>
+          </>
+        ) : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
           </p>
-          <p>Once they join, you’ll see them in Your team and can assign them a task.</p>
-          <label>
-            Invitation link
-            <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
-          </label>
-          <button
-            className="button primary"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(link);
-                setCopied(true);
-              } catch {
-                setError('Select and copy the link above.');
-              }
-            }}
-          >
-            <Clipboard size={16} />
-            {copied ? 'Copied' : 'Copy invitation'}
+        ) : null}
+        <div className="modal-actions">
+          <button type="button" className="button secondary" onClick={onClose}>
+            Cancel
           </button>
-          <div className="button-row">
-            <button
-              className="button secondary"
-              onClick={() => {
-                setLink('');
-                setCopied(false);
-                setError('');
-              }}
-            >
-              Invite another person
-            </button>
-            <button className="text-link" onClick={onClose}>
-              Done
-            </button>
-          </div>
-          {error ? (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          ) : null}
+          <button className="button primary" disabled={busy}>
+            {busy ? 'Saving…' : kind === 'event' ? 'Create event' : 'Publish'}
+            <ArrowRight size={16} />
+          </button>
         </div>
-      ) : (
-        <form onSubmit={submit}>
-          {kind === 'event' ? (
-            <>
-              <p className="form-intro">Start with a clean workspace. Your demo stays separate.</p>
-              <label>
-                Event name
-                <input name="name" required minLength={3} maxLength={100} autoFocus />
-              </label>
-              <label>
-                Venue
-                <input name="venue" required maxLength={140} />
-              </label>
-              <label>
-                Event date
-                <input name="date" type="date" required />
-              </label>
-            </>
-          ) : null}
-          {kind === 'invite' ? (
-            <>
-              <p className="form-intro">
-                Add their name, choose their role, then share their personal invitation. Each person
-                signs in with their own account.
-              </p>
-              <label>
-                Person’s name
-                <input name="name" required minLength={2} maxLength={100} autoFocus />
-              </label>
-              <label>
-                Role
-                <select name="role" aria-label="Role">
-                  <option value="volunteer">Volunteer · helps with tasks</option>
-                  <option value="vendor">Vendor · runs a stall or service</option>
-                </select>
-              </label>
-              <div className="form-note">
-                <ShieldCheck size={16} />
-                Invitation links are single-use and expire in 48 hours.
-              </div>
-            </>
-          ) : null}
-          {kind === 'announcement' ? (
-            <>
-              <p className="form-intro">
-                A persistent update for signed-in event members. Attendee tracking links show
-                updates to their own request.
-              </p>
-              <label>
-                Announcement
-                <textarea
-                  name="message"
-                  required
-                  minLength={5}
-                  maxLength={1000}
-                  rows={5}
-                  autoFocus
-                />
-              </label>
-            </>
-          ) : null}
-          {kind === 'schedule' ? (
-            <>
-              <label>
-                Session title
-                <input name="title" required minLength={3} maxLength={140} autoFocus />
-              </label>
-              <label>
-                Location
-                <input name="location" required maxLength={120} />
-              </label>
-              <div className="form-grid">
-                <label>
-                  Starts at
-                  <input name="startsAt" type="datetime-local" required />
-                </label>
-                <label>
-                  Ends at
-                  <input name="endsAt" type="datetime-local" required />
-                </label>
-              </div>
-            </>
-          ) : null}
-          {error ? (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="modal-actions">
-            <button type="button" className="button secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="button primary" disabled={busy}>
-              {busy
-                ? 'Saving…'
-                : kind === 'invite'
-                  ? 'Create invitation'
-                  : kind === 'event'
-                    ? 'Create event'
-                    : 'Publish'}
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </form>
-      )}
+      </form>
     </Modal>
   );
 }

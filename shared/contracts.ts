@@ -17,6 +17,20 @@ export interface Member {
   name: string;
   role: Role;
   team: string;
+  is_guest?: boolean;
+}
+export interface Invitation {
+  id: string;
+  name: string;
+  role: Role;
+  expiresAt: string;
+  createdAt: string | null;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+}
+export interface InvitationPage {
+  items: Invitation[];
+  pendingCount: number;
+  nextOffset: number | null;
 }
 export interface Task {
   id: string;
