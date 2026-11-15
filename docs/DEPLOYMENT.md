@@ -1,4 +1,4 @@
-# Deploy venuerelay.
+# Deploy VenueRelay
 
 Every Team. Every Update. One Place.
 
@@ -59,13 +59,37 @@ Email: demo@rally.local
 Password: RallyDemo2026!
 ```
 
-These established demo credentials remain compatible with earlier versions; the product is now venuerelay. Choose **Sign in → Fill demo → Sign in**. The MongoDB backend prevents this shared demo account from creating or joining real events. Demo role previews only work in its sample event. Other accounts create their own empty events after verification. Disable demo seeding with `DEMO_ACCOUNT_ENABLED=false` before the first startup if you do not want judge access; changing this flag later does not delete an existing account.
+These established demo credentials remain compatible with earlier versions; the product is VenueRelay. Choose **Sign in → Fill demo → Sign in**. The MongoDB backend prevents this shared demo account from creating or joining real events. Demo role previews only work in its sample event. Other accounts create their own empty events after verification. Disable demo seeding with `DEMO_ACCOUNT_ENABLED=false` before the first startup if you do not want judge access; changing this flag later does not delete an existing account.
 
 Copy these credentials and the deployed website URL into the submission notes in [SUBMISSION.md](SUBMISSION.md). Do not share an Atlas URI or a real organiser's password.
 
 ### Enable registration and password recovery
 
-Email delivery was deferred at your request. The demo works while email is disabled; **public registration and password recovery require a mail provider**. Add these privately to Render when ready:
+**Public registration and password recovery require a configured mail provider.** For Render Free, use the Brevo HTTPS transport rather than the blocked standard SMTP ports. Brevo documents a free plan with 300 daily sends; provider account approval, sender verification and quotas still apply.
+
+1. Use Brevo’s **Free** plan. Under Settings → Senders, Domains, IPs → Senders, add your sender and complete its verification code. Follow any additional sending-access requirements shown by Brevo; domain authentication improves deliverability.
+2. Under SMTP & API → API Keys & MCP, create an **API key**, not an SMTP key. Do not share it in chat or commit it.
+3. Add these privately in Render → Environment:
+
+| Variable | Value |
+| --- | --- |
+| `EMAIL_TRANSPORT` | `brevo` |
+| `BREVO_API_KEY` | Your private Brevo API key |
+| `EMAIL_FROM` | `VenueRelay <YOUR_VERIFIED_SENDER_EMAIL>` |
+| `APP_ORIGIN` | Your real public HTTPS website origin, without a page path |
+
+Save and redeploy the updated code. No SMTP host, port or Gmail App Password is used for this transport. API requests use HTTPS with a timeout and fixed provider endpoint; redirecting the private key is disallowed. The existing leased outbox retains failed/unconfirmed messages, respects provider Retry-After, and reuses the same UUID as its provider idempotency key. Brevo’s documented deduplication window is 30 minutes; provider acceptance is not a guarantee of inbox delivery. Its free-tier queue can delay mail after the daily cap, potentially past verification-link expiry. Request a fresh link after sending capacity returns rather than disabling verification.
+
+After deploying, register using an address you control, confirm that Brevo accepts the transaction in its logs, receive the message, open its single-use link, and create your empty event. Then test Forgot password with the same real inbox. These external delivery checks require your account credentials and have not been performed by the repository tests.
+
+If you have already registered but have not received a link, sign in and use **Send another email** after configuring delivery. Keep ownership verification enabled.
+
+Provider references: [Free-plan limits](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan), [sender verification](https://help.brevo.com/hc/en-us/articles/208836149-Create-a-new-sender-From-name-and-From-email), [transactional email API](https://developers.brevo.com/reference/send-transac-email), [idempotency window](https://developers.brevo.com/docs/heterogenous-versions-batch-emails).
+
+### SMTP on a compatible host
+
+The existing SMTP transport remains available. Gmail SMTP with an App Password requires Google 2-Step Verification and a host permitting its SMTP ports; Render Free blocks 465/587. Configure the following only for an accessible provider endpoint:
+
 
 | Variable | Value |
 | --- | --- |

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Download } from 'lucide-react';
 import { Modal } from './components';
 import { request } from './use-rally';
 import type { Snapshot } from '../../shared/contracts';
@@ -7,12 +8,60 @@ interface InstallPrompt extends Event {
   userChoice: Promise<{ outcome: string }>;
 }
 let installPrompt: InstallPrompt | undefined;
-if (typeof window !== 'undefined')
+if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     installPrompt = event as InstallPrompt;
     window.dispatchEvent(new Event('rally:install-available'));
   });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = undefined;
+    window.dispatchEvent(new Event('rally:install-available'));
+  });
+}
+function isInstalled() {
+  return (
+    matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+function useInstalled() {
+  const [installed, setInstalled] = useState(isInstalled);
+  useEffect(() => {
+    const media = matchMedia('(display-mode: standalone)');
+    const changed = () => setInstalled(isInstalled());
+    const accepted = () => setInstalled(true);
+    media.addEventListener('change', changed);
+    window.addEventListener('appinstalled', accepted);
+    return () => {
+      media.removeEventListener('change', changed);
+      window.removeEventListener('appinstalled', accepted);
+    };
+  }, []);
+  return installed;
+}
+export function InstallButton({
+  onClick,
+  className = '',
+  label = 'Install VenueRelay',
+}: {
+  onClick: () => void;
+  className?: string;
+  label?: string;
+}) {
+  const installed = useInstalled();
+  return installed ? null : (
+    <button
+      className={`install-access ${className}`}
+      onClick={onClick}
+      aria-label="Install VenueRelay"
+      aria-haspopup="dialog"
+    >
+      <Download size={16} aria-hidden="true" />
+      <span>{label}</span>
+    </button>
+  );
+}
 export function PwaTools({
   open,
   onClose,
@@ -29,7 +78,14 @@ export function PwaTools({
     [update, setUpdate] = useState(false),
     [push, setPush] = useState<{ enabled: boolean; publicKey: string | null }>(),
     [subscribed, setSubscribed] = useState(false),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [installing, setInstalling] = useState(false),
+    [showSteps, setShowSteps] = useState(false);
+  const installed = useInstalled();
+  const steps = useRef<HTMLDivElement>(null);
+  const appleMobile =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const supported =
     typeof window !== 'undefined' &&
     window.isSecureContext &&
@@ -37,7 +93,7 @@ export function PwaTools({
     'PushManager' in window &&
     'Notification' in window;
   useEffect(() => {
-    const ready = () => setAvailable(true),
+    const ready = () => setAvailable(!!installPrompt),
       updated = () => setUpdate(true);
     window.addEventListener('rally:install-available', ready);
     window.addEventListener('rally:update-ready', updated);
@@ -51,8 +107,12 @@ export function PwaTools({
     };
   }, []);
   useEffect(() => {
+    if (showSteps) steps.current?.focus();
+  }, [showSteps]);
+  useEffect(() => {
     if (!open) return;
     setMessage('');
+    setShowSteps(false);
     void request('/push/public-key')
       .then(setPush)
       .catch(() => setMessage('Push settings could not be checked. Retry when connected.'));
@@ -69,13 +129,24 @@ export function PwaTools({
         .catch(() => setSubscribed(false));
   }, [open, data?.event.id, data?.me.id]);
   const install = async () => {
-    try {
-      await installPrompt?.prompt();
-      await installPrompt?.userChoice;
-      installPrompt = undefined;
+    const prompt = installPrompt;
+    if (!prompt) {
       setAvailable(false);
+      setShowSteps(true);
+      return;
+    }
+    installPrompt = undefined;
+    setInstalling(true);
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice.outcome !== 'accepted') setShowSteps(true);
     } catch {
       setMessage('Use your browser’s install menu or Add to Home Screen.');
+      setShowSteps(true);
+    } finally {
+      setAvailable(!!installPrompt);
+      setInstalling(false);
     }
   };
   const notifications = async () => {
@@ -133,7 +204,6 @@ export function PwaTools({
     }
   };
   if (!open) return null;
-  const installed = matchMedia('(display-mode: standalone)').matches;
   return (
     <Modal title="Install VenueRelay and notifications" onClose={onClose}>
       <div className="pwa-options">
@@ -144,15 +214,56 @@ export function PwaTools({
               ? 'VenueRelay is already running as an installed web app.'
               : 'Install this same website for quick access. No app-store download is needed.'}
           </p>
-          {!installed && available ? (
-            <button className="button primary" onClick={() => void install()}>
-              Install VenueRelay
-            </button>
-          ) : !installed ? (
-            <p>
-              On iPhone: open in Safari, tap Share → Add to Home Screen, then Add. On other
-              browsers, use “Install app” in the browser menu.
-            </p>
+          {!installed ? (
+            <>
+              <button
+                className="button primary"
+                disabled={installing}
+                onClick={() => void install()}
+                aria-controls={!available ? 'pwa-install-steps' : undefined}
+                aria-expanded={!available ? showSteps : undefined}
+              >
+                {installing
+                  ? 'Opening install…'
+                  : available
+                    ? 'Install VenueRelay'
+                    : 'Show installation steps'}
+              </button>
+              {appleMobile ? <p>Your mobile browser installs from Safari’s Share menu.</p> : null}
+              <div
+                hidden={!showSteps}
+                id="pwa-install-steps"
+                className="install-steps"
+                tabIndex={-1}
+                ref={steps}
+                aria-label="Installation steps"
+              >
+                <h4>Install VenueRelay on mobile</h4>
+                {appleMobile ? (
+                  <ol>
+                    <li>
+                      Open this website in Safari. If a link opened inside another app, open it in
+                      Safari first.
+                    </li>
+                    <li>Tap Share. Depending on your Safari layout, open the More menu first.</li>
+                    <li>Choose Add to Home Screen. If it is missing, look under Edit Actions.</li>
+                    <li>Turn on Open as Web App if shown, then tap Add.</li>
+                  </ol>
+                ) : (
+                  <ol>
+                    <li>
+                      Open this website directly in Chrome or Edge, outside another app’s browser.
+                    </li>
+                    <li>Open the browser menu and choose Install app or Add to Home screen.</li>
+                    <li>Confirm the installation, then open VenueRelay from your device.</li>
+                  </ol>
+                )}
+                <p>
+                  If your browser has no install option, you can keep using every online feature on
+                  this website.
+                </p>
+              </div>
+            </>
           ) : null}
           {!window.isSecureContext ? (
             <p role="status">
@@ -167,8 +278,8 @@ export function PwaTools({
             <p>Sign in and open an event first.</p>
           ) : !supported ? (
             <p>
-              This browser does not offer push here. On iPhone, install VenueRelay on your Home
-              Screen first. Updates remain available in the bell.
+              This browser does not offer push here. Your mobile browser may require you to open the
+              installed app first. Updates remain available in the bell.
             </p>
           ) : !push?.enabled ? (
             <p>Browser push is not configured on this server. Your in-app updates still work.</p>

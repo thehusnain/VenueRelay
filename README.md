@@ -1,4 +1,4 @@
-# venuerelay.
+# VenueRelay
 
 **Every Team. Every Update. One Place.**
 
@@ -24,7 +24,7 @@ The built app on port 3001 supports offline testing. Port 5173 is the live front
 
 Choose **Sign in → Fill demo → Sign in**. The button only fills the fields; it does not submit. The login screen shows both credentials. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded locally by default and on Render when `DEMO_ACCOUNT_ENABLED=true`. It is isolated from real events in the MongoDB backend. The public demo credentials remain compatible with earlier versions.
 
-The welcome screen links to this demo login. Real registrations remain separate: after verification, one short form creates an empty event. The organiser invites people with chosen roles, shares each invitation link/QR code, and manually adds and assigns tasks. No sample teammates, tasks or schedule are added to a real event. Email verification/recovery uses private local previews until SMTP is configured:
+The welcome screen links to this demo login. Real registrations remain separate: after verification, one short form creates an empty event. The organiser invites people with chosen roles, shares each invitation link/QR code, and manually adds and assigns tasks. No sample teammates, tasks or schedule are added to a real event. Email verification/recovery uses private local previews by default. For Render Free, use the documented Brevo HTTPS transport; SMTP remains available on hosts that allow it. For local previews:
 
 ```sh
 npm run email:preview -- YOUR_EMAIL
@@ -65,6 +65,7 @@ With the built app running, install the Playwright browser once, then run:
 npx playwright install chromium
 npm run test:browser
 npm run test:pwa
+npm run test:install
 npm run test:design
 npm run test:layout
 npm run test:usability

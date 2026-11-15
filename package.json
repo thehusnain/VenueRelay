@@ -22,6 +22,7 @@
     "test:design": "node tests/browser.mjs design",
     "push:keys": "node scripts/push-keys.mjs",
     "test:pwa": "node tests/browser.mjs pwa",
+    "test:install": "node tests/browser.mjs install",
     "test:layout": "node tests/browser.mjs layout",
     "test:usability": "node tests/browser.mjs usability",
     "build:vercel": "node scripts/vercel-output.mjs",

@@ -2,7 +2,7 @@ import QRCode from 'qrcode';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-const mode = ['design', 'pwa', 'layout', 'usability'].includes(process.argv[2])
+const mode = ['design', 'pwa', 'layout', 'usability', 'install'].includes(process.argv[2])
   ? process.argv[2]
   : 'browser';
 const browser = await chromium.launch({
@@ -13,7 +13,11 @@ const browser = await chromium.launch({
 try {
   const page = await browser.newPage();
   const scenario = eval(
-    '(' + readFileSync(new URL(`./${mode}-scenario.js`, import.meta.url), 'utf8') + ')',
+    '(' +
+      readFileSync(new URL(`./${mode}-scenario.js`, import.meta.url), 'utf8')
+        .trim()
+        .replace(/;$/, '') +
+      ')',
   );
   const root = fileURLToPath(new URL('../', import.meta.url));
   mkdirSync(new URL('../test-results/', import.meta.url), { recursive: true });

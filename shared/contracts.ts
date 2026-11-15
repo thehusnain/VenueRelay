@@ -112,6 +112,6 @@ export interface Account {
   emailVerified: boolean;
 }
 export interface Delivery {
-  mode: 'smtp' | 'preview' | 'disabled';
+  mode: 'smtp' | 'brevo' | 'preview' | 'disabled';
   connected: boolean;
 }

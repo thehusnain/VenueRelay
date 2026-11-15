@@ -1,6 +1,6 @@
-# venuerelay. interface
+# VenueRelay interface
 
-VenueRelay is an event run sheet for people working on phones, rather than a statistical dashboard. The organiser should see the next hand-off; a volunteer or vendor should find their assignment; an attendee should know how to request help. Use the requested white theme: white surfaces, dark blue-grey text, teal primary actions/selection, amber blockers and green confirmations. Keep the circular VenueRelay mark, Antonio display headings and Manrope body/UI text.
+VenueRelay is an event run sheet for people working on phones, rather than a statistical dashboard. The organiser should see the next hand-off; a volunteer or vendor should find their assignment; an attendee should know how to request help. Use the requested white theme: white surfaces, dark blue-grey text, teal primary actions/selection, amber blockers and green confirmations. Keep the circular, original-teal (#006b60) white VR monogram, Antonio display headings and Manrope body/UI text.
 
 ## Mobile first
 
@@ -27,3 +27,5 @@ Primary/secondary buttons share an 8px radius; form surfaces keep defined edges 
 The implementation applies visible system status, recognition through labelled navigation, plain language, limited choices and recoverable errors from [Nielsen's usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/). Focus visibility and target-size checks follow [WCAG 2.2 guidance](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/). These are design decisions and tested heuristics, not a claim of formal certification or research with end users.
 
 Run the full page/state matrix, the short-viewport landing check, the task/offline journey and the mobile usability scenario. The usability scenario checks filtering, search recovery, sample-role discovery, navigation target size, menu bounds, compact roster layout and focused-field visibility across phone, landscape, tablet and desktop sizes. Keep actual limitations in docs/VALIDATION.md. Backend permissions, transactional records, sync and PWA behaviour remain unchanged by the visual work.
+
+Installation is always reachable from the welcome navigation, account-page footer and workspace header. The mobile header places it next to save status so it does not compete with Updates/More. Keep the browser title and wordmark exactly VenueRelay; show “Every Team. Every Update. One Place.” in the page. Installation help uses mobile wording and browser-appropriate steps rather than branding the product for one operating system.

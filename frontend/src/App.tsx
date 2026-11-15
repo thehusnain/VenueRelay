@@ -1,4 +1,4 @@
-import { PwaTools } from './PwaTools';
+import { InstallButton, PwaTools } from './PwaTools';
 import { QrScanner, parseRallyLink } from './qr';
 import { sessionPreference } from './session-preferences';
 import { useEffect, useRef, useState } from 'react';
@@ -230,6 +230,11 @@ export function App() {
             {currentPage !== 'home' ? (
               <span className="header-event-name">{data.event.name}</span>
             ) : null}
+            <InstallButton
+              className="header-install"
+              label="Install"
+              onClick={() => setDialog('pwa')}
+            />
             <div className="header-actions">
               <button
                 className="updates-button"

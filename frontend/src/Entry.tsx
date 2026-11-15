@@ -3,16 +3,14 @@ import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Mail, RefreshCw } from 'luci
 import { request, RequestError } from './use-rally';
 import type { Account, Delivery } from '../../shared/contracts';
 import { demoCredentials } from '../../shared/contracts';
+import { InstallButton } from './PwaTools';
 export function Brand({ onClick }: { onClick: () => void }) {
   return (
     <button className="brand" onClick={onClick} aria-label="VenueRelay home">
       <span className="rally-logo" aria-hidden="true">
-        <span className="rally-mark">
-          <i />
-          <i />
-        </span>
+        <img className="brand-symbol" src="/favicon.svg" width="46" height="46" alt="" />
       </span>
-      <span className="brand-word">venuerelay.</span>
+      <span className="brand-word">VenueRelay</span>
     </button>
   );
 }
@@ -54,7 +52,7 @@ export function Entry({
             <button className="active" onClick={() => onNavigate('/')}>
               Home
             </button>
-            <button onClick={onInstall}>Install VenueRelay</button>
+            <InstallButton onClick={onInstall} />
             <button onClick={onScan}>Scan invitation</button>
             <button onClick={() => onNavigate('/sign-in')}>Demo login</button>
           </nav>
@@ -194,7 +192,8 @@ export function Entry({
         </div>
       </main>
       <footer className="entry-footer">
-        <span>venuerelay. · Every Team. Every Update. One Place.</span>
+        <span>VenueRelay · Every Team. Every Update. One Place.</span>
+        {workflow ? <InstallButton onClick={onInstall} /> : null}
       </footer>
     </div>
   );

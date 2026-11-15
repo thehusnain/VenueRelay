@@ -39,3 +39,5 @@ Use **Scan invitation** on the welcome screen or **More → Scan a QR code**. Ch
 Only links for the current VenueRelay origin are accepted. An invitation still requires sign-in and server acceptance; a task link still uses the normal role checks. Display invitations from the same reachable HTTPS address the phones use, not a laptop-only localhost address.
 
 References: [iPhone Home Screen web apps](https://support.apple.com/guide/iphone/iphea86e5236/ios), [WebKit push support](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/), [Background Sync](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API).
+
+Installation access is always visible on the welcome page and workspace header; account pages retain a footer shortcut. A missing native browser prompt opens manual installation steps instead of hiding the action. Installed/standalone sessions hide the shortcut. The app name and browser title are VenueRelay; the circular VR mark uses the original teal #006b60.

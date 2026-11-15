@@ -17,6 +17,8 @@ import {
   normaliseEmail,
   checkEmailDomain,
   sendMail,
+  emailReady,
+  mailRetryDelay,
   type EmailSettings,
   type MailJob,
 } from '../email.ts';
@@ -180,8 +182,7 @@ export class MongoAccounts {
   ) {
     const delivery = {
       mode: this.mail.mode,
-      connected:
-        this.mail.mode === 'smtp' && !!this.mail.host && !this.mail.from.includes('@localhost'),
+      connected: emailReady(this.mail),
     };
     if (route === 'me' && method === 'GET') {
       const user = await this.user(req);
@@ -444,7 +445,7 @@ export class MongoAccounts {
           },
         },
       );
-    } catch {
+    } catch (error) {
       await this.store.update(
         'email_outbox',
         { id: job.id, lease_id: job.lease_id, status: 'sending' },
@@ -452,7 +453,7 @@ export class MongoAccounts {
           $set: {
             status: job.attempts >= 8 ? 'failed' : 'pending',
             next_attempt_at: new Date(
-              Date.now() + Math.min(3600000, 30000 * 2 ** (job.attempts - 1)),
+              Date.now() + mailRetryDelay(error, job.attempts),
             ).toISOString(),
             lease_id: null,
             lease_until: null,

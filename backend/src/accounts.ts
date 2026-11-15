@@ -14,7 +14,7 @@ import {
   token,
   type User,
 } from './auth.ts';
-import { checkEmailDomain, normaliseEmail, type EmailSettings } from './email.ts';
+import { checkEmailDomain, normaliseEmail, emailReady, type EmailSettings } from './email.ts';
 import { ApiError, ensure, text } from './errors.ts';
 
 export function limitAttempt(
@@ -279,7 +279,7 @@ export async function handleAccountRoute(options: {
   };
   const delivery = {
     mode: settings.mode,
-    connected: settings.mode === 'smtp' && !!settings.host && !settings.from.includes('@localhost'),
+    connected: emailReady(settings),
   };
   if (route === 'me' && method === 'GET') {
     const user = currentUser(store, req);

@@ -20,6 +20,7 @@ import type { Task, Member } from '../shared/contracts.ts';
 import type { CommandInput } from '../backend/src/mutations.ts';
 import type { Context } from '../backend/src/domain.ts';
 import type { EmailSettings } from '../backend/src/email.ts';
+import { sendMail } from '../backend/src/email.ts';
 
 let replica: MongoMemoryReplSet, store: MongoStore, backend: MongoBackend;
 let app: ReturnType<typeof createApp>, origin: string;
@@ -48,6 +49,75 @@ after(async () => {
   await new Promise<void>((resolve) => app?.close(() => resolve()) ?? resolve());
   await store?.close();
   await replica?.stop();
+});
+test('hosted signup delivers through the HTTPS adapter and requires its single-use confirmation before event creation', async () => {
+  const isolated = await MongoStore.connect(replica.getUri(), 'rally_brevo_registration');
+  const settings: EmailSettings = {
+    ...mail,
+    mode: 'brevo',
+    apiKey: 'private-test-api-key',
+    from: 'VenueRelay <sender@example.com>',
+  };
+  const native = new MongoBackend(isolated, { mail: settings, checkDomain: async () => {} });
+  const server = createApp({ backend: native, emailSettings: settings });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port;
+  const post = async (path: string, body: unknown, cookie = '') =>
+    fetch(base + '/api/v1' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify(body),
+    });
+  try {
+    const response = await post('/auth/register', {
+      name: 'Real event lead',
+      email: 'lead@example.com',
+      password: 'EmailRegistration2026!',
+    });
+    assert.equal(response.status, 200);
+    const registered = await response.json(),
+      cookie = response.headers.get('set-cookie')!.split(';')[0];
+    assert.equal(registered.user.emailVerified, false);
+    assert.equal(registered.delivery.connected, true);
+    assert.equal(registered.delivery.mode, 'brevo');
+    assert.equal(JSON.stringify(registered).includes(settings.apiKey!), false);
+    assert.equal(
+      (
+        await post(
+          '/events',
+          { name: 'Community day', date: '2026-12-01', venue: 'Town hall' },
+          cookie,
+        )
+      ).status,
+      403,
+    );
+    let proof = '';
+    await native.accounts.deliver((job) =>
+      sendMail(settings, job, async (_url, options) => {
+        const payload = JSON.parse(String(options!.body));
+        proof = new URL(payload.textContent.match(/http[^\s]+/)[0]).searchParams.get('token')!;
+        return Response.json({ messageId: '<accepted@example.com>' }, { status: 201 });
+      }),
+    );
+    assert.ok(proof);
+    assert.equal((await isolated.get('email_outbox', {}))!.status, 'sent');
+    assert.equal((await post('/auth/verify-email', { token: proof }, cookie)).status, 200);
+    assert.equal((await post('/auth/verify-email', { token: proof }, cookie)).status, 410);
+    const created = await post(
+      '/events',
+      { name: 'Community day', date: '2026-12-01', venue: 'Town hall' },
+      cookie,
+    );
+    assert.equal(created.status, 201);
+    const { eventId } = await created.json();
+    assert.equal((await isolated.all('members', { event_id: eventId })).length, 1);
+    assert.equal((await isolated.all('tasks', { event_id: eventId })).length, 0);
+  } finally {
+    native.stopLive();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await isolated.close();
+  }
 });
 async function api(
   path: string,

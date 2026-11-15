@@ -88,7 +88,7 @@ schemas.User = object({
   emailVerified: { type: 'boolean' },
 });
 schemas.Delivery = object({
-  mode: { type: 'string', enum: ['preview', 'smtp', 'disabled'] },
+  mode: { type: 'string', enum: ['preview', 'smtp', 'brevo', 'disabled'] },
   connected: { type: 'boolean' },
 });
 schemas.Snapshot = object({

@@ -7,7 +7,7 @@ import type { Store } from './database.ts';
 import { id, now } from './auth.ts';
 import { ApiError, ensure } from './errors.ts';
 
-export type EmailMode = 'smtp' | 'preview' | 'disabled';
+export type EmailMode = 'smtp' | 'brevo' | 'preview' | 'disabled';
 export interface EmailSettings {
   mode: EmailMode;
   origin: string;
@@ -18,6 +18,7 @@ export interface EmailSettings {
   secure?: boolean;
   user?: string;
   password?: string;
+  apiKey?: string;
 }
 export interface MailJob {
   id: string;
@@ -30,16 +31,16 @@ export interface MailJob {
   lease_id: string;
   created_at: string;
 }
-export function emailSettings(): EmailSettings {
-  const mode = (process.env.EMAIL_TRANSPORT ??
-    (process.env.NODE_ENV === 'production' ? 'disabled' : 'preview')) as EmailMode;
+export function emailSettings(env: NodeJS.ProcessEnv = process.env): EmailSettings {
+  const mode = (env.EMAIL_TRANSPORT ??
+    (env.NODE_ENV === 'production' ? 'disabled' : 'preview')) as EmailMode;
   ensure(
-    ['smtp', 'preview', 'disabled'].includes(mode),
+    ['smtp', 'brevo', 'preview', 'disabled'].includes(mode),
     500,
     'EMAIL_CONFIG',
     'Invalid email transport setting.',
   );
-  const origin = process.env.APP_ORIGIN ?? 'http://127.0.0.1:3001';
+  const origin = env.APP_ORIGIN ?? 'http://127.0.0.1:3001';
   const parsed = new URL(origin);
   ensure(
     ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password,
@@ -47,24 +48,62 @@ export function emailSettings(): EmailSettings {
     'EMAIL_CONFIG',
     'APP_ORIGIN must be an HTTP origin.',
   );
-  if (process.env.NODE_ENV === 'production')
+  if (env.NODE_ENV === 'production')
     ensure(
       mode !== 'preview' && parsed.protocol === 'https:',
       500,
       'EMAIL_CONFIG',
-      'Production requires HTTPS and SMTP or disabled email delivery.',
+      'Production requires HTTPS and SMTP, Brevo or disabled email delivery.',
     );
-  return {
+  const settings: EmailSettings = {
     mode,
     origin: parsed.origin,
-    from: process.env.EMAIL_FROM ?? 'VenueRelay <hello@localhost>',
-    previewDir: resolve(process.env.EMAIL_PREVIEW_DIR ?? 'data/mail-preview'),
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: process.env.SMTP_SECURE === 'true',
-    user: process.env.SMTP_USER,
-    password: process.env.SMTP_PASSWORD,
+    from: env.EMAIL_FROM ?? 'VenueRelay <hello@localhost>',
+    previewDir: resolve(env.EMAIL_PREVIEW_DIR ?? 'data/mail-preview'),
+    host: env.SMTP_HOST,
+    port: Number(env.SMTP_PORT ?? 587),
+    secure: env.SMTP_SECURE === 'true',
+    user: env.SMTP_USER,
+    password: env.SMTP_PASSWORD,
+    apiKey: env.BREVO_API_KEY?.trim(),
   };
+  if (mode === 'brevo') {
+    ensure(settings.apiKey, 500, 'EMAIL_CONFIG', 'Set BREVO_API_KEY privately on the server.');
+    emailSender(settings.from);
+  }
+  return settings;
+}
+export function emailSender(value: string) {
+  const match = value.trim().match(/^([^<>]+)<([^<>]+)>$/);
+  const email = (match?.[2] ?? value).trim();
+  ensure(
+    !/[\r\n]/.test(value) && isEmail(email, { require_tld: true, allow_ip_domain: false }),
+    500,
+    'EMAIL_CONFIG',
+    'Set EMAIL_FROM to a real sender verified in your email provider.',
+  );
+  return { email, name: match?.[1].trim().replace(/^"(.*)"$/, '$1') || 'VenueRelay' };
+}
+export function emailReady(settings: EmailSettings) {
+  if (settings.mode === 'brevo') {
+    try {
+      emailSender(settings.from);
+      return !!settings.apiKey;
+    } catch {
+      return false;
+    }
+  }
+  return settings.mode === 'smtp' && !!settings.host && !settings.from.includes('@localhost');
+}
+export function mailRetryDelay(error: unknown, attempts: number) {
+  const hint =
+    error instanceof ApiError
+      ? (error.details as { retryAfterMs?: number } | undefined)?.retryAfterMs
+      : undefined;
+  return Math.max(
+    Math.min(3600000, 30000 * 2 ** Math.max(0, attempts - 1)),
+    Math.min(86400000, Math.max(0, Number(hint) || 0)),
+  );
 }
 export function normaliseEmail(value: unknown) {
   ensure(typeof value === 'string', 422, 'INVALID_EMAIL', 'Enter your email address.');
@@ -164,7 +203,74 @@ export function claimMail(store: Store, stamp = now()): MailJob | undefined {
     return { ...job, lease_id: lease, attempts: job.attempts + 1 };
   });
 }
-export async function sendMail(settings: EmailSettings, job: MailJob) {
+export async function sendMail(settings: EmailSettings, job: MailJob, http: typeof fetch = fetch) {
+  if (settings.mode === 'brevo') {
+    ensure(settings.apiKey, 503, 'EMAIL_CONFIG', 'Set BREVO_API_KEY privately on the server.');
+    let response: Response;
+    try {
+      response = await http('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        redirect: 'error',
+        signal: AbortSignal.timeout(15000),
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'api-key': settings.apiKey,
+        },
+        body: JSON.stringify({
+          sender: emailSender(settings.from),
+          to: [{ email: job.recipient }],
+          subject: job.subject,
+          textContent: job.body,
+          headers: { idempotencyKey: job.id },
+        }),
+      });
+    } catch {
+      throw new ApiError(
+        503,
+        'EMAIL_NETWORK',
+        'Email delivery could not be confirmed. The message will retry.',
+      );
+    }
+    const value: unknown = await response.json().catch(() => null);
+    const result =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : undefined;
+    if (
+      response.status === 400 &&
+      result?.code === 'duplicate_parameter' &&
+      typeof result.message === 'string' &&
+      /idempotenc/i.test(result.message)
+    )
+      return;
+    if (response.status === 429) {
+      const delay = response.headers.get('Retry-After'),
+        seconds = delay && /^\d+$/.test(delay) ? Number(delay) : undefined;
+      throw new ApiError(
+        503,
+        'EMAIL_RATE_LIMIT',
+        'The email provider is temporarily rate limited.',
+        {
+          retryAfterMs:
+            seconds !== undefined ? seconds * 1000 : delay ? Date.parse(delay) - Date.now() : 60000,
+        },
+      );
+    }
+    ensure(
+      response.ok,
+      503,
+      [401, 403].includes(response.status) ? 'EMAIL_PROVIDER_ACCESS' : 'EMAIL_PROVIDER_UNAVAILABLE',
+      'The email provider did not accept this message. Check the API key, verified sender and account sending access.',
+    );
+    ensure(
+      typeof result?.messageId === 'string' && result.messageId.trim().length > 0,
+      503,
+      'EMAIL_PROVIDER_RESPONSE',
+      'Email delivery could not be confirmed. The message will retry.',
+    );
+    return;
+  }
   if (settings.mode === 'preview') {
     await mkdir(settings.previewDir, { recursive: true, mode: 0o700 });
     await writeFile(
@@ -172,7 +278,7 @@ export async function sendMail(settings: EmailSettings, job: MailJob) {
       `To: ${job.recipient}\nFrom: ${settings.from}\nSubject: ${job.subject}\nMessage-ID: <${job.id}@rally.local>\nContent-Type: text/plain; charset=utf-8\n\n${job.body}`,
       { mode: 0o600 },
     );
-  } else {
+  } else if (settings.mode === 'smtp') {
     ensure(
       settings.host && settings.from && !settings.from.includes('@localhost'),
       503,
@@ -202,7 +308,7 @@ export async function sendMail(settings: EmailSettings, job: MailJob) {
       'EMAIL_REJECTED',
       'The email provider did not accept this recipient.',
     );
-  }
+  } else throw new ApiError(503, 'EMAIL_NOT_CONFIGURED', 'Email delivery is disabled.');
 }
 export async function deliverMail(
   store: Store,
@@ -223,11 +329,9 @@ export async function deliverMail(
       job.id,
       job.lease_id,
     );
-  } catch {
+  } catch (error) {
     const failed = job.attempts >= 8,
-      next = new Date(
-        Date.parse(stamp) + Math.min(3600000, 30000 * 2 ** (job.attempts - 1)),
-      ).toISOString();
+      next = new Date(Date.parse(stamp) + mailRetryDelay(error, job.attempts)).toISOString();
     store.run(
       'UPDATE email_outbox SET status=?,next_attempt_at=?,lease_id=NULL,lease_until=NULL,last_error=? WHERE id=? AND lease_id=?',
       failed ? 'failed' : 'pending',
