@@ -4,6 +4,7 @@ import { runtimeSettings } from '../backend/src/runtime.ts';
 import { createApp } from '../backend/src/api.ts';
 import { ApiError } from '../backend/src/errors.ts';
 import { once } from 'node:events';
+import { startupError } from '../backend/src/startup-error.ts';
 test('cloud startup requires explicit durable storage, secure cookies and exact HTTPS origins', () => {
   const env = {
     NODE_ENV: 'production',
@@ -36,6 +37,38 @@ test('local judge startup stays database-free and explicit local MongoDB is supp
     runtimeSettings({ MONGODB_URI: 'mongodb://127.0.0.1:27017/?replicaSet=test' }).database,
     'rally',
   );
+});
+test('startup diagnostics distinguish Atlas failures without logging credentials or raw provider messages', () => {
+  const privateUri = 'mongodb+srv://private-user:private-password@cluster.example.com/';
+  for (const [failure, category] of [
+    [{ name: 'MongoServerError', code: 18, message: privateUri }, 'MONGODB_AUTH'],
+    [
+      {
+        name: 'MongoServerError',
+        code: 8000,
+        message: 'bad auth : authentication failed ' + privateUri,
+      },
+      'MONGODB_AUTH',
+    ],
+    [{ name: 'MongoServerError', code: 13, message: privateUri }, 'MONGODB_PERMISSIONS'],
+    [{ name: 'MongoParseError', message: privateUri }, 'MONGODB_URI_FORMAT'],
+    [{ name: 'Error', code: 'ENOTFOUND', syscall: 'querySrv', message: privateUri }, 'MONGODB_DNS'],
+    [
+      { name: 'MongoServerSelectionError', cause: { code: 'ECONNREFUSED', message: privateUri } },
+      'MONGODB_NETWORK',
+    ],
+    [
+      { name: 'MongoNetworkError', cause: { code: 'CERT_HAS_EXPIRED', message: privateUri } },
+      'MONGODB_TLS',
+    ],
+  ] as const) {
+    const message = startupError(failure);
+    assert.ok(message.startsWith(category), message);
+    assert.equal(message.includes('private-user'), false);
+    assert.equal(message.includes('private-password'), false);
+  }
+  assert.equal(startupError(new Error('Connection ' + privateUri)).includes(privateUri), false);
+  assert.match(startupError(new Error('Set COOKIE_SECURE=true.')), /COOKIE_SECURE/);
 });
 test('database outages fail readiness and throttled requests include a retry delay', async () => {
   const app = createApp({

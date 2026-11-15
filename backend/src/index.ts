@@ -7,6 +7,7 @@ import { emailSettings, startEmailWorker } from './email.ts';
 import { runtimeSettings } from './runtime.ts';
 import { MongoStore } from './mongo/store.ts';
 import { MongoBackend } from './mongo/backend.ts';
+import { startupError } from './startup-error.ts';
 async function main() {
   const config = runtimeSettings(),
     mail = emailSettings();
@@ -84,11 +85,6 @@ async function main() {
     });
 }
 main().catch((error) => {
-  console.error(
-    'VenueRelay startup failed:',
-    error instanceof Error && ['Error', 'ApiError'].includes(error.name)
-      ? error.message
-      : 'Database unavailable. Check Atlas access and credentials.',
-  );
+  console.error('VenueRelay startup failed:', startupError(error));
   process.exitCode = 1;
 });

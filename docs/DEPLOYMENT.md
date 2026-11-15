@@ -128,3 +128,10 @@ Use **one Render instance** for this setup. Live invalidations are process-local
 Atlas Free has finite storage, connections and throughput. Keep the connection pool small (currently 10), monitor usage and use synthetic data for public judging. Enable the backup options offered by your cluster and practice restoring separately; exported event JSON is not a full account/database backup. Do not promise unlimited event traffic or multi-region disaster recovery on this setup. Keep your Render credits and billing alerts under review; the repository does not enforce a spending cap.
 
 Configuration references: [Vercel Build Output API](https://vercel.com/docs/build-output-api), [Vercel routing](https://vercel.com/docs/build-output-api/configuration), [Render Blueprint specification](https://render.com/docs/blueprint-spec), [Render WebSockets](https://render.com/docs/websocket), [MongoDB transaction rules](https://www.mongodb.com/docs/drivers/node/current/crud/transactions/), [Atlas Free limits](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/).
+
+
+## Atlas startup errors
+
+A failed startup reports a fixed, credential-free category: `MONGODB_AUTH` (database username/password, password encoding or authSource), `MONGODB_PERMISSIONS` (grant readWrite on the configured database), `MONGODB_URI_FORMAT` (malformed driver URI), `MONGODB_DNS` (hostname/active cluster), `MONGODB_TLS` (encrypted connection/certificates), or `MONGODB_NETWORK` (connectivity/access list). These are diagnostic categories, not confirmation of an individual account problem. The app does not print raw MongoDB errors or connection credentials.
+
+Use the Atlas **Database User** password, not the Atlas website-login password. Passwords with reserved URI characters must be percent-encoded once; do not leave `<db_password>` or its angle brackets in the value. Atlas SCRAM users authenticate against `admin`; `MONGODB_DATABASE=rally` selects the application database independently. Verify the configured user's readWrite access to that database. See [Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/).

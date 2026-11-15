@@ -107,3 +107,14 @@ Cleanup: stop only the disposable tests/hosted-fixture.ts server (exec95114) aft
 Publishing: user previously authorised normal git add/commit/push. Base was83ec1e7. Record the actual publishing result below; do not assume remote push succeeded or bypass a read-only .git/network restriction.
 
 Publishing outcome: the deployment/rename changes were committed locally. Normal git push origin main failed with Could not resolve host: github.com. No remote publication or live deployment was confirmed. No secrets/generated output were staged. Resume with a normal git push once GitHub DNS/network access works; no permission bypass or force push is needed.
+
+
+### Atlas connection troubleshooting — 15 November
+
+User is deploying frontend/backend together on a Render Node service (regular build, API_ONLY=false), with Atlas. Their $50 hackathon credit is active but the paid instance card authorisation was rejected for insufficient bank funds; free hosting was discussed. Email setup is still pending provider credentials; current app uses SMTP, provider-supported alternate ports such as Brevo2525 were discussed, and no HTTPS email adapter or actual delivery was added/tested. The origin-validation error was resolved far enough to reach MongoDB startup.
+
+Latest screenshot: generic database-unavailable startup error. Atlas screenshot shows0.0.0.0/0 active, so do not keep asking them to widen the access list. They shared only a password-placeholder URI with username sheriff and an Atlas cluster hostname; no actual password. We cannot determine authentication/permission/network cause from the generic log and have no access to their private URI/Render account.
+
+Added backend/src/startup-error.ts and wired startup catch to it, returning credential-free categories for authentication (including Atlas bad-auth8000), readWrite permissions, malformed URI, DNS, TLS, connectivity and generic Mongo initialisation. No raw provider messages/URI are printed. Preserves known local configuration hints. Regression tests cover failure classification and secret redaction;49 tests and typecheck passed before the final conservative message-whitelist refinement. Documented diagnostics in DEPLOYMENT.md. Guide the user to check Atlas Database Users (not Atlas website login), readWrite on rally, URI percent-encoding, correct active cluster and authSourceadmin; never request their actual password or complete private URI.
+
+Final diagnostics validation:49 tests passed after the conservative message-whitelist refinement; typecheck and diff check passed. User then asked about Gmail App Passwords. Existing SMTP transport supports them on a host permitting SMTP; Google requires2-StepVerification. Render Free blocks Gmail ports465/587, so Gmail App Password does not solve that network restriction. No Gmail password/key was requested or configured.
