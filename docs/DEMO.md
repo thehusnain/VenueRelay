@@ -1,6 +1,6 @@
 # Five-minute HS-0130 demonstration
 
-Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **Try a sample event**. This choice is explicit; new visitors see the welcome page.
+Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **Sign in → Fill demo → Sign in**. The credentials are shown on the login page. Filling them does not log in automatically. The sample guide explains the community festival, your current role and a first task to try.
 
 ## Follow one request
 
@@ -30,7 +30,7 @@ The automated lost-response scenario lets the server commit before aborting its 
 
 ## Show an actual account
 
-Create an account with a valid email domain. Use `npm run email:preview -- EMAIL` to read the private local message. Confirm the link, create an event and show its empty state. Request a password reset, use the latest local message, set a new password and sign back into the same records. External delivery is deferred; the interface says so.
+Create an account with a valid email domain. No sample event is created for this account. Use `npm run email:preview -- EMAIL` to read the private local message. Confirm the link, then enter the event name, date and place in one short form. The empty workspace guides you to invite a teammate and add the first task. In the invitation form choose a role, create the link, and share it or its QR code. The recipient opens it and signs in with their own verified account. Once they join, manually assign them a task. Request a password reset, use the latest local message, set a new password and sign back into the same records. External delivery is deferred; the interface says so.
 
 ## Show integration readiness
 

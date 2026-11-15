@@ -1,6 +1,6 @@
 import { attachRealtime } from './realtime.ts';
 import { PushService, pushSettings } from './push.ts';
-import { createServer, type IncomingMessage } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { Store } from './database.ts';
@@ -42,6 +42,39 @@ const mime: Record<string, string> = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
 };
+function serveFile(
+  res: ServerResponse,
+  file: string,
+  method: string | undefined,
+  headers: Record<string, string>,
+) {
+  const stream = createReadStream(file);
+  stream.once('open', () => {
+    if (res.destroyed) {
+      stream.destroy();
+      return;
+    }
+    res.writeHead(200, headers);
+    if (method === 'HEAD') {
+      stream.destroy();
+      res.end();
+    } else stream.pipe(res);
+  });
+  stream.once('error', () => {
+    if (res.destroyed) return;
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(503, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': '1',
+    });
+    res.end('Rally is updating. Refresh this page in a moment.');
+  });
+  res.once('close', () => stream.destroy());
+}
 async function body(req: IncomingMessage) {
   ensure(
     req.headers['content-type']?.split(';')[0] === 'application/json',
@@ -153,8 +186,7 @@ export function createApp(options: Options) {
         }
         if (['/api/docs/swagger-ui.css', '/api/docs/swagger-ui-bundle.js'].includes(path)) {
           const file = resolve('node_modules/swagger-ui-dist', path.split('/').pop()!);
-          res.writeHead(200, { 'Content-Type': mime[extname(file)] });
-          createReadStream(file).pipe(res);
+          serveFile(res, file, method, { 'Content-Type': mime[extname(file)] });
           return;
         }
         if (path.startsWith('/api/v1/auth/')) {
@@ -407,14 +439,12 @@ export function createApp(options: Options) {
         'Content-Security-Policy',
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
       );
-      res.writeHead(200, {
+      serveFile(res, file, method, {
         'Content-Type': mime[extname(file)] ?? 'application/octet-stream',
         'Cache-Control': file.includes(`${sep}assets${sep}`)
           ? 'public, max-age=31536000, immutable'
           : 'no-cache',
       });
-      if (method === 'HEAD') res.end();
-      else createReadStream(file).pipe(res);
     } catch (error) {
       if (error instanceof ApiError)
         send(

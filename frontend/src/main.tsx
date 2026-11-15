@@ -8,6 +8,7 @@ import { App } from './App';
 import { ErrorBoundary } from './ErrorBoundary';
 import './styles.css';
 import './reference.css';
+import './account.css';
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <App />

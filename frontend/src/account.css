@@ -1,0 +1,319 @@
+.entry-shell.is-workflow {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.is-workflow .entry-header {
+  min-height: 72px;
+  padding-block: 12px;
+}
+.is-workflow .entry-footer {
+  padding-block: 12px;
+}
+.entry-workflow {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 56px;
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1000px;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 24px var(--page-gutter) 32px;
+}
+.entry-brand-panel {
+  align-self: center;
+  padding-right: 32px;
+  border-right: 1px solid var(--border);
+}
+.entry-brand-panel > div > p {
+  font: 400 44px/1.12 var(--display);
+  margin: 0 0 20px;
+}
+.entry-brand-panel > div > span {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 26ch;
+}
+.entry-workflow.is-account {
+  display: flex;
+  align-items: center;
+  max-width: 920px;
+}
+.entry-workflow-content {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  animation: none;
+}
+.entry-form {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.entry-form h1 {
+  font: 400 36px/1.15 var(--display);
+  margin: 0 0 8px;
+  letter-spacing: -0.012em;
+}
+.entry-form .back-link {
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+.entry-form .entry-intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.entry-form > p:not(.account-alternative) {
+  margin-bottom: 16px;
+}
+.entry-form form {
+  margin-top: 20px;
+}
+.entry-form form > label + label {
+  margin-top: 18px;
+}
+.entry-form form > .button.primary {
+  width: 100%;
+  margin-top: 12px;
+}
+.entry-form form > .step-actions .button.primary {
+  width: auto;
+  margin: 0;
+}
+.entry-form input,
+.entry-form select {
+  min-height: 48px;
+  padding-block: 11px;
+}
+.entry-form label {
+  gap: 7px;
+}
+.password-field {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.password-field input {
+  padding-right: 52px;
+}
+.password-field > button {
+  position: absolute;
+  inset: 2px 2px auto auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+}
+.forgot-link {
+  display: block;
+  margin-left: auto;
+  padding: 10px 0;
+  min-height: 44px;
+  color: var(--brand);
+  font-size: 14px;
+  text-decoration: underline;
+}
+.account-alternative {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0 6px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.account-alternative .text-link {
+  color: var(--brand);
+  font-size: 14px;
+  min-height: 44px;
+  text-decoration: underline;
+}
+.account-form.is-signin {
+  display: grid;
+  max-width: 820px;
+  grid-template-columns: minmax(0, 420px) minmax(0, 300px);
+  gap: 0 56px;
+  align-items: center;
+}
+.account-heading {
+  grid-column: 1;
+}
+.account-form.is-signin > form {
+  grid-column: 1;
+  grid-row: 2;
+}
+.account-form.is-signin > .account-alternative {
+  grid-column: 1;
+  grid-row: 3;
+}
+.demo-access {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  padding: 16px;
+  border: 1px solid #badbd2;
+  border-radius: 12px;
+  background: #f0f8f5;
+}
+.demo-access h2 {
+  margin: 0;
+  font: 600 14px/1.4 var(--font);
+  color: var(--fg);
+}
+.demo-access dl {
+  grid-column: 1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.demo-access dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+.demo-access dt {
+  color: var(--muted);
+}
+.demo-access dd {
+  margin: 0;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+.demo-access .button {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  justify-self: start;
+  min-height: 44px;
+  padding: 9px 16px;
+  font-size: 13px;
+}
+.demo-access p {
+  grid-column: 1 / -1;
+  color: var(--brand);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+@media (max-width: 900px) {
+  .entry-workflow {
+    display: block;
+    max-width: 520px;
+  }
+  .entry-brand-panel {
+    display: none;
+  }
+  .entry-workflow.is-account {
+    max-width: 520px;
+  }
+  .account-form.is-signin {
+    display: block;
+    max-width: 420px;
+  }
+  .demo-access {
+    margin-top: 20px;
+    padding: 12px;
+  }
+  .demo-access .button {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    margin: 0;
+    padding-inline: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .is-workflow .entry-header {
+    min-height: 64px;
+    padding-block: 8px;
+  }
+  .is-workflow .rally-logo {
+    width: 40px;
+    height: 40px;
+  }
+  .entry-workflow {
+    padding-block: 12px 24px;
+  }
+  .entry-form h1 {
+    font-size: 32px;
+  }
+  .entry-form .back-link {
+    margin-bottom: 8px;
+  }
+  .entry-form form {
+    margin-top: 16px;
+  }
+  .entry-form form > label + label {
+    margin-top: 16px;
+  }
+  .demo-access {
+    margin-top: 16px;
+    gap: 4px 8px;
+  }
+  .account-alternative {
+    margin-top: 12px;
+    font-size: 13px;
+  }
+}
+.demo-access .demo-description {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.onboarding-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 20px 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.onboarding-path li {
+  padding-right: 10px;
+}
+.onboarding-path [aria-current] {
+  color: var(--brand);
+  font-weight: 600;
+}
+.setup-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+@media (max-width: 900px) {
+  .demo-access .demo-description {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: 4px;
+  }
+  .demo-access > p:not(.demo-description) {
+    grid-row: 4;
+  }
+}
+.is-workflow .entry-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.is-workflow .entry-header .account-back {
+  grid-column: 2;
+  justify-self: end;
+  min-height: 44px;
+  font-size: 13px;
+  gap: 6px;
+}
+@media (max-height: 600px) and (max-width: 900px) {
+  .demo-access .demo-description {
+    display: none;
+  }
+}

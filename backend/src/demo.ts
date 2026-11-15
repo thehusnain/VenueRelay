@@ -2,7 +2,8 @@ import { passwordHash, id, now } from './auth.ts';
 import { createEvent, seedDemo, type Context } from './domain.ts';
 import type { Store } from './database.ts';
 import type { Event, Member } from '../../shared/contracts.ts';
-export const demoCredentials = { email: 'demo@rally.local', password: 'RallyDemo2026!' };
+import { demoCredentials } from '../../shared/contracts.ts';
+export { demoCredentials } from '../../shared/contracts.ts';
 export async function ensureDemoAccount(store: Store) {
   if (store.get('SELECT id FROM users WHERE email=?', demoCredentials.email)) return;
   const password = await passwordHash(demoCredentials.password);

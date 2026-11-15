@@ -1,4 +1,5 @@
 export type Role = 'organiser' | 'volunteer' | 'vendor' | 'attendee';
+export const demoCredentials = { email: 'demo@rally.local', password: 'RallyDemo2026!' };
 export type Status = 'open' | 'assigned' | 'in_progress' | 'blocked' | 'resolved' | 'closed';
 export interface Event {
   id: string;

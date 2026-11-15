@@ -92,7 +92,12 @@ export function SimpleForm({
             <Check size={24} />
           </div>
           <h3>Your invitation is ready</h3>
-          <p>Send this link to your teammate. It can be used once and expires in 48 hours.</p>
+          <p>
+            Share this link or QR code. Your teammate opens it, creates their own account or signs
+            in, and joins with the role you chose. The link can be used once and expires in 48
+            hours.
+          </p>
+          <p>Once they join, you’ll see them in Your team and can assign them a task.</p>
           <label>
             Invitation link
             <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
@@ -111,6 +116,26 @@ export function SimpleForm({
             <Clipboard size={16} />
             {copied ? 'Copied' : 'Copy invitation'}
           </button>
+          <div className="button-row">
+            <button
+              className="button secondary"
+              onClick={() => {
+                setLink('');
+                setCopied(false);
+                setError('');
+              }}
+            >
+              Invite another person
+            </button>
+            <button className="text-link" onClick={onClose}>
+              Done
+            </button>
+          </div>
+          {error ? (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
       ) : (
         <form onSubmit={submit}>
@@ -134,7 +159,8 @@ export function SimpleForm({
           {kind === 'invite' ? (
             <>
               <p className="form-intro">
-                Each person gets their own account and the right level of access.
+                Add their name, choose their role, then share their personal invitation. Each person
+                signs in with their own account.
               </p>
               <label>
                 Person’s name
@@ -142,7 +168,7 @@ export function SimpleForm({
               </label>
               <label>
                 Role
-                <select name="role">
+                <select name="role" aria-label="Role">
                   <option value="volunteer">Volunteer · helps with tasks</option>
                   <option value="vendor">Vendor · runs a stall or service</option>
                   <option value="attendee">Attendee · can ask for help</option>

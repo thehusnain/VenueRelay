@@ -131,7 +131,6 @@ export function App() {
           error={rally.error}
           onNavigate={go}
           onReady={ready}
-          onDemo={rally.beginDemo}
           onSignOut={async () => {
             await rally.signOut();
             go('/');
@@ -228,7 +227,9 @@ export function App() {
                       : 'All changes saved'}
               </span>
             </div>
-            <span className="header-event-name">{data.event.name}</span>
+            {currentPage !== 'home' ? (
+              <span className="header-event-name">{data.event.name}</span>
+            ) : null}
             <div className="header-actions">
               <button
                 className="updates-button"

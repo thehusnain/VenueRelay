@@ -1,6 +1,6 @@
 import { sessionPreference } from './session-preferences';
 import { useState } from 'react';
-import { ArrowDownRight, ArrowRight, Check, MapPin, Plus, Search } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, Check, ChevronDown, MapPin, Plus, Search } from 'lucide-react';
 import type { Snapshot, Task, Pending } from '../../shared/contracts';
 import { statusLabels } from '../../shared/contracts';
 import { Empty, eventDate, time } from './components';
@@ -98,6 +98,11 @@ export function Home({
   const org = data.me.role === 'organiser',
     attendee = data.me.role === 'attendee';
   const [focus, setFocus] = useState('all');
+  const guideKey = `rally:demo-guide:${data.event.id}:${data.me.role}`;
+  const [guideDetails, setGuideDetails] = useState(false);
+  const [compactGuideOpen, setCompactGuideOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(() => sessionPreference.get(guideKey) !== 'hidden');
+  const gettingStarted = org && !data.event.is_demo && !data.tasks.length;
   const important = data.tasks.filter((t) =>
     org
       ? ['open', 'blocked', 'resolved'].includes(t.status)
@@ -128,18 +133,21 @@ export function Home({
     },
   ];
   const visible = important.filter((t) => !org || focus === 'all' || t.status === focus);
+  const firstDemoTask = data.tasks.find((t) =>
+    org
+      ? t.status === 'open'
+      : t.owner_id === data.me.id && ['assigned', 'in_progress', 'blocked'].includes(t.status),
+  );
   return (
     <div className="home-content">
       <section className="event-cover">
         <div className="event-cover-main">
+          <h1>{data.event.name}</h1>
           <div className="cover-meta">
             <span>{org ? 'Organiser' : attendee ? 'Attendee' : data.me.role} workspace</span>
             <span>{eventDate(data.event.date)}</span>
-          </div>
-          <h1>{data.event.name}</h1>
-          <div className="cover-bottom">
             <span>
-              <MapPin size={17} />
+              <MapPin size={14} />
               {data.event.venue}
             </span>
           </div>
@@ -152,21 +160,68 @@ export function Home({
               <h2>
                 {org ? 'Needs your attention' : attendee ? 'Your help requests' : 'Your next tasks'}
               </h2>
-              <p className="workspace-guidance">
-                {org
-                  ? 'Choose a task to assign, help, or check.'
-                  : attendee
-                    ? 'Ask for help here. Your team’s progress appears below.'
-                    : 'Open an assignment to start work or update your organiser.'}
-              </p>
             </div>
-            <button className="button primary" onClick={onCreate}>
-              <Plus size={18} />
-              {org ? 'Add a task' : 'Ask for help'}
-            </button>
+            {!gettingStarted ? (
+              <button className="button primary" onClick={onCreate}>
+                <Plus size={18} />
+                {org ? 'Add a task' : 'Ask for help'}
+              </button>
+            ) : null}
           </div>
+          {gettingStarted ? (
+            <ol className="start-checklist" aria-label="Set up your event team">
+              <li>
+                <span className="checklist-step">
+                  <Check size={18} />
+                </span>
+                <div>
+                  <h3>Event created</h3>
+                  <p>{data.event.name}. Your workspace is ready.</p>
+                </div>
+              </li>
+              <li>
+                <span className="checklist-step">
+                  {data.members.length > 1 ? <Check size={18} /> : '2'}
+                </span>
+                <div>
+                  <h3>{data.members.length > 1 ? 'Your team is connected' : 'Invite your team'}</h3>
+                  <p>
+                    Choose each person’s role. Share their invitation link or QR code; they join
+                    using their own account.
+                  </p>
+                  <button className="button primary" onClick={onInvite}>
+                    Invite a teammate
+                  </button>
+                </div>
+              </li>
+              <li>
+                <span className="checklist-step">3</span>
+                <div>
+                  <h3>Add the first task</h3>
+                  <p>Say what needs doing and where. Assign it once your teammate has joined.</p>
+                  <button className="button secondary" onClick={onCreate}>
+                    Add your first task
+                  </button>
+                </div>
+              </li>
+            </ol>
+          ) : null}
           {org && important.length ? (
             <div className="attention-filters" role="group" aria-label="Next step to handle">
+              <label className="attention-select">
+                Show
+                <select
+                  aria-label="Filter next steps"
+                  value={focus}
+                  onChange={(e) => setFocus(e.target.value)}
+                >
+                  {focusOptions.map((option) => (
+                    <option value={option.id} key={option.id}>
+                      {option.label} ({option.count})
+                    </option>
+                  ))}
+                </select>
+              </label>
               {focusOptions.map((option) => (
                 <button
                   key={option.id}
@@ -179,7 +234,7 @@ export function Home({
               ))}
             </div>
           ) : null}
-          {visible.length ? (
+          {gettingStarted ? null : visible.length ? (
             <div className="plain-task-list">
               {visible.slice(0, 3).map((t) => (
                 <TaskItem
@@ -240,6 +295,85 @@ export function Home({
           ) : null}
         </section>
         <aside className="event-side-column">
+          {data.event.is_demo ? (
+            showGuide ? (
+              <section
+                className={`demo-context ${compactGuideOpen ? 'is-expanded' : ''}`}
+                aria-label="About this demo"
+              >
+                <button
+                  className="demo-mobile-summary"
+                  aria-expanded={compactGuideOpen}
+                  aria-controls="demo-guide-body"
+                  onClick={() => setCompactGuideOpen(!compactGuideOpen)}
+                >
+                  How this demo works
+                  <ChevronDown size={17} />
+                </button>
+                <div className="demo-guide-body" id="demo-guide-body">
+                  <div className="demo-guide-heading">
+                    <h2>Demo guide</h2>
+                    <button
+                      className="text-link"
+                      onClick={() => {
+                        sessionPreference.set(guideKey, 'hidden');
+                        setShowGuide(false);
+                      }}
+                    >
+                      Hide guide
+                    </button>
+                  </div>
+                  <p>
+                    {org
+                      ? 'You’re the organiser. Start by assigning one task.'
+                      : attendee
+                        ? 'Ask for help, then follow the team’s updates.'
+                        : 'Open your task and update the organiser as you work.'}
+                  </p>
+                  <div className="demo-guide-actions">
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        sessionPreference.set(guideKey, 'hidden');
+                        setShowGuide(false);
+                        if (attendee) onCreate();
+                        else if (firstDemoTask) onTask(firstDemoTask.id);
+                        else onTasks();
+                      }}
+                    >
+                      {attendee
+                        ? 'Try asking for help'
+                        : firstDemoTask
+                          ? org
+                            ? 'Try assigning a task'
+                            : 'Open your first task'
+                          : 'View event tasks'}
+                      <ArrowRight size={16} />
+                    </button>
+                    <button
+                      className="text-link"
+                      aria-expanded={guideDetails}
+                      aria-controls="demo-event-explanation"
+                      onClick={() => setGuideDetails(!guideDetails)}
+                    >
+                      How it works
+                    </button>
+                  </div>
+                  <p id="demo-event-explanation" hidden={!guideDetails}>
+                    This sample festival has a stage, stalls and visitors. The people and tasks are
+                    examples. An attendee asks for help, the organiser assigns it, a teammate does
+                    the work, and the organiser checks the result. Use Switch role to try each
+                    person’s view.
+                  </p>
+                </div>
+              </section>
+            ) : (
+              <button className="demo-guide-toggle text-link" onClick={() => setShowGuide(true)}>
+                How this demo works
+              </button>
+            )
+          ) : null}
+
           <section className="plan-preview">
             <div className="section-heading">
               <h2>On the programme</h2>

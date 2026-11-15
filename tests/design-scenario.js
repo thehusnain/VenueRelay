@@ -30,7 +30,7 @@ async (existingPage, options = {}) => {
       }
     }
     await page.goto(base);
-    await page.getByRole('button', { name: 'Try a sample event', exact: true }).click();
+    const fixture = await context.request.post(base + '/api/v1/auth/demo', {data:{}}); assert(fixture.ok(), 'Create isolated test fixture'); await page.evaluate(()=>sessionStorage.setItem('rally:demo','yes')); await page.goto(base);
     await page.locator('.event-cover h1').waitFor();
     for (const width of [1440, 1024, 768, 375, 320]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 812 });
@@ -64,8 +64,8 @@ async (existingPage, options = {}) => {
     await page.locator('.welcome-copy h1').waitFor();
     const typography = await page.locator('.welcome-copy h1').evaluate(el => ({font: getComputedStyle(el).fontFamily, color: getComputedStyle(el).color, background: getComputedStyle(document.body).backgroundColor}));
     assert(typography.font.includes('Antonio'), 'Antonio must be used for the main heading');
-    assert(typography.background === 'rgb(0, 0, 0)', 'Reference background must be black');
-    assert(typography.color === 'rgb(255, 255, 255)', 'Headline must remain solid white');
+    assert(typography.background === 'rgb(255, 255, 255)', 'Requested background must be white');
+    assert(typography.color === 'rgb(23, 45, 54)', 'Headline must use readable dark ink');
     assert(!await page.locator('video,.welcome-example').count(), 'Reference interpretation must not add video or the rejected poster card');
     await page.route('https://db.onlinewebfonts.com/**', route => route.abort());
     await page.route('https://fonts.googleapis.com/**', route => route.abort());

@@ -9,13 +9,13 @@ Requires Node.js 24 LTS.
 1. Open a terminal in the project folder.
 2. npm install
 3. npm run dev
-4. Open http://127.0.0.1:3001 and choose Sign in.
+4. Open http://127.0.0.1:3001. Choose Sign in, Fill demo, then Sign in.
 
 DEMO ACCOUNT
 Email: demo@rally.local
 Password: RallyDemo2026!
 
-The verified demo account and sample event are created automatically on a fresh local startup. No registration, email verification, API key or database installation is required for this account. More → Try a different role lets you inspect organiser, volunteer, vendor and attendee views. These are public demo credentials for sample data only.
+The verified demo account and sample event are created automatically on a fresh local startup. No registration, email verification, API key or database installation is required for this account. More → Try a different role lets you inspect organiser, volunteer, vendor and attendee views. These are public demo credentials for sample data only. The login page displays them and its fill button does not submit automatically. Real users create an empty event with one short form, invite teammates with specific roles, then add and assign their own tasks.
 
 Suggested journey: attendee requests help → organiser assigns a person → volunteer starts work and submits a result → organiser confirms completion → attendee reads the update. More → Connection help shows waiting changes and can check record integrity.
 

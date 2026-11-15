@@ -1,25 +1,26 @@
 :root {
-  --bg: #000;
-  --text-secondary: #c4c4ca;
+  --bg: #ffffff;
+  --text-secondary: #40545e;
   --page-gutter: clamp(20px, 3vw, 40px);
   --type-hero: clamp(52px, min(6.5vw, 11dvh), 88px);
   --type-event: clamp(44px, 4.5vw, 60px);
   --type-page: clamp(36px, 3.4vw, 48px);
   --type-form: clamp(36px, 3vw, 44px);
-  --surface: #101012;
-  --fg: #fff;
-  --muted: #a0a0a5;
-  --border: #2b2b30;
-  --control-border: #505056;
-  --brand: #fff;
-  --accent: #fff;
-  --cover-surface: #101012;
-  --secondary-surface: #1e1e22;
-  --accent-light: #1b1b20;
-  --selected: #1b1b20;
-  --success: #cddfce;
-  --warning: #e0d7be;
-  --error: #ffb8b8;
+  --surface: #ffffff;
+  --surface-subtle: #f0f5f6;
+  --fg: #172d36;
+  --muted: #526772;
+  --border: #d8e2e6;
+  --control-border: #98aab4;
+  --brand: #006b60;
+  --accent: #006b60;
+  --cover-surface: #f3f8f7;
+  --secondary-surface: #eaf3f2;
+  --accent-light: #eaf6f2;
+  --selected: #edf5f3;
+  --success: #226540;
+  --warning: #805309;
+  --error: #b42318;
   --radius: 12px;
   --radius-lg: 24px;
   --font: 'Manrope', 'Segoe UI', system-ui, sans-serif;
@@ -117,8 +118,8 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 pre:focus-visible {
-  outline: 3px solid var(--brand);
-  outline-offset: 4px;
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
 }
 ::selection {
   background: var(--secondary-surface);
@@ -696,7 +697,7 @@ details > summary::marker {
 .cover-date-year {
   font: 400 12px var(--mono);
   margin-top: 4px;
-  color: oklch(0.78 0.006 270);
+  color: var(--muted);
 }
 .event-progress {
   margin-top: auto;
@@ -705,7 +706,7 @@ details > summary::marker {
 .event-progress > span {
   display: block;
   font-size: 12px;
-  color: oklch(0.85 0.006 270);
+  color: var(--muted);
   margin-bottom: 10px;
 }
 progress {
@@ -965,7 +966,7 @@ progress::-moz-progress-bar {
   gap: 36px;
 }
 .task-page-cover .section-reference {
-  color: oklch(0.8 0.005 270);
+  color: var(--muted);
   margin-bottom: 12px;
 }
 .task-page-cover h1 {
@@ -974,7 +975,7 @@ progress::-moz-progress-bar {
 .task-page-cover p {
   max-width: 530px;
   margin-top: 18px;
-  color: oklch(0.84 0.005 270);
+  color: var(--muted);
   font-size: 13px;
 }
 .task-page-cover .button {
@@ -1454,7 +1455,7 @@ progress::-moz-progress-bar {
   margin-bottom: 18px;
 }
 .api-guide > p {
-  color: oklch(0.83 0.005 270);
+  color: var(--muted);
   font-size: 13px;
 }
 .api-guide dl {
@@ -1470,7 +1471,7 @@ progress::-moz-progress-bar {
 }
 .api-guide dd {
   font-size: 12px;
-  color: oklch(0.8 0.005 270);
+  color: var(--muted);
   margin: 4px 0 0;
 }
 .api-guide > a {
@@ -1817,7 +1818,7 @@ pre {
   color: var(--fg);
 }
 .assignment .optional-fields summary {
-  color: oklch(0.82 0.005 270);
+  color: var(--muted);
 }
 .assignment form > .button {
   margin-top: 28px;
@@ -1947,7 +1948,7 @@ pre {
 .welcome-explanation p {
   font-size: 12px;
   max-width: 330px;
-  color: oklch(0.81 0.005 270);
+  color: var(--muted);
   line-height: 1.8;
 }
 .entry-footer {
@@ -1958,126 +1959,6 @@ pre {
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;
-}
-.entry-workflow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-}
-.entry-brand-panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 700px;
-  padding: 44px 48px;
-  background: var(--brand);
-  color: white;
-}
-.entry-brand-panel > span {
-  font-size: 12px;
-  font-weight: 600;
-}
-.entry-brand-panel > div > p {
-  font: 400 clamp(64px, 7vw, 106px)/0.9 var(--display);
-  letter-spacing: -0.02em;
-  text-transform: none;
-  margin: 52px 0 26px;
-}
-.entry-brand-panel > div > span {
-  font-size: 13px;
-  max-width: 300px;
-  display: block;
-  color: oklch(0.88 0.03 265);
-}
-.brand-panel-stamp {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  border-top: 1px solid oklch(0.8 0.04 265);
-  margin-top: 50px;
-  padding-top: 22px;
-}
-.entry-brand-panel .brand-panel-stamp > span {
-  font: 400 24px/1 var(--display);
-  color: var(--secondary-surface);
-}
-.entry-workflow-content {
-  padding: 52px clamp(28px, 5vw, 80px);
-  background: var(--surface);
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  animation: scene-in var(--motion-page) var(--ease);
-}
-.entry-form {
-  width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
-}
-.entry-form h1 {
-  font-size: clamp(40px, 4vw, 62px);
-  line-height: 1;
-  margin-bottom: 20px;
-}
-.entry-form > .back-link {
-  margin-bottom: 24px;
-}
-.entry-form > .entry-intro,
-.entry-form > p {
-  margin-bottom: 28px;
-}
-.entry-form form {
-  margin-top: 28px;
-}
-.entry-form form > .button.primary {
-  width: 100%;
-  margin-top: 24px;
-}
-.entry-form form > .step-actions .button.primary {
-  width: auto;
-  margin-top: 0;
-}
-.entry-form .step-progress {
-  margin-bottom: 22px;
-}
-.password-field {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-.password-field input {
-  padding-right: 54px;
-}
-.password-field > button {
-  position: absolute;
-  right: 4px;
-  top: 4px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.forgot-link {
-  display: block;
-  color: var(--brand);
-  font-size: 14px;
-  min-height: 44px;
-  padding: 12px 0;
-  margin-left: auto;
-  text-decoration: underline;
-}
-.account-alternative {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.account-alternative button {
-  color: var(--brand);
-  min-height: 44px;
-  text-decoration: underline;
-  font-size: inherit;
 }
 .confirmation-address {
   display: block;
@@ -2322,13 +2203,6 @@ pre {
     transform: scaleX(1);
   }
 }
-@media (min-width: 1450px) {
-  .entry-workflow {
-    max-width: 1600px;
-    width: 100%;
-    margin: auto;
-  }
-}
 @media (max-width: 1100px) {
   .app-header-inner,
   .main-navigation > div {
@@ -2397,9 +2271,6 @@ pre {
   }
   .welcome-explanation > div {
     padding: 32px;
-  }
-  .entry-brand-panel {
-    padding: 40px 32px;
   }
 }
 @media (max-width: 800px) {
@@ -2525,39 +2396,6 @@ pre {
   }
   .welcome-explanation > div {
     padding: 28px 24px;
-  }
-  .entry-workflow {
-    grid-template-columns: 1fr;
-  }
-  .entry-brand-panel {
-    min-height: 0;
-    padding: 28px 32px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 20px;
-  }
-  .entry-brand-panel > span {
-    grid-column: 1/-1;
-  }
-  .entry-brand-panel > div > p {
-    font-size: 48px;
-    margin: 0;
-  }
-  .entry-brand-panel > div > span {
-    display: none;
-  }
-  .brand-panel-stamp {
-    align-self: end;
-    border: 0;
-    margin: 0;
-    padding: 0;
-  }
-  .brand-panel-stamp > svg {
-    width: 48px;
-    height: 48px;
-  }
-  .entry-workflow-content {
-    padding: 40px 32px;
   }
 }
 @media (max-width: 600px) {
@@ -3049,28 +2887,6 @@ pre {
   .welcome-explanation p {
     max-width: 350px;
   }
-  .entry-brand-panel {
-    padding: 24px;
-    gap: 16px;
-  }
-  .entry-brand-panel > span {
-    font-size: 12px;
-  }
-  .entry-brand-panel > div > p {
-    font-size: 46px;
-  }
-  .entry-workflow-content {
-    padding: 32px 24px 40px;
-  }
-  .entry-form h1 {
-    font-size: 46px;
-  }
-  .entry-form > .entry-intro {
-    font-size: 13px;
-  }
-  .entry-form > .back-link {
-    margin-bottom: 20px;
-  }
   .entry-footer {
     padding: 20px;
     gap: 16px;
@@ -3159,12 +2975,6 @@ pre {
   .credential-person .avatar.large {
     width: 46px;
     height: 46px;
-  }
-  .entry-brand-panel > div > p {
-    font-size: 40px;
-  }
-  .entry-workflow-content {
-    padding-inline: 20px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

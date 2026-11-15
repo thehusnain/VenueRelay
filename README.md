@@ -20,9 +20,9 @@ The built app on port 3001 supports offline testing. Port 5173 is the live front
 - Email: **demo@rally.local**
 - Password: **RallyDemo2026!**
 
-Choose **Sign in**. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded only outside production; `DEMO_ACCOUNT_ENABLED=false` prevents seeding.
+Choose **Sign in → Fill demo → Sign in**. The button only fills the fields; it does not submit. The login screen shows both credentials. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded only outside production; `DEMO_ACCOUNT_ENABLED=false` prevents seeding.
 
-The welcome screen also offers an isolated **Try a sample event** option. Real registrations remain separate and start without sample records. Email verification/recovery uses private local previews until SMTP is configured:
+The welcome screen links to this demo login. Real registrations remain separate: after verification, one short form creates an empty event. The organiser invites people with chosen roles, shares each invitation link/QR code, and manually adds and assigns tasks. No sample teammates, tasks or schedule are added to a real event. Email verification/recovery uses private local previews until SMTP is configured:
 
 ```sh
 npm run email:preview -- YOUR_EMAIL

@@ -1,8 +1,8 @@
-# Rally — progress, 14 November 2026
+# Rally — progress, 15 November 2026
 
 ## Current scope
 
-One responsive React/Vite website and installable PWA, using the existing Node.js/SQLite backend. No separate Android/iOS projects, APKs, Capacitor or native build workflow. Retain the black/white design, locally bundled Antonio headings and Manrope body/UI text. The user authorised git add, commit and push after the work is complete.
+One responsive React/Vite website and installable PWA, using the existing Node.js/SQLite backend. No separate Android/iOS projects, APKs, Capacitor or native build workflow. The latest user instruction replaces the dark theme with white surfaces, dark ink, teal actions and amber/green status highlights. Retain locally bundled Antonio headings and Manrope body/UI text. The user authorised git add, commit and push after the work is complete.
 
 ## Completed
 
@@ -51,3 +51,31 @@ Design rationale and primary HCI/accessibility references are in DESIGN.md; obse
 This pass used temporary database /tmp/rally-hci.sqlite on port3002 (exec65298) with preview mail. The normal port3001 preview should serve the current built frontend after refresh. Keep the normal preview available and stop only the temporary test server. User authorised normal git staging, commit and push; report the actual resulting commit/network status, not an assumed successful push.
 
 Git outcome for this latest pass: git add failed with Unable to create .git/index.lock: Read-only file system. No new commit or push was made for the mobile/HCI changes. Source/docs/tests remain saved in the working tree; the previous commit is d8e2071. Do not report this pass as committed. Resume publishing only from an environment with normal repository write access; prior GitHub DNS failure may also need resolving.
+
+
+## Latest light theme, demo login and real onboarding — 15 November
+
+The user reported the account-page CSS in a 1600px laptop screenshot, requested a white theme with useful colour highlights, explicit demo credentials and a fill-only button, and short manual setup for real users plus an understandable demo.
+
+Completed:
+- White theme across all existing pages, menus, forms, task states and PWA browser chrome. Teal actions/selection, amber blockers and green completed/review states. Existing fonts retained.
+- Removed overlapping account layout rules from styles.css/reference.css and placed account layout in frontend/src/account.css. No giant account poster, duplicate sign-in header action, heavy double focus outline, or automatic account-input keyboard opening. Sign-in remains in view at 320x568 through laptop sizes.
+- Sign-in displays the public demo credentials and Fill demo populates both fields, clears old errors and focuses Sign in; it never submits. Credentials have one shared source with the backend seed. Public Try sample actions now navigate to demo login.
+- Demo Home explains the sample one-day festival, current role and request/assignment/completion/check hand-off. A working first-action button opens an appropriate task/request, with optional guide dismissal per role.
+- Verified real accounts create their own empty event using one short name/date/venue form. The empty event home guides invitations and first tasks. No sample people/tasks/schedule are added to real events.
+- Invitation copy explains choosing a role, link/QR sharing, recipient's own account and joining before task assignment. Added Invite another person and Done; role input has an explicit accessible label; clipboard errors remain visible in the result.
+- Found and fixed a real server crash when frontend build files disappear during rebuild. Static streams now return a non-cached 503 with Retry-After before headers, keep the API alive, and recover when files return. A regression test covers missing/restored frontend and HEAD.
+
+Observed verification:
+- 43 automated tests passed, including new static rebuild recovery. Build, formatter, strict unused-symbol typecheck and diff check passed; design detector returned [].
+- 90 page/state views passed axe/overflow checks in the requested light theme at 320/375/768/1024/1440px, with local fonts and reduced motion.
+- 21 layout checks passed: welcome and sign-in at ten short/regular sizes, fill-without-submit and delayed-session input retention. No automatic account-input focus.
+- 12 mobile usability checks, 15 offline/role/conflict journey checks and 8 PWA checks passed without uncaught JS errors. Latest demo integrity:29 commands/29 activity, zero mismatches at 2026-11-15T11:54:12.811Z.
+- A separate real-account browser proof created an empty non-demo event, invited/joined a separate vendor account, manually created/assigned a task, then completed and confirmed it:4 checks,6 commands/6 activity, zero mismatches at2026-11-15T11:50:24.295Z. Two verified test accounts were prepared only in the disposable database; signup/verification are separately covered by automated account tests. No demo data was seeded for those users.
+- Updated README, DESIGN.md, DEMO/SUBMISSION/VALIDATION docs and the two tracked screenshots. Extra captures and real-onboarding-proof.js are ignored under test-results/.
+
+Preview: npm run dev started in exec83908 (API3001 and Vite5173). The user's screenshot used http://127.0.0.1:5173/sign-in; this now shows the light form. Temporary test API on3002 uses /tmp/rally-light-check.sqlite and preview mail only (exec33579). Stop only that test server after checks; retain the normal dev preview.
+
+Git base observed: fe1d569 mobile responsive (the user committed the preceding pass). User authorisation to stage/commit/push persists; report the actual current attempt. The preceding session had a read-only .git and GitHub DNS failure; do not bypass restrictions or claim a new commit/push succeeded without evidence. Normal real-account SMTP delivery remains deferred as requested; local previews and demo login work. Physical phone keyboards/cameras/screen readers and real external push delivery remain untested. No deployment or native app was created.
+
+Final density correction after the user's Home screenshot: removed the duplicate event name from the Home header, reduced/aligned its heading to36px desktop/28px phone, and grouped role/date/venue below it. Removed redundant work-list guidance. Demo help now sits beside the task list on desktop with longer text behind How it works; on phones it starts as a compact, accessible disclosure. Mobile Home uses one Show/filter select instead of four labelled chips. The first task title is visible above phone navigation at375/390px; a full first task fits in the1600x680 laptop viewport. Updated usability checks passed12 checks at12:06:59UTC; preceding full matrix passed90 views after sidebar relocation. Final Home/expanded-guide axe scans at1600x680 and375x667 passed. Existing backend/PWA/real-account proofs remain applicable; last refinements were layout/disclosure only. Normal staging succeeded in this pass via git add -A; verify the final commit and push outcome from git history/output.

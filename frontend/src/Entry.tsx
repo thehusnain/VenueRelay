@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
 import { request, RequestError } from './use-rally';
 import type { Account, Delivery } from '../../shared/contracts';
+import { demoCredentials } from '../../shared/contracts';
 export function Brand({ onClick }: { onClick: () => void }) {
   return (
     <button className="brand" onClick={onClick} aria-label="Rally home">
@@ -23,7 +24,6 @@ export function Entry({
   error,
   onNavigate,
   onReady,
-  onDemo,
   onSignOut,
   onInstall,
   onScan,
@@ -35,25 +35,10 @@ export function Entry({
   error: string;
   onNavigate: (path: string) => void;
   onReady: (eventId?: string) => Promise<void>;
-  onDemo: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onInstall: () => void;
   onScan: () => void;
 }) {
-  const [busy, setBusy] = useState(false),
-    [demoError, setDemoError] = useState('');
-  const demo = async () => {
-    setBusy(true);
-    setDemoError('');
-    try {
-      await onDemo();
-      onNavigate('/');
-    } catch (e) {
-      setDemoError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
   const proof = path === '/verify-email' || path === '/reset-password';
   const authPath = ['/sign-in', '/create-account', '/forgot-password'].includes(path);
   const workflow =
@@ -72,19 +57,25 @@ export function Entry({
             </button>
             <button onClick={onInstall}>Install Rally</button>
             <button onClick={onScan}>Scan invitation</button>
-            <button onClick={() => void demo()} disabled={busy}>
-              Explore sample
-            </button>
+            <button onClick={() => onNavigate('/sign-in')}>Demo login</button>
           </nav>
         ) : null}
-        {!proof ? (
+        {workflow && authPath ? (
+          <button className="text-link account-back" onClick={() => onNavigate('/')}>
+            <ArrowLeft size={17} />
+            Back to Rally
+          </button>
+        ) : !workflow ? (
           <button className="button secondary" onClick={() => onNavigate('/sign-in')}>
             Sign in
           </button>
         ) : null}
       </header>
-      <main id="main" className={`entry-main ${workflow ? 'entry-workflow' : 'entry-welcome'}`}>
-        {workflow ? (
+      <main
+        id="main"
+        className={`entry-main ${workflow ? `entry-workflow ${authPath || stage === 'setup' ? 'is-account' : ''}` : 'entry-welcome'}`}
+      >
+        {workflow && !authPath && stage !== 'setup' ? (
           <aside className="entry-brand-panel" aria-hidden="true">
             <div>
               <p>
@@ -135,7 +126,7 @@ export function Entry({
               account={account}
               delivery={delivery}
               onReady={onReady}
-              onDemo={demo}
+              onDemo={async () => onNavigate('/sign-in')}
               onSignOut={onSignOut}
             />
           ) : stage === 'setup' && account ? (
@@ -165,19 +156,14 @@ export function Entry({
                       Start your event
                       <ArrowRight size={19} />
                     </button>
-                    <button className="text-link" disabled={busy} onClick={() => void demo()}>
-                      {busy ? 'Opening the sample…' : 'Try a sample event'}
+                    <button className="text-link" onClick={() => onNavigate('/sign-in')}>
+                      Sign in to demo
                       <ArrowRight size={17} />
                     </button>
                   </div>
                   <p className="welcome-reassurance">
                     Already invited? Sign in using the email on your invitation.
                   </p>
-                  {demoError ? (
-                    <p className="form-error" role="alert">
-                      {demoError}
-                    </p>
-                  ) : null}
                   {error ? (
                     <p className="form-error" role="alert">
                       {error}
@@ -231,6 +217,18 @@ function AccountPage({
     [sent, setSent] = useState(false),
     [connected, setConnected] = useState(true);
   const errorRef = useRef<HTMLDivElement>(null);
+  const [emailValue, setEmailValue] = useState(email),
+    [passwordValue, setPasswordValue] = useState(''),
+    [demoFilled, setDemoFilled] = useState(false);
+  const signInButton = useRef<HTMLButtonElement>(null);
+  const fillDemo = () => {
+    setEmailValue(demoCredentials.email);
+    setPasswordValue(demoCredentials.password);
+    setError('');
+    setErrorField('');
+    setDemoFilled(true);
+    signInButton.current?.focus();
+  };
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);
@@ -274,31 +272,56 @@ function AccountPage({
     }
   };
   return (
-    <section className="entry-form">
-      <button className="back-link" onClick={() => onNavigate('/')}>
-        <ArrowLeft size={17} />
-        Back to Rally
-      </button>
-      <h1>
-        {sent
-          ? 'Check your email'
-          : mode === 'signin'
-            ? 'Welcome back.'
-            : mode === 'register'
-              ? 'Let’s get your team together.'
-              : 'Forgot your password?'}
-      </h1>
-      <p className="entry-intro">
-        {sent
-          ? connected
-            ? 'If your email has an account, you’ll receive a link to choose a new password.'
-            : 'If your email has an account, a reset request is saved. Email delivery needs to be connected before it can reach your inbox.'
-          : mode === 'signin'
-            ? 'Sign in to pick up where you left off.'
-            : mode === 'register'
-              ? 'First, create your account. We’ll help you set up the event next.'
-              : 'Enter the email you use for Rally. We’ll help you get back in.'}
-      </p>
+    <section className={`entry-form account-form ${mode === 'signin' ? 'is-signin' : ''}`}>
+      <div className="account-heading">
+        <h1>
+          {sent
+            ? 'Check your email'
+            : mode === 'signin'
+              ? 'Welcome back.'
+              : mode === 'register'
+                ? 'Let’s get your team together.'
+                : 'Forgot your password?'}
+        </h1>
+        <p className="entry-intro">
+          {sent
+            ? connected
+              ? 'If your email has an account, you’ll receive a link to choose a new password.'
+              : 'If your email has an account, a reset request is saved. Email delivery needs to be connected before it can reach your inbox.'
+            : mode === 'signin'
+              ? 'Sign in to pick up where you left off.'
+              : mode === 'register'
+                ? 'First, create your account. We’ll help you set up the event next.'
+                : 'Enter the email you use for Rally. We’ll help you get back in.'}
+        </p>
+      </div>
+      {mode === 'signin' ? (
+        <aside className="demo-access" aria-label="Demo login credentials">
+          <h2>Demo account</h2>
+          <p className="demo-description">
+            Run a sample community festival as the organiser. Explore tasks and team roles.
+          </p>
+          <dl>
+            <div>
+              <dt>Email</dt>
+              <dd>{demoCredentials.email}</dd>
+            </div>
+            <div>
+              <dt>Password</dt>
+              <dd>{demoCredentials.password}</dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={fillDemo}
+            aria-label="Fill demo credentials"
+          >
+            Fill demo
+          </button>
+          {demoFilled ? <p role="status">Credentials filled. Select Sign in to continue.</p> : null}
+        </aside>
+      ) : null}
       {sent ? (
         <button className="button primary" onClick={() => onNavigate('/sign-in')}>
           Back to sign in
@@ -316,7 +339,6 @@ function AccountPage({
                 required
                 minLength={2}
                 maxLength={80}
-                autoFocus
               />
             </label>
           ) : null}
@@ -330,10 +352,13 @@ function AccountPage({
               autoComplete="email"
               required
               maxLength={254}
-              defaultValue={email}
+              value={emailValue}
+              onChange={(e) => {
+                setEmailValue(e.target.value);
+                setDemoFilled(false);
+              }}
               aria-invalid={errorField === 'email' || undefined}
               aria-describedby={errorField === 'email' ? 'account-email-error' : undefined}
-              autoFocus={mode !== 'register'}
             />
           </label>
           {errorField === 'email' ? (
@@ -349,6 +374,11 @@ function AccountPage({
                   <input
                     id="account-password"
                     name="password"
+                    value={passwordValue}
+                    onChange={(e) => {
+                      setPasswordValue(e.target.value);
+                      setDemoFilled(false);
+                    }}
                     type={show ? 'text' : 'password'}
                     autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                     required
@@ -387,7 +417,7 @@ function AccountPage({
               <p>{errorField ? <a href={'#account-' + errorField}>{error}</a> : error}</p>
             </div>
           ) : null}
-          <button className="button primary full-width" disabled={busy}>
+          <button className="button primary full-width" disabled={busy} ref={signInButton}>
             {busy
               ? 'Please wait…'
               : mode === 'signin'
@@ -450,7 +480,7 @@ function ConfirmWaiting({
           <strong>Email delivery isn’t connected yet.</strong>
           <p>
             The message hasn’t reached your inbox. Once delivery is connected, you can request a new
-            link. You can explore a sample event for now.
+            link. You can use the demo login while email delivery is being connected.
           </p>
         </div>
       ) : (
@@ -495,7 +525,7 @@ function ConfirmWaiting({
         </button>
       ) : (
         <button className="text-link resend-link" onClick={() => void onDemo()}>
-          Try a sample event instead
+          Use demo login instead
           <ArrowRight size={17} />
         </button>
       )}
@@ -651,8 +681,7 @@ function EventSetup({
   onSignOut: () => Promise<void>;
   invitationError?: string;
 }) {
-  const [step, setStep] = useState(0),
-    [name, setName] = useState(''),
+  const [name, setName] = useState(''),
     [date, setDate] = useState(''),
     [venue, setVenue] = useState(''),
     [busy, setBusy] = useState(false),
@@ -665,29 +694,20 @@ function EventSetup({
           <p>{invitationError} Ask your organiser for a new link.</p>
         </div>
       ) : null}
-      <p className="step-progress">Set up your event · Step {step + 1} of 3</p>
-      <h1>
-        {['What is your event called?', 'When is it happening?', 'Where will it happen?'][step]}
-      </h1>
+      <h1>Create your event</h1>
       <p className="entry-intro">
-        {
-          [
-            'Welcome, ' +
-              account.name.split(' ')[0] +
-              '. A few details will give your team a clear place to start.',
-            'Choose the day so everyone is working from the same plan.',
-            'Give people a place they will recognise. You can add more details in your tasks.',
-          ][step]
-        }
+        Welcome, {account.name.split(' ')[0]}. Add the basics below. Your event starts empty; you
+        choose the people and the work.
       </p>
+      <ol className="onboarding-path" aria-label="Getting started">
+        <li aria-current="step">Create event</li>
+        <li>Invite your team</li>
+        <li>Add tasks</li>
+      </ol>
       <form
-        key={step}
         onSubmit={async (e) => {
           e.preventDefault();
-          if (step < 2) {
-            setStep(step + 1);
-            return;
-          }
+          if (busy) return;
           setBusy(true);
           setError('');
           try {
@@ -696,73 +716,59 @@ function EventSetup({
               body: JSON.stringify({ name, date, venue }),
             });
             await onReady(result.eventId);
-          } catch (e) {
-            setError((e as Error).message);
+          } catch (error) {
+            setError((error as Error).message);
           } finally {
             setBusy(false);
           }
         }}
       >
-        {step === 0 ? (
-          <label htmlFor="event-name">
-            Event name
-            <input
-              id="event-name"
-              required
-              minLength={3}
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Riverside community fair"
-              autoFocus
-            />
-          </label>
-        ) : step === 1 ? (
-          <label htmlFor="event-date">
-            Event date
-            <input
-              id="event-date"
-              required
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              autoFocus
-            />
-          </label>
-        ) : (
-          <label htmlFor="event-venue">
-            Venue or place
-            <input
-              id="event-venue"
-              required
-              maxLength={140}
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. Riverside Park, Lahore"
-              autoFocus
-            />
-          </label>
-        )}
+        <label htmlFor="event-name">
+          Event name
+          <input
+            id="event-name"
+            required
+            minLength={3}
+            maxLength={100}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Community makers fair"
+          />
+        </label>
+        <label htmlFor="event-date">
+          Event date
+          <input
+            id="event-date"
+            type="date"
+            required
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+        <label htmlFor="event-venue">
+          Venue or place
+          <input
+            id="event-venue"
+            required
+            maxLength={140}
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            placeholder="e.g. Town hall"
+          />
+        </label>
         {error ? (
           <p className="form-error" role="alert">
             {error}
           </p>
         ) : null}
-        <div className="step-actions">
-          {step > 0 ? (
-            <button className="button secondary" type="button" onClick={() => setStep(step - 1)}>
-              <ArrowLeft size={17} />
-              Back
-            </button>
-          ) : null}
-          <button className="button primary" disabled={busy}>
-            {busy ? 'Creating your event…' : step === 2 ? 'Create my event' : 'Continue'}
-            <ArrowRight size={18} />
-          </button>
-        </div>
+        <button className="button primary full-width" disabled={busy}>
+          {busy ? 'Creating your event…' : 'Create my event'}
+          <ArrowRight size={18} />
+        </button>
       </form>
       <p className="setup-note">
-        Joining someone else’s event? Open the invitation link they sent you.
+        Joining someone else’s event? Open their invitation link or scan their QR code, then sign in
+        with your own account.
       </p>
       <button className="text-link" onClick={() => void onSignOut()}>
         Sign out
