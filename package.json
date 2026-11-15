@@ -1,10 +1,10 @@
 {
-  "name": "rally-event-operations",
+  "name": "venuerelay",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=24.0.0 <25"
   },
   "scripts": {
     "dev": "node --env-file-if-exists=.env scripts/dev.mjs",
@@ -12,7 +12,7 @@
     "dev:web": "vite --config frontend/vite.config.ts",
     "build": "tsc --noEmit && vite build --config frontend/vite.config.ts",
     "start": "node --env-file-if-exists=.env --import tsx backend/src/index.ts",
-    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
+    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "typecheck": "tsc --noEmit",
     "api:docs": "node scripts/generate-openapi.mjs",
@@ -23,7 +23,11 @@
     "push:keys": "node scripts/push-keys.mjs",
     "test:pwa": "node tests/browser.mjs pwa",
     "test:layout": "node tests/browser.mjs layout",
-    "test:usability": "node tests/browser.mjs usability"
+    "test:usability": "node tests/browser.mjs usability",
+    "build:vercel": "node scripts/vercel-output.mjs",
+    "test:mongo": "node --import tsx --test --test-isolation=none tests/mongo.integration.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate-mongo.ts",
+    "check:deployment": "node scripts/check-deployment.mjs"
   },
   "dependencies": {
     "@fontsource/antonio": "^5.3.0",
@@ -31,6 +35,7 @@
     "idb": "^8.0.4",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.31.0",
+    "mongodb": "^7.9.0",
     "nodemailer": "^10.3.1",
     "qrcode": "^1.5.4",
     "react": "19.2.6",
@@ -54,9 +59,10 @@
     "@vitejs/plugin-react": "6.0.2",
     "axe-core": "^4.14.0",
     "fake-indexeddb": "^6.2.8",
+    "mongodb-memory-server": "^11.3.0",
     "playwright": "^1.65.0",
     "prettier": "^3.9.10",
     "typescript": "5.9.3",
-    "vite": "8.0.13"
+    "vite": "8.3.8"
   }
 }

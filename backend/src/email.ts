@@ -57,7 +57,7 @@ export function emailSettings(): EmailSettings {
   return {
     mode,
     origin: parsed.origin,
-    from: process.env.EMAIL_FROM ?? 'Rally <hello@localhost>',
+    from: process.env.EMAIL_FROM ?? 'VenueRelay <hello@localhost>',
     previewDir: resolve(process.env.EMAIL_PREVIEW_DIR ?? 'data/mail-preview'),
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT ?? 587),
@@ -164,6 +164,46 @@ export function claimMail(store: Store, stamp = now()): MailJob | undefined {
     return { ...job, lease_id: lease, attempts: job.attempts + 1 };
   });
 }
+export async function sendMail(settings: EmailSettings, job: MailJob) {
+  if (settings.mode === 'preview') {
+    await mkdir(settings.previewDir, { recursive: true, mode: 0o700 });
+    await writeFile(
+      resolve(settings.previewDir, job.id + '.eml'),
+      `To: ${job.recipient}\nFrom: ${settings.from}\nSubject: ${job.subject}\nMessage-ID: <${job.id}@rally.local>\nContent-Type: text/plain; charset=utf-8\n\n${job.body}`,
+      { mode: 0o600 },
+    );
+  } else {
+    ensure(
+      settings.host && settings.from && !settings.from.includes('@localhost'),
+      503,
+      'EMAIL_CONFIG',
+      'SMTP host and a verified sender are required.',
+    );
+    const transport = nodemailer.createTransport({
+      host: settings.host,
+      port: settings.port,
+      secure: settings.secure,
+      requireTLS: !settings.secure,
+      auth: settings.user ? { user: settings.user, pass: settings.password } : undefined,
+      connectionTimeout: 10000,
+      socketTimeout: 20000,
+      greetingTimeout: 10000,
+    });
+    const info = await transport.sendMail({
+      from: settings.from,
+      to: job.recipient,
+      subject: job.subject,
+      text: job.body,
+      messageId: `<${job.id}@${new URL(settings.origin).hostname}>`,
+    });
+    ensure(
+      info.accepted?.length,
+      503,
+      'EMAIL_REJECTED',
+      'The email provider did not accept this recipient.',
+    );
+  }
+}
 export async function deliverMail(
   store: Store,
   settings: EmailSettings,
@@ -175,44 +215,7 @@ export async function deliverMail(
   if (!job) return false;
   try {
     if (send) await send(job);
-    else if (settings.mode === 'preview') {
-      await mkdir(settings.previewDir, { recursive: true, mode: 0o700 });
-      await writeFile(
-        resolve(settings.previewDir, job.id + '.eml'),
-        `To: ${job.recipient}\nFrom: ${settings.from}\nSubject: ${job.subject}\nMessage-ID: <${job.id}@rally.local>\nContent-Type: text/plain; charset=utf-8\n\n${job.body}`,
-        { mode: 0o600 },
-      );
-    } else {
-      ensure(
-        settings.host && settings.from && !settings.from.includes('@localhost'),
-        503,
-        'EMAIL_CONFIG',
-        'SMTP host and a verified sender are required.',
-      );
-      const transport = nodemailer.createTransport({
-        host: settings.host,
-        port: settings.port,
-        secure: settings.secure,
-        requireTLS: !settings.secure,
-        auth: settings.user ? { user: settings.user, pass: settings.password } : undefined,
-        connectionTimeout: 10000,
-        socketTimeout: 20000,
-        greetingTimeout: 10000,
-      });
-      const info = await transport.sendMail({
-        from: settings.from,
-        to: job.recipient,
-        subject: job.subject,
-        text: job.body,
-        messageId: `<${job.id}@${new URL(settings.origin).hostname}>`,
-      });
-      ensure(
-        info.accepted?.length,
-        503,
-        'EMAIL_REJECTED',
-        'The email provider did not accept this recipient.',
-      );
-    }
+    else await sendMail(settings, job);
     store.run(
       "UPDATE email_outbox SET status=?,body='',sent_at=?,lease_id=NULL,lease_until=NULL,last_error=NULL WHERE id=? AND lease_id=?",
       settings.mode === 'preview' ? 'preview' : 'sent',

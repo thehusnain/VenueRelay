@@ -1,8 +1,18 @@
 # Architecture
 
-The existing React 19/TypeScript/Vite frontend and Node.js 24/SQLite backend are retained. The PWA is the website; there is no native client project.
+The React 19/TypeScript/Vite frontend and Node.js 24 HTTP API are retained. Hosted records use the native MongoDB driver with Atlas; the automatic local judge demo keeps its SQLite adapter. Both adapters share the task validation/transition engine and sample generator. The PWA is the website; there is no native client project.
 
 SQLite uses WAL, foreign keys and full synchronous commits. Each operational command validates event membership/role and the expected task version inside a transaction. State, command journal, activity and inbox records commit together. `(actor_id, request_key)` is unique, and a replay must have the same request hash. Immutable journal triggers and the integrity endpoint provide record checks.
+
+MongoDB uses snapshot/majority transactions and unique command/request indexes. State, history and notifications commit together; task updates compare versions and driver transaction retries recheck the current version. Commands, activity and account history are append-only through the application storage boundary. Atlas administrators retain direct database access. This is an operational activity log, not a cryptographically tamper-proof ledger.
+
+## Hosting
+
+Vercel serves the built website, its PWA assets and a same-origin HTTP API proxy to Render. Render hosts the persistent Node HTTP/WebSocket process and leased mail/push workers. Production startup requires an Atlas URI, HTTPS origins and secure cookies; it cannot silently use temporary SQLite storage. Mongo indexes are created at startup. Health checks ping the database. SIGTERM stops sockets/workers and drains requests before closing the connection pool.
+
+HTTP auth cookies are host-only, HttpOnly and SameSite=Lax; the proxy keeps them first-party. Direct cross-origin WebSocket connections use a 30-second one-use ticket stored hashed in MongoDB, bound to origin/event/persona/session. The server consumes it atomically and rechecks membership/session. A reconnect always requests a new ticket. No session credentials enter WebSocket URLs. Exact origin allowlists and API body limits remain in force.
+
+The public judge account is explicitly enabled on Render, flagged as demo and denied real-event creation/joining. Authenticated real accounts create empty events. Email remains optional for sample judging but is required for real registration and recovery.
 
 ## Device storage and sync
 
@@ -14,7 +24,7 @@ Network/server failures retain work with persistent backoff; 429 respects Retry-
 
 ## Live updates
 
-The same HTTP server accepts authenticated WebSocket upgrades for an event. Origin, session and membership are checked at connection, heartbeat and broadcast. Only invalidation messages are sent; clients fetch the role-filtered snapshot. The client reconnects with backoff and periodically refreshes as a fallback. Commands remain idempotent HTTP requests.
+The same HTTP server accepts authenticated WebSocket upgrades for an event. Origin, session and membership are checked at connection; heartbeat and account changes revoke invalid sessions. Invalidation messages carry no event records. Only invalidation messages are sent; clients fetch the role-filtered snapshot. The client reconnects with backoff and refetches every 60 seconds while live or every 10 seconds without a socket. Invalidation delivery is process-local; this deployment uses one Render instance. Commands remain idempotent HTTP requests.
 
 ## Offline shell and notifications
 
@@ -22,4 +32,4 @@ Vite builds a module service worker with a precache manifest containing the actu
 
 Browser push subscriptions belong to the current session and member. Persistent delivery jobs have unique notification/subscription pairs, expiring leases and bounded retries. Existing inbox records remain authoritative. Push delivery is at-least-once under ambiguous failures; stable tags limit duplicate display. External email remains the existing separate leased outbox, with local previews by default.
 
-SQLite supports this small organiser on one persistent server. Multiple independently written replicas, browser storage eviction and loss of the server database require operational planning/backups; this app does not claim distributed disaster recovery.
+MongoDB Atlas provides durable hosted storage independently of Render process restarts. Local SQLite remains on the developer’s disk. Browser storage eviction, provider outages, capacity and database restoration still require operational planning; this app does not claim unlimited capacity or distributed disaster recovery. See DEPLOYMENT.md for setup, limits and optional read-only-source migration.

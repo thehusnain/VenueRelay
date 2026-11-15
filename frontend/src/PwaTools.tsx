@@ -85,10 +85,12 @@ export function PwaTools({
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted')
-        throw new Error('Notifications are not allowed. You can still read updates inside Rally.');
+        throw new Error(
+          'Notifications are not allowed. You can still read updates inside VenueRelay.',
+        );
       const registration = await navigator.serviceWorker.getRegistration();
       if (!registration?.active)
-        throw new Error('Offline setup is not ready. Reload Rally and try again.');
+        throw new Error('Offline setup is not ready. Reload VenueRelay and try again.');
       const key = Uint8Array.from(atob(push.publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
         c.charCodeAt(0),
       );
@@ -133,18 +135,18 @@ export function PwaTools({
   if (!open) return null;
   const installed = matchMedia('(display-mode: standalone)').matches;
   return (
-    <Modal title="Install Rally and notifications" onClose={onClose}>
+    <Modal title="Install VenueRelay and notifications" onClose={onClose}>
       <div className="pwa-options">
         <section>
-          <h3>Rally on your Home Screen</h3>
+          <h3>VenueRelay on your Home Screen</h3>
           <p>
             {installed
-              ? 'Rally is already running as an installed web app.'
+              ? 'VenueRelay is already running as an installed web app.'
               : 'Install this same website for quick access. No app-store download is needed.'}
           </p>
           {!installed && available ? (
             <button className="button primary" onClick={() => void install()}>
-              Install Rally
+              Install VenueRelay
             </button>
           ) : !installed ? (
             <p>
@@ -165,8 +167,8 @@ export function PwaTools({
             <p>Sign in and open an event first.</p>
           ) : !supported ? (
             <p>
-              This browser does not offer push here. On iPhone, install Rally on your Home Screen
-              first. Updates remain available in the bell.
+              This browser does not offer push here. On iPhone, install VenueRelay on your Home
+              Screen first. Updates remain available in the bell.
             </p>
           ) : !push?.enabled ? (
             <p>Browser push is not configured on this server. Your in-app updates still work.</p>
@@ -188,7 +190,8 @@ export function PwaTools({
           <h3>Offline work</h3>
           <p>
             Open your event while connected first. Changes are stored on this device and retried
-            safely when the connection returns. Some browsers retry only when Rally is reopened.
+            safely when the connection returns. Some browsers retry only when VenueRelay is
+            reopened.
           </p>
           {update ? (
             <button
@@ -200,7 +203,7 @@ export function PwaTools({
                   .then((reg) => reg?.waiting?.postMessage({ type: 'SKIP_WAITING' }))
               }
             >
-              {waiting ? 'Save waiting changes before updating' : 'Update Rally and reload'}
+              {waiting ? 'Save waiting changes before updating' : 'Update VenueRelay and reload'}
             </button>
           ) : null}
         </section>

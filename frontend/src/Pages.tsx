@@ -514,8 +514,8 @@ export function ReliabilityPage({
                     </>
                   ) : (
                     <p>
-                      This change is safe on this device. Rally will send it when the connection
-                      returns.
+                      This change is safe on this device. VenueRelay will send it when the
+                      connection returns.
                     </p>
                   )}
                   <details className="change-reference">

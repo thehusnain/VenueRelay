@@ -175,7 +175,7 @@ schemas.Integrity = object({
 const spec = {
   openapi: '3.1.0',
   info: {
-    title: 'Rally Event Operations API',
+    title: 'VenueRelay Event Operations API',
     version: '1.0.0',
     description:
       'Node.js API for HS-0130. Operational commands atomically commit state, immutable history and durable in-app notifications. Use authenticated event WebSockets for invalidations and role-filtered snapshots for records. Dates use ISO 8601 UTC.',
@@ -248,7 +248,7 @@ add('/auth/register', 'post', 'Create account', {
     ['name', 'email', 'password'],
   ),
   description:
-    'Validates syntax and DNS mail delivery records. Creates an unverified account, session and durable verification email atomically. Verification is required for real events. Default local preview writes a private .eml; it does not send email. Native clients set X-Rally-Client: native and receive sessionToken. No automatic retry.',
+    'Validates syntax and DNS mail delivery records. Creates an unverified account and durable verification email atomically, then establishes a session. Verification is required for real events. Default local preview writes a private .eml; it does not send email. API clients set X-Rally-Client: api and receive sessionToken. No automatic retry.',
 });
 add('/auth/login', 'post', 'Sign in', {
   publicAccess: true,
@@ -297,7 +297,7 @@ add('/bootstrap', 'post', 'Open an event or return real-account onboarding', {
     ],
   },
   description:
-    'Verified real accounts without events get requiresSetup=true; no sample records are added. Explicit anonymous sample sessions seed their private event. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
+    'Verified real accounts without events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
 });
 add('/events', 'post', 'Create clean event', {
   body: object({ name: string, venue: string, date: { type: 'string', format: 'date' } }, [
@@ -314,6 +314,17 @@ add('/events/{eventId}/snapshot', 'get', 'Read role-filtered event snapshot', {
   description:
     'Organisers see all tasks. Other roles see their own reports and assignments. Shared schedule and announcements. Most recent activity capped at 200, inbox at 100; use activity pagination or organiser export for full history.',
 });
+add(
+  '/events/{eventId}/live-ticket',
+  'post',
+  'Issue a single-use WebSocket ticket (MongoDB hosting)',
+  {
+    body: object({}),
+    response: object({ ticket: string, expiresInSeconds: integer }, ['ticket', 'expiresInSeconds']),
+    description:
+      'Browser session required; integration tokens denied. POST through the website origin, then connect to the Render wss endpoint /api/v1/events/{eventId}/live?ticket=VALUE within 30 seconds. The ticket is event-, origin- and role-bound and consumed once. Fetch a fresh ticket on every reconnect. Never put session tokens in URLs. Local SQLite connects with its same-origin cookie instead.',
+  },
+);
 add('/events/{eventId}/commands', 'post', 'Commit operational command', {
   body: ref('Command'),
   response: ref('CommandResult'),
@@ -413,7 +424,7 @@ add('/events/{eventId}/push/subscription', 'delete', 'Remove this browser push s
 add('/events/{eventId}/live', 'get', 'Upgrade to authenticated event WebSocket', {
   status: 101,
   description:
-    'Connect with ws/wss using the session cookie and an allowed Origin. Optional persona query is restricted to the owning demo account. Receives connected and event.changed messages containing only eventId. On invalidation refetch the role-filtered snapshot. Reconnect with backoff; polling is a fallback. Auth is rechecked on broadcasts and heartbeat; session revocation closes with 4401. Commands always use HTTP with idempotency keys.',
+    'Connect with ws/wss and an allowed Origin. Local same-origin connections use the session cookie. Hosted MongoDB connections use a fresh one-use ticket from POST /events/{eventId}/live-ticket in the ticket query parameter. Optional local persona query and ticket personas are restricted to the owning demo account. Receives connected and event.changed messages containing only eventId. On invalidation refetch the role-filtered snapshot. Reconnect with backoff; polling is a fallback. Auth is rechecked on heartbeat and account changes; session revocation closes with 4401. Commands always use HTTP with idempotency keys.',
 });
 writeFileSync(
   new URL('../docs/openapi.json', import.meta.url),

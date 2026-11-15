@@ -1,4 +1,5 @@
 import { attachRealtime } from './realtime.ts';
+import type { ApplicationBackend } from './backend.ts';
 import { PushService, pushSettings } from './push.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
@@ -23,7 +24,8 @@ import {
 } from './domain.ts';
 import type { Member, Activity } from '../../shared/contracts.ts';
 interface Options {
-  store: Store;
+  store?: Store;
+  backend?: ApplicationBackend;
   staticDir?: string;
   secureCookies?: boolean;
   allowedOrigins?: string[];
@@ -71,7 +73,7 @@ function serveFile(
       'Cache-Control': 'no-store',
       'Retry-After': '1',
     });
-    res.end('Rally is updating. Refresh this page in a moment.');
+    res.end('VenueRelay is updating. Refresh this page in a moment.');
   });
   res.once('close', () => stream.destroy());
 }
@@ -103,13 +105,19 @@ async function body(req: IncomingMessage) {
   }
 }
 export function createApp(options: Options) {
-  const { store } = options;
+  const store = options.store!;
+  ensure(store || options.backend, 500, 'STORAGE_CONFIG', 'Configure a database backend.');
   const mailSettings = options.emailSettings ?? emailSettings();
   const allowedOrigins = new Set(options.allowedOrigins ?? []);
-  const push = options.push ?? new PushService(store, pushSettings());
+  const push = options.push ?? (store ? new PushService(store, pushSettings()) : undefined);
+  const browserPush = push?.settings ?? pushSettings();
   const server = createServer(async (req, res) => {
     res.once('finish', () => {
-      if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method ?? '') && res.statusCode < 400)
+      if (
+        !options.backend &&
+        ['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method ?? '') &&
+        res.statusCode < 400
+      )
         live.invalidate();
     });
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -153,7 +161,19 @@ export function createApp(options: Options) {
             'This origin cannot change event data.',
           );
         if (path === '/api/health') {
-          send({ status: 'ok', storage: 'sqlite', time: now() });
+          if (options.backend) {
+            let healthy = false;
+            try {
+              healthy = await options.backend.health();
+            } catch {}
+            ensure(
+              healthy,
+              503,
+              'DATABASE_UNAVAILABLE',
+              'The database is temporarily unavailable. Please retry.',
+            );
+          }
+          send({ status: 'ok', storage: options.backend?.storage ?? 'sqlite', time: now() });
           return;
         }
         if (path === '/api/openapi.json' && method === 'GET') {
@@ -163,7 +183,7 @@ export function createApp(options: Options) {
           return;
         }
         if (path === '/api/v1/push/public-key' && method === 'GET') {
-          send({ enabled: !!push.settings, publicKey: push.settings?.publicKey ?? null });
+          send({ enabled: !!browserPush, publicKey: browserPush?.publicKey ?? null });
           return;
         }
         if (path === '/api/docs' || path === '/api/docs/') {
@@ -173,7 +193,7 @@ export function createApp(options: Options) {
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
           });
           res.end(
-            '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rally API</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/setup.js"></script></body></html>',
+            '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VenueRelay API</title><link rel="stylesheet" href="/api/docs/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="/api/docs/swagger-ui-bundle.js"></script><script src="/api/docs/setup.js"></script></body></html>',
           );
           return;
         }
@@ -187,6 +207,10 @@ export function createApp(options: Options) {
         if (['/api/docs/swagger-ui.css', '/api/docs/swagger-ui-bundle.js'].includes(path)) {
           const file = resolve('node_modules/swagger-ui-dist', path.split('/').pop()!);
           serveFile(res, file, method, { 'Content-Type': mime[extname(file)] });
+          return;
+        }
+        if (options.backend) {
+          await options.backend.handle(req, res, path, method, () => body(req), send);
           return;
         }
         if (path.startsWith('/api/v1/auth/')) {
@@ -260,12 +284,12 @@ export function createApp(options: Options) {
           return;
         }
         if (resource === 'push/subscription' && method === 'POST') {
-          push.subscribe(ctx, req, await body(req));
+          push!.subscribe(ctx, req, await body(req));
           send({ ok: true });
           return;
         }
         if (resource === 'push/subscription' && method === 'DELETE') {
-          push.unsubscribe(ctx, await body(req));
+          push!.unsubscribe(ctx, await body(req));
           send({ ok: true });
           return;
         }
@@ -423,7 +447,11 @@ export function createApp(options: Options) {
         throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'Use GET.');
       if (!options.staticDir) {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Rally API is running. Start the frontend with npm run dev.');
+        res.end(
+          process.env.NODE_ENV === 'production'
+            ? 'VenueRelay API is running. Open the website to use your event.'
+            : 'VenueRelay API is running. Start the frontend with npm run dev.',
+        );
         return;
       }
       let file = resolve(options.staticDir, '.' + decodeURIComponent(path));
@@ -446,12 +474,19 @@ export function createApp(options: Options) {
           : 'no-cache',
       });
     } catch (error) {
-      if (error instanceof ApiError)
+      if (error instanceof ApiError) {
+        if (
+          error.status === 429 &&
+          typeof error.details === 'object' &&
+          error.details !== null &&
+          'retryAfter' in error.details
+        )
+          res.setHeader('Retry-After', String(Math.max(1, Number(error.details.retryAfter) || 60)));
         send(
           { error: { code: error.code, message: error.message, details: error.details } },
           error.status,
         );
-      else {
+      } else {
         console.error('Request failed:', error instanceof Error ? error.message : 'Unknown error');
         send(
           {
@@ -465,6 +500,8 @@ export function createApp(options: Options) {
       }
     }
   });
-  const live = attachRealtime(server, store, allowedOrigins, options.secureCookies);
+  const live = options.backend
+    ? options.backend.attach(server, allowedOrigins, !!options.secureCookies)
+    : attachRealtime(server, store, allowedOrigins, options.secureCookies);
   return server;
 }

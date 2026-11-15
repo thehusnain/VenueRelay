@@ -10,13 +10,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     return (
       <main className="recovery-screen">
         <section>
-          <h1>Let’s reopen Rally.</h1>
+          <h1>Let’s reopen VenueRelay.</h1>
           <p>
             A screen could not be displayed. Saved event records and waiting changes have not been
             cleared.
           </p>
           <button className="button primary" onClick={() => location.reload()}>
-            Reload Rally
+            Reload VenueRelay
           </button>
           <a href="/">Return to the start</a>
           <p className="field-hint">

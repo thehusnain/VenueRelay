@@ -5,14 +5,14 @@ import type { Account, Delivery } from '../../shared/contracts';
 import { demoCredentials } from '../../shared/contracts';
 export function Brand({ onClick }: { onClick: () => void }) {
   return (
-    <button className="brand" onClick={onClick} aria-label="Rally home">
+    <button className="brand" onClick={onClick} aria-label="VenueRelay home">
       <span className="rally-logo" aria-hidden="true">
         <span className="rally-mark">
           <i />
           <i />
         </span>
       </span>
-      <span className="brand-word">Rally</span>
+      <span className="brand-word">venuerelay.</span>
     </button>
   );
 }
@@ -48,14 +48,13 @@ export function Entry({
       <header className="entry-header">
         <div className="entry-identity">
           <Brand onClick={() => onNavigate('/')} />
-          <span className="entry-tagline">The event, organised.</span>
         </div>
         {!workflow ? (
           <nav className="entry-navigation" aria-label="Welcome navigation">
             <button className="active" onClick={() => onNavigate('/')}>
               Home
             </button>
-            <button onClick={onInstall}>Install Rally</button>
+            <button onClick={onInstall}>Install VenueRelay</button>
             <button onClick={onScan}>Scan invitation</button>
             <button onClick={() => onNavigate('/sign-in')}>Demo login</button>
           </nav>
@@ -63,7 +62,7 @@ export function Entry({
         {workflow && authPath ? (
           <button className="text-link account-back" onClick={() => onNavigate('/')}>
             <ArrowLeft size={17} />
-            Back to Rally
+            Back to VenueRelay
           </button>
         ) : !workflow ? (
           <button className="button secondary" onClick={() => onNavigate('/sign-in')}>
@@ -108,7 +107,7 @@ export function Entry({
             />
           ) : stage === 'loading' ? (
             <div className="opening">
-              <h1>Opening Rally…</h1>
+              <h1>Opening VenueRelay…</h1>
               <p>Finding your event.</p>
               <div className="loading-line" />
             </div>
@@ -141,8 +140,9 @@ export function Entry({
               <section className="welcome">
                 <div className="welcome-copy">
                   <h1>
-                    <span>Your event.</span>
-                    <span>Working together.</span>
+                    <span>Every Team.</span>
+                    <span>Every Update.</span>
+                    <span>One Place.</span>
                   </h1>
                   <p>
                     Coordinate your team, manage the plan, and follow every request through to
@@ -174,7 +174,7 @@ export function Entry({
               <section
                 id="coordination"
                 className="welcome-explanation"
-                aria-label="How people work together in Rally"
+                aria-label="How people work together in VenueRelay"
               >
                 {[
                   ['Attendee', 'Ask for help', 'Describe the problem and where it is.'],
@@ -194,7 +194,7 @@ export function Entry({
         </div>
       </main>
       <footer className="entry-footer">
-        <span>Rally · event coordination for people</span>
+        <span>venuerelay. · Every Team. Every Update. One Place.</span>
       </footer>
     </div>
   );
@@ -292,7 +292,7 @@ function AccountPage({
               ? 'Sign in to pick up where you left off.'
               : mode === 'register'
                 ? 'First, create your account. We’ll help you set up the event next.'
-                : 'Enter the email you use for Rally. We’ll help you get back in.'}
+                : 'Enter the email you use for VenueRelay. We’ll help you get back in.'}
         </p>
       </div>
       {mode === 'signin' ? (
@@ -430,7 +430,7 @@ function AccountPage({
         </form>
       )}
       <p className="account-alternative">
-        {mode === 'signin' ? 'New to Rally?' : 'Already have an account?'}{' '}
+        {mode === 'signin' ? 'New to VenueRelay?' : 'Already have an account?'}{' '}
         <button
           className="text-link"
           onClick={() => onNavigate(mode === 'signin' ? '/create-account' : '/sign-in')}
@@ -598,7 +598,7 @@ function ProofPage({
               onNavigate(kind === 'verify' ? '/' : '/sign-in');
             }}
           >
-            {kind === 'verify' ? 'Continue to Rally' : 'Sign in'}
+            {kind === 'verify' ? 'Continue to VenueRelay' : 'Sign in'}
             <ArrowRight size={18} />
           </button>
         </>
@@ -608,7 +608,7 @@ function ProofPage({
           <p className="entry-intro">
             {kind === 'verify'
               ? 'Confirm the address this message was sent to. This helps keep event invitations with the right person.'
-              : 'Choose a password you have not used for Rally before.'}
+              : 'Choose a password you have not used for VenueRelay before.'}
           </p>
           {secret ? (
             <form onSubmit={submit}>

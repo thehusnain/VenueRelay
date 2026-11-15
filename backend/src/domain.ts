@@ -1,12 +1,15 @@
 import type { IncomingMessage } from 'node:http';
 import type { Store } from './database.ts';
 import { hash, id, now, token, requireVerified, publicUser, type User } from './auth.ts';
-import { ApiError, ensure, text, choice, date } from './errors.ts';
+import { ensure, text, choice } from './errors.ts';
+import { demoScript } from './demo-script.ts';
+import { planCommand } from './mutations.ts';
+import { organiser, canRead } from './permissions.ts';
+export { organiser, canRead } from './permissions.ts';
 import type {
   Event,
   Member,
   Task,
-  Status,
   Activity,
   Schedule,
   Snapshot,
@@ -25,7 +28,7 @@ interface Command {
   expectedVersion?: number;
   payload: Record<string, unknown>;
 }
-const canonical = (value: unknown): string =>
+export const canonical = (value: unknown): string =>
   JSON.stringify(
     value && typeof value === 'object'
       ? Array.isArray(value)
@@ -37,12 +40,6 @@ const canonical = (value: unknown): string =>
           )
       : value,
   );
-export function organiser(ctx: Context) {
-  ensure(ctx.me.role === 'organiser', 403, 'FORBIDDEN', 'Only an organiser can do that.');
-}
-export function canRead(me: Member, task: Task) {
-  return me.role === 'organiser' || task.reporter_id === me.id || task.owner_id === me.id;
-}
 export function context(
   store: Store,
   req: IncomingMessage,
@@ -178,230 +175,77 @@ export function execute(
       );
       return { ...JSON.parse(previous.response_json), replayed: true };
     }
-    ensure(
-      input &&
-        typeof input.payload === 'object' &&
-        input.payload !== null &&
-        !Array.isArray(input.payload),
-      422,
-      'VALIDATION_ERROR',
-      'A payload object is required.',
+    const members = store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id);
+    const task =
+      typeof input?.taskId === 'string'
+        ? store.get<Task>(
+            'SELECT * FROM tasks WHERE id=? AND event_id=?',
+            input.taskId,
+            ctx.event.id,
+          )
+        : undefined;
+    const { entityType, entityId, before, after, recipients, message } = planCommand(
+      ctx,
+      input,
+      members,
+      task,
     );
-    const p = input.payload,
-      stamp = now();
-    const organisers = store
-      .all<Member>('SELECT * FROM members WHERE event_id=? AND role=?', ctx.event.id, 'organiser')
-      .map((m) => m.id);
-    let entityType = 'task',
-      entityId = '',
-      before: unknown = null,
-      after: unknown,
-      action = input.action,
-      recipients: string[] = [],
-      message = '';
-    if (input.action === 'task.create') {
-      const owner = p.ownerId ? text(p.ownerId, 'Owner', 100) : null;
-      if (owner) {
-        organiser(ctx);
-        ensure(
-          store.get(
-            'SELECT id FROM members WHERE id=? AND event_id=? AND role!=?',
-            owner,
-            ctx.event.id,
-            'attendee',
-          ),
-          422,
-          'INVALID_OWNER',
-          'Choose a team member from this event.',
+    const action = input.action;
+    if (entityType === 'task') {
+      const t = after as Task;
+      if (before)
+        store.run(
+          'UPDATE tasks SET owner_id=?,status=?,due_at=?,resolution=?,version=?,updated_at=? WHERE id=? AND version=?',
+          t.owner_id,
+          t.status,
+          t.due_at,
+          t.resolution,
+          t.version,
+          t.updated_at,
+          t.id,
+          before.version,
         );
-      }
-      const task: Task = {
-        id: id(),
-        event_id: ctx.event.id,
-        title: text(p.title, 'Title', 140, 3),
-        description: text(p.description ?? '', 'Description', 2000, 0),
-        location: text(p.location, 'Location', 120),
-        priority: choice(p.priority ?? 'normal', ['urgent', 'high', 'normal'] as const, 'Priority'),
-        status: owner ? 'assigned' : 'open',
-        owner_id: owner,
-        reporter_id: ctx.me.id,
-        due_at: p.dueAt ? date(p.dueAt, 'Due time') : null,
-        resolution: '',
-        version: 1,
-        created_at: stamp,
-        updated_at: stamp,
-      };
-      store.run(
-        'INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        task.id,
-        task.event_id,
-        task.title,
-        task.description,
-        task.location,
-        task.priority,
-        task.status,
-        task.owner_id,
-        task.reporter_id,
-        task.due_at,
-        task.resolution,
-        1,
-        stamp,
-        stamp,
-      );
-      entityId = task.id;
-      after = task;
-      recipients = [...organisers, owner ?? ''];
-      message = `${ctx.me.name} reported: ${task.title}`;
-    } else if (input.action === 'task.assign' || input.action === 'task.status') {
-      const taskId = text(input.taskId, 'Task ID', 100);
-      const task = store.get<Task>(
-        'SELECT * FROM tasks WHERE id=? AND event_id=?',
-        taskId,
-        ctx.event.id,
-      );
-      ensure(task && canRead(ctx.me, task), 404, 'NOT_FOUND', 'Task not found.');
-      if (input.action === 'task.assign') organiser(ctx);
       else
-        ensure(
-          ctx.me.role === 'organiser' ||
-            (task.owner_id === ctx.me.id && ['volunteer', 'vendor'].includes(ctx.me.role)),
-          403,
-          'FORBIDDEN',
-          'Only the assigned person or an organiser can update this task.',
+        store.run(
+          'INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+          t.id,
+          t.event_id,
+          t.title,
+          t.description,
+          t.location,
+          t.priority,
+          t.status,
+          t.owner_id,
+          t.reporter_id,
+          t.due_at,
+          t.resolution,
+          t.version,
+          t.created_at,
+          t.updated_at,
         );
-      ensure(
-        Number.isInteger(input.expectedVersion) && Number(input.expectedVersion) > 0,
-        422,
-        'VERSION_REQUIRED',
-        'Supply the task’s positive expectedVersion.',
-      );
-      ensure(
-        input.expectedVersion === task.version,
-        409,
-        'VERSION_CONFLICT',
-        'This task changed while you were working. Review the latest record before applying your action.',
-        { current: task },
-      );
-      before = task;
-      let updated = { ...task, version: task.version + 1, updated_at: stamp };
-      if (input.action === 'task.assign') {
-        const owner = text(p.ownerId, 'Owner', 100);
-        ensure(
-          store.get(
-            'SELECT id FROM members WHERE id=? AND event_id=? AND role!=?',
-            owner,
-            ctx.event.id,
-            'attendee',
-          ),
-          422,
-          'INVALID_OWNER',
-          'Choose a team member from this event.',
-        );
-        ensure(
-          task.status !== 'closed',
-          422,
-          'INVALID_TRANSITION',
-          'Reopen the task before assigning it.',
-        );
-        updated = {
-          ...updated,
-          owner_id: owner,
-          status: 'assigned',
-          resolution: '',
-          due_at: p.dueAt ? date(p.dueAt, 'Due time') : task.due_at,
-        };
-      } else {
-        const status = choice(
-          p.status,
-          ['in_progress', 'blocked', 'resolved', 'closed'] as const,
-          'Status',
-        );
-        const transitions: Record<Status, Status[]> = {
-          open: [],
-          assigned: ['in_progress'],
-          in_progress: ['blocked', 'resolved'],
-          blocked: ['in_progress'],
-          resolved: ctx.me.role === 'organiser' ? ['closed', 'in_progress'] : [],
-          closed: ctx.me.role === 'organiser' ? ['in_progress'] : [],
-        };
-        ensure(
-          transitions[task.status].includes(status),
-          422,
-          'INVALID_TRANSITION',
-          `A task in ${task.status} cannot move to ${status}.`,
-        );
-        ensure(task.owner_id, 422, 'OWNER_REQUIRED', 'Assign an owner before starting work.');
-        const resolution = ['blocked', 'resolved'].includes(status)
-          ? text(p.resolution, 'Resolution or blocker note', 2000, 5)
-          : task.resolution;
-        updated = { ...updated, status, resolution };
-      }
-      store.run(
-        'UPDATE tasks SET owner_id=?,status=?,due_at=?,resolution=?,version=?,updated_at=? WHERE id=? AND version=?',
-        updated.owner_id,
-        updated.status,
-        updated.due_at,
-        updated.resolution,
-        updated.version,
-        stamp,
-        task.id,
-        task.version,
-      );
-      after = updated;
-      entityId = task.id;
-      recipients = [...organisers, task.reporter_id, task.owner_id ?? '', updated.owner_id ?? ''];
-      message = `${task.title} · ${input.action === 'task.assign' ? 'Assigned to ' + store.get<Member>('SELECT * FROM members WHERE id=?', updated.owner_id!)!.name : updated.status.replace('_', ' ')}`;
-    } else if (input.action === 'schedule.create') {
-      organiser(ctx);
-      entityType = 'schedule';
-      entityId = id();
-      const startsAt = date(p.startsAt, 'Start time'),
-        endsAt = date(p.endsAt, 'End time');
-      ensure(endsAt > startsAt, 422, 'VALIDATION_ERROR', 'End time must be after start time.');
-      after = {
-        id: entityId,
-        event_id: ctx.event.id,
-        title: text(p.title, 'Title', 140, 3),
-        location: text(p.location, 'Location', 120),
-        starts_at: startsAt,
-        ends_at: endsAt,
-        version: 1,
-      };
-      const s = after as Schedule;
+    } else if (entityType === 'schedule') {
+      const item = after as Schedule;
       store.run(
         'INSERT INTO schedule VALUES (?,?,?,?,?,?,?)',
-        s.id,
-        s.event_id,
-        s.title,
-        s.location,
-        s.starts_at,
-        s.ends_at,
-        1,
+        item.id,
+        item.event_id,
+        item.title,
+        item.location,
+        item.starts_at,
+        item.ends_at,
+        item.version,
       );
-    } else if (input.action === 'announcement.create') {
-      organiser(ctx);
-      entityType = 'announcement';
-      entityId = id();
-      message = text(p.message, 'Announcement', 1000, 5);
-      after = {
-        id: entityId,
-        event_id: ctx.event.id,
-        actor_id: ctx.me.id,
-        message,
-        created_at: stamp,
-      };
+    } else {
+      const item = after as Announcement;
       store.run(
         'INSERT INTO announcements VALUES (?,?,?,?,?)',
-        entityId,
-        ctx.event.id,
-        ctx.me.id,
-        message,
-        stamp,
+        item.id,
+        item.event_id,
+        item.actor_id,
+        item.message,
+        item.created_at,
       );
-      recipients = store
-        .all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id)
-        .map((m) => m.id);
-    } else throw new ApiError(422, 'VALIDATION_ERROR', 'Unknown command action.');
+    }
     if (options.failAfterMutation) throw new Error('Simulated storage interruption');
     const result = { entity: after, entityType, entityId, replayed: false };
     append(
@@ -497,127 +341,10 @@ export function seedDemo(store: Store, ctx: Context) {
     store.get('SELECT id FROM tasks WHERE event_id=?', ctx.event.id)
   )
     return;
-  const members = store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id),
-    volunteer = members.find((m) => m.role === 'volunteer')!,
-    vendor = members.find((m) => m.role === 'vendor')!;
-  const rows = [
-    [
-      'Clear the accessible entrance',
-      'A delivery crate is blocking the step-free route. Move it and check the full path.',
-      'North entrance',
-      'urgent',
-      volunteer.id,
-      'blocked',
-    ],
-    [
-      'Set up the welcome desk',
-      'Put out wristbands, printed maps and the lost property sign.',
-      'Welcome tent',
-      'high',
-      volunteer.id,
-      'in_progress',
-    ],
-    [
-      'Confirm power for food stalls',
-      'Check the supply with the site electrician before switching on equipment.',
-      'Food court',
-      'high',
-      vendor.id,
-      'assigned',
-    ],
-    [
-      'Restock drinking water',
-      'The refill station needs two more water containers.',
-      'Garden zone',
-      'normal',
-      vendor.id,
-      'assigned',
-    ],
-    [
-      'Add signs to the quiet space',
-      'Directional signs are missing at the main junction.',
-      'East pavilion',
-      'normal',
-      null,
-      'open',
-    ],
-    [
-      'Check the main stage sound',
-      'Complete the final microphone and monitor check.',
-      'Main stage',
-      'normal',
-      volunteer.id,
-      'resolved',
-    ],
-    [
-      'Place recycling stations',
-      'Put labelled bins at each exit and along the food court.',
-      'All zones',
-      'normal',
-      volunteer.id,
-      'closed',
-    ],
-  ];
-  for (let n = 0; n < rows.length; n++) {
-    const [title, description, location, priority, ownerId, status] = rows[n];
-    const result = execute(store, ctx, `seed-task-${n}`, {
-      action: 'task.create',
-      payload: {
-        title,
-        description,
-        location,
-        priority,
-        ownerId,
-        dueAt: new Date(Date.now() + (n - 1) * 35 * 60000).toISOString(),
-      },
-    });
-    let task = result.entity as Task;
-    if (['in_progress', 'blocked', 'resolved', 'closed'].includes(String(status))) {
-      task = execute(store, ctx, `seed-start-${n}`, {
-        action: 'task.status',
-        taskId: task.id,
-        expectedVersion: task.version,
-        payload: { status: 'in_progress' },
-      }).entity as Task;
-    }
-    if (['blocked', 'resolved', 'closed'].includes(String(status))) {
-      task = execute(store, ctx, `seed-finish-${n}`, {
-        action: 'task.status',
-        taskId: task.id,
-        expectedVersion: task.version,
-        payload: {
-          status: status === 'blocked' ? 'blocked' : 'resolved',
-          resolution:
-            status === 'blocked'
-              ? 'Waiting for the delivery driver to move the crate.'
-              : 'Checked on site. Everything is ready.',
-        },
-      }).entity as Task;
-    }
-    if (status === 'closed')
-      execute(store, ctx, `seed-close-${n}`, {
-        action: 'task.status',
-        taskId: task.id,
-        expectedVersion: task.version,
-        payload: { status: 'closed' },
-      });
-  }
-  for (const [i, title, location, start, end] of [
-    [0, 'Crew briefing', 'Welcome tent', '08:30', '09:00'],
-    [1, 'Gates open', 'North entrance', '10:00', '10:30'],
-    [2, 'Meet the makers', 'Main stage', '11:00', '12:00'],
-    [3, 'Lunch & local flavours', 'Food court', '12:30', '14:00'],
-    [4, 'Acoustic garden session', 'Garden zone', '16:00', '17:00'],
-  ])
-    execute(store, ctx, `seed-schedule-${i}`, {
-      action: 'schedule.create',
-      payload: {
-        title,
-        location,
-        startsAt: `${ctx.event.date}T${start}:00+05:00`,
-        endsAt: `${ctx.event.date}T${end}:00+05:00`,
-      },
-    });
+  const members = store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id);
+  const script = demoScript(ctx.event, members);
+  let step = script.next();
+  while (!step.done) step = script.next(execute(store, ctx, step.value.key, step.value.input));
 }
 export function snapshot(store: Store, ctx: Context): Snapshot {
   const tasks = store

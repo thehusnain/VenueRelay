@@ -18,6 +18,60 @@ export function pushSettings(): PushSettings | undefined {
   } = process.env;
   return publicKey && privateKey && subject ? { publicKey, privateKey, subject } : undefined;
 }
+export function validatePushSubscription(
+  ctx: Context,
+  req: IncomingMessage,
+  p: Record<string, unknown>,
+  settings?: PushSettings,
+) {
+  ensure(
+    settings,
+    503,
+    'PUSH_UNAVAILABLE',
+    'Browser push is not configured. Updates remain available in VenueRelay.',
+  );
+  ensure(
+    !ctx.isIntegration && ctx.me.user_id === ctx.user.id,
+    403,
+    'FORBIDDEN',
+    'Use your own signed-in event membership.',
+  );
+  const endpoint = text(p.endpoint, 'Push endpoint', 2000);
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new ApiError(422, 'INVALID_PUSH_ENDPOINT', 'Use a browser push subscription URL.');
+  }
+  ensure(
+    url.protocol === 'https:' &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      (url.hostname === 'fcm.googleapis.com' ||
+        url.hostname === 'updates.push.services.mozilla.com' ||
+        url.hostname.endsWith('.push.services.mozilla.com') ||
+        url.hostname.endsWith('.push.apple.com') ||
+        url.hostname.endsWith('.notify.windows.com')),
+    422,
+    'INVALID_PUSH_ENDPOINT',
+    'Use a subscription provided by a supported browser.',
+  );
+  const keys = p.keys as Record<string, unknown> | undefined;
+  ensure(
+    keys &&
+      typeof keys.p256dh === 'string' &&
+      /^[A-Za-z0-9_-]{87}=?$/.test(keys.p256dh) &&
+      typeof keys.auth === 'string' &&
+      /^[A-Za-z0-9_-]{22}={0,2}$/.test(keys.auth),
+    422,
+    'VALIDATION_ERROR',
+    'The push subscription keys are invalid.',
+  );
+  const sessionToken = sessionValue(req);
+  ensure(sessionToken, 401, 'UNAUTHENTICATED', 'Sign in again.');
+  return { endpoint, keys, sessionToken };
+}
 export class PushService {
   constructor(
     private store: Store,
@@ -25,52 +79,7 @@ export class PushService {
     private deliver = webpush.sendNotification,
   ) {}
   subscribe(ctx: Context, req: IncomingMessage, p: Record<string, unknown>) {
-    ensure(
-      this.settings,
-      503,
-      'PUSH_UNAVAILABLE',
-      'Browser push is not configured. Updates remain available in Rally.',
-    );
-    ensure(
-      !ctx.isIntegration && ctx.me.user_id === ctx.user.id,
-      403,
-      'FORBIDDEN',
-      'Use your own signed-in event membership.',
-    );
-    const endpoint = text(p.endpoint, 'Push endpoint', 2000);
-    let url: URL;
-    try {
-      url = new URL(endpoint);
-    } catch {
-      throw new ApiError(422, 'INVALID_PUSH_ENDPOINT', 'Use a browser push subscription URL.');
-    }
-    ensure(
-      url.protocol === 'https:' &&
-        !url.username &&
-        !url.password &&
-        !url.port &&
-        (url.hostname === 'fcm.googleapis.com' ||
-          url.hostname === 'updates.push.services.mozilla.com' ||
-          url.hostname.endsWith('.push.services.mozilla.com') ||
-          url.hostname.endsWith('.push.apple.com') ||
-          url.hostname.endsWith('.notify.windows.com')),
-      422,
-      'INVALID_PUSH_ENDPOINT',
-      'Use a subscription provided by a supported browser.',
-    );
-    const keys = p.keys as Record<string, unknown> | undefined;
-    ensure(
-      keys &&
-        typeof keys.p256dh === 'string' &&
-        /^[A-Za-z0-9_-]{87}=?$/.test(keys.p256dh) &&
-        typeof keys.auth === 'string' &&
-        /^[A-Za-z0-9_-]{22}={0,2}$/.test(keys.auth),
-      422,
-      'VALIDATION_ERROR',
-      'The push subscription keys are invalid.',
-    );
-    const sessionToken = sessionValue(req);
-    ensure(sessionToken, 401, 'UNAUTHENTICATED', 'Sign in again.');
+    const { endpoint, keys, sessionToken } = validatePushSubscription(ctx, req, p, this.settings);
     this.store.transaction(() => {
       const existing = this.store.get<{ user_id: string }>(
         'SELECT user_id FROM push_subscriptions WHERE endpoint=?',

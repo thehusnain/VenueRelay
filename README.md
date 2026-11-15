@@ -1,4 +1,6 @@
-# Rally
+# venuerelay.
+
+**Every Team. Every Update. One Place.**
 
 An event coordination website and installable PWA for HS-0130. Attendees request help, organisers assign an owner, volunteers/vendors do the work, and organisers check completion. The same website works on phones, tablets and desktops. There is no separate native application.
 
@@ -20,7 +22,7 @@ The built app on port 3001 supports offline testing. Port 5173 is the live front
 - Email: **demo@rally.local**
 - Password: **RallyDemo2026!**
 
-Choose **Sign in → Fill demo → Sign in**. The button only fills the fields; it does not submit. The login screen shows both credentials. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded only outside production; `DEMO_ACCOUNT_ENABLED=false` prevents seeding.
+Choose **Sign in → Fill demo → Sign in**. The button only fills the fields; it does not submit. The login screen shows both credentials. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded locally by default and on Render when `DEMO_ACCOUNT_ENABLED=true`. It is isolated from real events in the MongoDB backend. The public demo credentials remain compatible with earlier versions.
 
 The welcome screen links to this demo login. Real registrations remain separate: after verification, one short form creates an empty event. The organiser invites people with chosen roles, shares each invitation link/QR code, and manually adds and assigns tasks. No sample teammates, tasks or schedule are added to a real event. Email verification/recovery uses private local previews until SMTP is configured:
 
@@ -31,7 +33,7 @@ npm run email:preview -- YOUR_EMAIL
 ## Features
 
 - Server-enforced roles, task ownership, progress, blockers and checked completion.
-- Transactional SQLite records, immutable activity journal, persistent inbox and integrity checks.
+- Transactional MongoDB records on Atlas (SQLite for local judging), an append-only activity journal, persistent inbox and integrity checks.
 - IndexedDB snapshots and per-person outbox, concurrent-tab leases, persistent retries and explicit conflict review.
 - Service-worker precaching, install controls and optional Background Sync, with foreground/reopen retries when the browser lacks it.
 - Authenticated WebSockets for live invalidations; role-filtered snapshots and periodic refresh recover missed updates.
@@ -39,7 +41,11 @@ npm run email:preview -- YOUR_EMAIL
 - Mobile QR camera scanning, image upload and pasted-link fallback; invitation QR codes.
 - Keyboard support, responsive layout and locally bundled Antonio/Manrope fonts.
 
-Open **More → Install Rally & notifications** for installation and push controls, or **More → Connection help** to inspect pending work and record integrity. Never clear device storage while unsent work is waiting.
+Open **More → Install VenueRelay & notifications** for installation and push controls, or **More → Connection help** to inspect pending work and record integrity. Never clear device storage while unsent work is waiting.
+
+## Hosting
+
+Use [the Render + Vercel + Atlas deployment guide](docs/DEPLOYMENT.md). `render.yaml` configures the Node API, and `vercel.json` builds the existing frontend with a same-origin API proxy. No cloud resources are created by running local commands.
 
 ## Checks and API
 
@@ -49,7 +55,9 @@ npm run build
 npm run api:docs
 ```
 
-If test subprocesses cannot open ports, start Rally first and run `RALLY_TEST_URL=http://127.0.0.1:3001 npm test`.
+`npm run test:mongo` separately starts a disposable MongoDB replica set and checks production transactions, concurrency, authentication, notifications and migration. Its first run downloads a MongoDB binary; the normal judge tests need no database download.
+
+If test subprocesses cannot open ports, start VenueRelay first and run `RALLY_TEST_URL=http://127.0.0.1:3001 npm test`.
 
 With the built app running, install the Playwright browser once, then run:
 

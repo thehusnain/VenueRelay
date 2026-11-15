@@ -99,11 +99,11 @@ function issueProof(
   );
   const link = `${settings.origin}/${purpose === 'verify' ? 'verify-email' : 'reset-password'}?token=${encodeURIComponent(secret)}`;
   const subject =
-    purpose === 'verify' ? 'Confirm your email for Rally' : 'Reset your Rally password';
+    purpose === 'verify' ? 'Confirm your email for VenueRelay' : 'Reset your VenueRelay password';
   const body =
     purpose === 'verify'
-      ? `Hi ${user.name},\n\nConfirm this email address to create or join your event:\n${link}\n\nThis link expires in 30 minutes. If you did not create this account, you can ignore this email.\n\nThe Rally team`
-      : `Hi ${user.name},\n\nUse this link to choose a new password:\n${link}\n\nThis link expires in one hour and can only be used once. If you did not request this, you can ignore this email.\n\nThe Rally team`;
+      ? `Hi ${user.name},\n\nConfirm this email address to create or join your event:\n${link}\n\nThis link expires in 30 minutes. If you did not create this account, you can ignore this email.\n\nThe VenueRelay team`
+      : `Hi ${user.name},\n\nUse this link to choose a new password:\n${link}\n\nThis link expires in one hour and can only be used once. If you did not request this, you can ignore this email.\n\nThe VenueRelay team`;
   store.run(
     "INSERT INTO email_outbox (id,user_id,token_id,recipient,subject,body,status,attempts,next_attempt_at,created_at) VALUES (?,?,?,?,?,?,'pending',0,?,?)",
     mailId,

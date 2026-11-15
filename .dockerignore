@@ -4,6 +4,7 @@ node_modules
 .sites-runtime
 .playwright-mcp
 frontend/dist
+.vercel
 data
 test-results
 mobile

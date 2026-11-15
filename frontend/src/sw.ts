@@ -42,7 +42,7 @@ worker.addEventListener('fetch', (event) => {
         } catch {
           return (
             (await caches.match('/index.html')) ??
-            new Response('Rally is offline. Open it once while connected.', { status: 503 })
+            new Response('VenueRelay is offline. Open it once while connected.', { status: 503 })
           );
         }
       })(),
@@ -70,8 +70,8 @@ worker.addEventListener('push', (event) => {
   } catch {}
   const path = payload.url && /^\/tasks\/[A-Za-z0-9_-]+$/.test(payload.url) ? payload.url : '/';
   event.waitUntil(
-    worker.registration.showNotification('Rally update', {
-      body: 'Your event has a new update. Open Rally to see the details.',
+    worker.registration.showNotification('VenueRelay update', {
+      body: 'Your event has a new update. Open VenueRelay to see the details.',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: 'rally-' + (payload.id ?? 'update'),

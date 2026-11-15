@@ -1,12 +1,12 @@
-# Rally interface
+# venuerelay. interface
 
-Rally is an event run sheet for people working on phones, rather than a statistical dashboard. The organiser should see the next hand-off; a volunteer or vendor should find their assignment; an attendee should know how to request help. Use the requested white theme: white surfaces, dark blue-grey text, teal primary actions/selection, amber blockers and green confirmations. Keep the circular Rally mark, Antonio display headings and Manrope body/UI text.
+VenueRelay is an event run sheet for people working on phones, rather than a statistical dashboard. The organiser should see the next hand-off; a volunteer or vendor should find their assignment; an attendee should know how to request help. Use the requested white theme: white surfaces, dark blue-grey text, teal primary actions/selection, amber blockers and green confirmations. Keep the circular VenueRelay mark, Antonio display headings and Manrope body/UI text.
 
 ## Mobile first
 
 At widths up to 720px, Home, Tasks/My requests, Event plan and Your team sit in a persistent bottom navigation. Use icons with visible labels, a clear current-page mark and targets at least 44px across. Reserve content space and safe-area padding below the navigation; move to a normal top navigation on larger screens. Menus scroll within the viewport. Forms and notices scroll naturally rather than clipping inside a fixed-height page.
 
-The header always identifies Rally and shows whether work is saved, waiting or offline. Updates and More remain labelled. On sample events, Switch role opens and focuses the existing role selector; real events retain their server-enforced permissions. Sample controls should not dominate the work.
+The header always identifies VenueRelay and shows whether work is saved, waiting or offline. Updates and More remain labelled. On sample events, Switch role opens and focuses the existing role selector; real events retain their server-enforced permissions. Sample controls should not dominate the work.
 
 ## Hierarchy and next steps
 
@@ -14,7 +14,7 @@ Home starts with a left-aligned event name (36px desktop, 28px phone), then one 
 
 Every task row shows readable status, task title, ownership/progress, location and due time. The entire row is an accessible button; desktop next-action labels explain what opening it enables. Color and tiny symbols never carry status alone. Task lists recover from a failed search with Clear search. The team is a compact roster of people, their role/team and active work rather than a wall of decorative cards.
 
-The welcome page explains the actual hand-off: attendee asks, organiser assigns, volunteer/vendor acts, organiser checks. Retain its height-aware two-line headline and visible actions on short screens. Account layout is owned by account.css, with the old overlapping account rules removed from the base/theme sheets. Sign-in shows the demo credentials beside the form on desktop and above it on phones. Fill demo only populates fields; Sign in is a separate action. Do not autofocus account inputs on entry. Keep a single 2px focus ring and the sign-in action inside short laptop/phone viewports. Avoid decorative account posters.
+The welcome page explains the actual hand-off: attendee asks, organiser assigns, volunteer/vendor acts, organiser checks. Use the three short tagline lines “Every Team. Every Update. One Place.” with height-aware type and visible actions on short screens. Account layout is owned by account.css, with the old overlapping account rules removed from the base/theme sheets. Sign-in shows the demo credentials beside the form on desktop and above it on phones. Fill demo only populates fields; Sign in is a separate action. Do not autofocus account inputs on entry. Keep a single 2px focus ring and the sign-in action inside short laptop/phone viewports. Avoid decorative account posters.
 
 ## Type and controls
 

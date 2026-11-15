@@ -261,7 +261,7 @@ export function App() {
                       setDialog('pwa');
                     }}
                   >
-                    Install Rally & notifications
+                    Install VenueRelay & notifications
                   </button>
                   <button
                     onClick={() => {
@@ -346,7 +346,7 @@ export function App() {
                       setDialog('help');
                     }}
                   >
-                    How to use Rally
+                    How to use VenueRelay
                   </button>
                   {!data.user.email ? (
                     <button onClick={account}>Create your own account</button>
@@ -443,7 +443,7 @@ export function App() {
                 <p>
                   {path.startsWith('/tasks/')
                     ? 'This task may have moved or may no longer be available to your role.'
-                    : 'This address does not lead to a Rally page.'}
+                    : 'This address does not lead to a VenueRelay page.'}
                 </p>
                 <div className="button-row">
                   <button className="button primary" onClick={() => go('/tasks')}>
@@ -518,8 +518,8 @@ export function App() {
             )}
           </div>
           <footer className="app-footer">
-            <span>Rally · {data.event.name}</span>
-            <button onClick={() => setDialog('help')}>Need a hand using Rally?</button>
+            <span>VenueRelay · {data.event.name}</span>
+            <button onClick={() => setDialog('help')}>Need a hand using VenueRelay?</button>
           </footer>
         </main>
       </div>
@@ -553,9 +553,9 @@ export function App() {
         />
       ) : null}
       {dialog === 'help' ? (
-        <Modal title="A little help with Rally" onClose={() => setDialog('')}>
+        <Modal title="A little help with VenueRelay" onClose={() => setDialog('')}>
           <div className="help-content">
-            <p>Rally helps everyone know what needs doing and who is helping.</p>
+            <p>VenueRelay helps everyone know what needs doing and who is helping.</p>
             <ol>
               <li>
                 <strong>Ask or add a task.</strong> Say what’s needed and where.

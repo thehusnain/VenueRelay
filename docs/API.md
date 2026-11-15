@@ -1,4 +1,4 @@
-# Rally API
+# VenueRelay API
 
 Interactive Swagger UI: `/api/docs`. OpenAPI 3.1: `/api/openapi.json`; regenerate with `npm run api:docs`.
 
@@ -25,7 +25,8 @@ Errors have `{"error":{"code":"...","message":"...","details":{}}}`. Preserve wa
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /events/{id}/live` | WebSocket upgrade; cookie session, allowed Origin, optional owner-only demo persona query |
+| `POST /events/{id}/live-ticket` | Hosted MongoDB: issue an origin/event/persona/session-bound, one-use ticket valid for 30 seconds |
+| `GET /events/{id}/live` | WebSocket upgrade; local same-origin cookie or hosted `?ticket=VALUE`, with an allowed Origin |
 | `GET /events/{id}/snapshot` | Current role-filtered event records |
 | `GET /events/{id}/activity?after=ID` | Cursor-based accessible history |
 | `GET /push/public-key` | Push availability and public VAPID key |
@@ -38,3 +39,5 @@ WebSocket messages are `{type:"connected",eventId}` and `{type:"event.changed",e
 Push requires browser permission, VAPID settings and an own signed-in membership. Subscriptions to supported browser push providers are accepted; arbitrary URLs are rejected. No private VAPID key is returned. Browser push delivery does not replace durable inbox/activity records.
 
 Accounts, verification/reset, invitations, schedule, announcements, exports, integrity and integration-key operations are fully described in OpenAPI. Default email previews remain private under `data/mail-preview`; use `npm run email:preview -- EMAIL` for local verification. Configure SMTP through private `.env` for external delivery. Never include preview files or credentials in the repository.
+
+The deployed website proxies HTTP API calls to Render so cookies stay first-party. Request a fresh ticket for each direct Render WebSocket connection. Keep established `X-Rally-*` headers, cookies and device-storage identifiers for backward compatibility after the VenueRelay rename. The production adapter shares task rules with the local SQLite adapter; production requires MongoDB transactions.

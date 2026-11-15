@@ -25,6 +25,7 @@ try {
   const result = await scenario(page, {
     root,
     base: process.env.RALLY_TEST_URL,
+    hosted: process.env.RALLY_TEST_MONGO === 'true',
   });
   writeFileSync(
     new URL(`../test-results/${mode}-results.json`, import.meta.url),

@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Rally \u00b7 The event, organised",
-  "short_name": "Rally",
-  "description": "Report a request, choose someone to help, and follow it through.",
+  "name": "venuerelay.",
+  "short_name": "venuerelay.",
+  "description": "Every Team. Every Update. One Place.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

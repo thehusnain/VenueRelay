@@ -15,7 +15,7 @@ export class Store {
     const version = (this.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version;
     if (version > migrations.length)
-      throw new Error('This database needs a newer version of Rally.');
+      throw new Error('This database needs a newer version of VenueRelay.');
     for (let i = version; i < migrations.length; i++) {
       this.transaction(() =>
         this.db.exec(

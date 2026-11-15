@@ -3,7 +3,8 @@
 Paste the following into the form’s run guide/notes:
 
 ```text
-Rally — HS-0130 event coordination website + PWA.
+venuerelay. — Every Team. Every Update. One Place.
+HS-0130 event coordination website + PWA.
 
 Requires Node.js 24 LTS.
 1. Open a terminal in the project folder.
@@ -19,7 +20,7 @@ The verified demo account and sample event are created automatically on a fresh 
 
 Suggested journey: attendee requests help → organiser assigns a person → volunteer starts work and submits a result → organiser confirms completion → attendee reads the update. More → Connection help shows waiting changes and can check record integrity.
 
-Rally is one responsive website/installable PWA, not separate Android/iOS apps. Offline work uses Service Workers and IndexedDB; reconnect retries retain request IDs. Browser support affects Background Sync and push; see docs/PWA.md. Browser push is optional and requires VAPID setup and permission. Phone camera/PWA access requires trusted HTTPS.
+VenueRelay is one responsive website/installable PWA, not separate Android/iOS apps. Offline work uses Service Workers and IndexedDB; reconnect retries retain request IDs. Browser support affects Background Sync and push; see docs/PWA.md. Browser push is optional and requires VAPID setup and permission. Phone camera/PWA access requires trusted HTTPS.
 
 Interactive API docs: http://127.0.0.1:3001/api/docs
 OpenAPI: http://127.0.0.1:3001/api/openapi.json
@@ -29,3 +30,5 @@ Stop: Ctrl+C
 ```
 
 Use the actual GitHub repository URL in the repository field. If the form asks for a demo video, link a short public recording of the working app and recovery journey; no recording or repository is published automatically.
+
+For hosted judging, add the actual Vercel website URL and retain the demo credentials above. The Render blueprint explicitly enables the demo account. Setup: [DEPLOYMENT.md](DEPLOYMENT.md). No cloud URL has been provisioned by this repository.

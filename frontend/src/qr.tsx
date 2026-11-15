@@ -7,16 +7,16 @@ export function parseRallyLink(value: string, origin: string) {
   try {
     url = new URL(value, origin);
   } catch {
-    throw new Error('This is not a readable Rally link.');
+    throw new Error('This is not a readable VenueRelay link.');
   }
   if (url.origin !== new URL(origin).origin)
     throw new Error(
-      'This QR code belongs to another website. Use an invitation from this Rally server.',
+      'This QR code belongs to another website. Use an invitation from this VenueRelay server.',
     );
   const invite = url.searchParams.get('invite');
   if (invite && /^[A-Za-z0-9_-]{20,200}$/.test(invite)) return { invite, path: '/sign-in' };
   if (/^\/tasks\/[A-Za-z0-9_-]{1,100}$/.test(url.pathname)) return { path: url.pathname };
-  throw new Error('Scan a Rally invitation or task QR code.');
+  throw new Error('Scan a VenueRelay invitation or task QR code.');
 }
 export function QrCode({ value }: { value: string }) {
   const [image, setImage] = useState('');
@@ -35,7 +35,7 @@ export function QrCode({ value }: { value: string }) {
     <img
       className="qr-image"
       src={image}
-      alt="QR code for this Rally link"
+      alt="QR code for this VenueRelay link"
       width={280}
       height={280}
     />
@@ -162,7 +162,7 @@ export function QrScanner({
     }
   };
   return (
-    <Modal title="Scan a Rally QR code" onClose={onClose}>
+    <Modal title="Scan a VenueRelay QR code" onClose={onClose}>
       <div className="pwa-options">
         <p>Join an event or open a task. Scanning never changes your permissions.</p>
         <video
@@ -187,7 +187,7 @@ export function QrScanner({
             accept(link);
           }}
         >
-          <label htmlFor="qr-link">Or paste a Rally link</label>
+          <label htmlFor="qr-link">Or paste a VenueRelay link</label>
           <input id="qr-link" value={link} onChange={(e) => setLink(e.target.value)} required />
           <button className="button primary" type="submit">
             Open link

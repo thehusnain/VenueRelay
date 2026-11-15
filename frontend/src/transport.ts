@@ -37,7 +37,7 @@ export async function fetchJson<T>(
       throw new RequestError(
         response.ok ? 502 : response.status,
         'INVALID_RESPONSE',
-        'Rally returned an unreadable response. Try again. Waiting changes remain on this device.',
+        'VenueRelay returned an unreadable response. Try again. Waiting changes remain on this device.',
       );
     }
     if (!response.ok) {
@@ -67,7 +67,7 @@ export async function fetchJson<T>(
       throw new RequestError(
         0,
         'TIMEOUT',
-        'Rally is taking longer than expected. Please retry. Waiting changes are still safe on this device.',
+        'VenueRelay is taking longer than expected. Please retry. Waiting changes are still safe on this device.',
       );
     if (options.signal?.aborted)
       throw new RequestError(
@@ -78,7 +78,7 @@ export async function fetchJson<T>(
     throw new RequestError(
       0,
       'NETWORK_ERROR',
-      'Cannot reach the event server. Check your connection and that Rally is running on your computer.',
+      'Cannot reach the event server. Check your connection and retry. Waiting changes stay on this device.',
     );
   } finally {
     clearTimeout(timer);

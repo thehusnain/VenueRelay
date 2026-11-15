@@ -4,50 +4,91 @@ import { resolve } from 'node:path';
 import { Store } from './database.ts';
 import { createApp } from './api.ts';
 import { emailSettings, startEmailWorker } from './email.ts';
-const port = Number(process.env.PORT ?? 3001);
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  console.error('Rally could not start: PORT must be a number between 1 and 65535.');
-  process.exit(1);
+import { runtimeSettings } from './runtime.ts';
+import { MongoStore } from './mongo/store.ts';
+import { MongoBackend } from './mongo/backend.ts';
+async function main() {
+  const config = runtimeSettings(),
+    mail = emailSettings();
+  let sqlite: Store | undefined,
+    mongo: MongoStore | undefined,
+    backend: MongoBackend | undefined,
+    stopWorkers: () => Promise<void>;
+  try {
+    if (config.mongoUri) {
+      mongo = await MongoStore.connect(config.mongoUri, config.database);
+      backend = new MongoBackend(mongo, { mail, secure: config.secure, demo: config.demo });
+      await backend.ensureDemo();
+      stopWorkers = backend.startWorkers();
+    } else {
+      sqlite = new Store(process.env.DATABASE_PATH ?? resolve('data/rally.sqlite'));
+      if (config.demo) await ensureDemoAccount(sqlite);
+      const push = new PushService(sqlite, pushSettings()),
+        stopPush = push.start(),
+        stopMail = startEmailWorker(sqlite, mail);
+      stopWorkers = async () => {
+        await Promise.all([stopPush(), stopMail()]);
+      };
+    }
+  } catch (error) {
+    await mongo?.close();
+    sqlite?.close();
+    throw error;
+  }
+  const app = createApp({
+    store: sqlite,
+    backend,
+    emailSettings: mail,
+    staticDir: config.apiOnly ? undefined : resolve('frontend/dist'),
+    secureCookies: config.secure,
+    allowedOrigins: config.allowedOrigins,
+  });
+  const closeDb = async () => {
+    await mongo?.close();
+    sqlite?.close();
+  };
+  app.once('error', async (error: NodeJS.ErrnoException) => {
+    console.error(
+      error.code === 'EADDRINUSE'
+        ? `Port ${config.port} is already in use.`
+        : 'VenueRelay could not open its server port.',
+    );
+    await stopWorkers();
+    await closeDb();
+    process.exitCode = 1;
+  });
+  app.listen(config.port, config.host, () =>
+    console.log(
+      `VenueRelay API (${backend ? 'MongoDB' : 'SQLite'}) · http://${config.host}:${config.port}`,
+    ),
+  );
+  let closing = false;
+  for (const signal of ['SIGTERM', 'SIGINT'])
+    process.once(signal, async () => {
+      if (closing) return;
+      closing = true;
+      backend?.stopLive();
+      let deadline: ReturnType<typeof setTimeout>;
+      await Promise.race([
+        Promise.all([stopWorkers(), new Promise<void>((resolve) => app.close(() => resolve()))]),
+        new Promise<void>((resolve) => {
+          deadline = setTimeout(() => {
+            app.closeAllConnections();
+            resolve();
+          }, 20000);
+        }),
+      ]);
+      clearTimeout(deadline!);
+      await closeDb();
+      process.exit(0);
+    });
 }
-const store = new Store(process.env.DATABASE_PATH ?? resolve('data/rally.sqlite'));
-if (process.env.DEMO_ACCOUNT_ENABLED !== 'false' && process.env.NODE_ENV !== 'production')
-  await ensureDemoAccount(store);
-const push = new PushService(store, pushSettings());
-const stopPush = push.start();
-const mail = emailSettings();
-const stopMail = startEmailWorker(store, mail);
-const app = createApp({
-  emailSettings: mail,
-  push,
-  store,
-  staticDir: resolve('frontend/dist'),
-  secureCookies: process.env.COOKIE_SECURE === 'true',
-  allowedOrigins: (
-    process.env.ALLOWED_ORIGINS ||
-    (process.env.NODE_ENV === 'production' ? '' : 'http://127.0.0.1:5173,http://localhost:5173')
-  )
-    .split(',')
-    .filter(Boolean),
-});
-app.once('error', async (error: NodeJS.ErrnoException) => {
-  const reason =
-    error.code === 'EADDRINUSE'
-      ? `port ${port} is already in use. Stop the other Rally process, or choose another PORT.`
-      : error.code === 'EACCES' || error.code === 'EPERM'
-        ? 'this environment does not allow the local server to open a port.'
-        : error.message;
-  console.error(`Rally could not start: ${reason}`);
-  await Promise.all([stopMail(), stopPush()]);
-  store.close();
+main().catch((error) => {
+  console.error(
+    'VenueRelay startup failed:',
+    error instanceof Error && ['Error', 'ApiError'].includes(error.name)
+      ? error.message
+      : 'Database unavailable. Check Atlas access and credentials.',
+  );
   process.exitCode = 1;
 });
-app.listen(port, process.env.HOST ?? '127.0.0.1', () =>
-  console.log(`Rally Node.js API · http://${process.env.HOST ?? '127.0.0.1'}:${port}`),
-);
-for (const signal of ['SIGTERM', 'SIGINT'])
-  process.once(signal, async () => {
-    const closed = new Promise<void>((resolve) => app.close(() => resolve()));
-    await Promise.all([stopMail(), stopPush(), closed]);
-    store.close();
-    process.exit(0);
-  });

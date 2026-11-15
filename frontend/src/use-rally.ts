@@ -62,7 +62,9 @@ export function useRally() {
     flushing = useRef(false),
     generation = useRef(0),
     lastSuccess = useRef(Date.now()),
-    refreshing = useRef(false);
+    refreshing = useRef(false),
+    liveRef = useRef(false),
+    lastPoll = useRef(0);
   const updateQueue = useCallback(async () => {
     const s = current.current;
     if (s) setPending(await readQueue(scopeOf(s)));
@@ -157,7 +159,7 @@ export function useRally() {
           setStage('workspace');
         } else if (!current.current) setStage('unavailable');
         setConnection('offline');
-        setError(e instanceof Error ? e.message : 'Rally could not open. Please retry.');
+        setError(e instanceof Error ? e.message : 'VenueRelay could not open. Please retry.');
       }
     },
     [apply],
@@ -239,8 +241,10 @@ export function useRally() {
     void load();
     const tick = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        void flush();
-        if (!flushing.current) void refresh();
+        if (Date.now() - lastPoll.current >= (liveRef.current ? 60000 : 10000)) {
+          lastPoll.current = Date.now();
+          void flush();
+        }
       }
     }, 10000);
     const online = () => {
@@ -279,38 +283,57 @@ export function useRally() {
       timer: ReturnType<typeof setTimeout> | undefined,
       disposed = false,
       attempt = 0;
-    const connect = () => {
-      if (disposed || paused.current) return;
-      const url = new URL(`${API}/api/v1/events/${data.event.id}/live`, location.origin);
-      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      url.searchParams.set('persona', persona);
-      socket = new WebSocket(url);
-      socket.onopen = () => {
-        attempt = 0;
-        setRealtime(true);
-        void refresh();
-        void flush();
-      };
-      socket.onmessage = (e) => {
-        try {
-          if (JSON.parse(e.data).type === 'event.changed') void refresh();
-        } catch {}
-      };
-      socket.onerror = () => socket?.close();
-      socket.onclose = () => {
-        setRealtime(false);
-        if (!disposed)
-          timer = setTimeout(
-            connect,
-            Math.min(30000, 1000 * 2 ** Math.min(attempt++, 5)) + Math.random() * 300,
-          );
-      };
+    const retry = () => {
+      liveRef.current = false;
+      setRealtime(false);
+      if (!disposed)
+        timer = setTimeout(
+          connect,
+          Math.min(30000, 1000 * 2 ** Math.min(attempt++, 5)) + Math.random() * 300,
+        );
     };
-    connect();
+    const connect = async () => {
+      if (disposed || paused.current) return;
+      try {
+        const remote = import.meta.env.VITE_WS_URL;
+        const url = new URL(
+          `${remote || API}/api/v1/events/${data.event.id}/live`,
+          location.origin,
+        );
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        if (remote) {
+          const proof = await request<{ ticket: string }>(
+            `/events/${data.event.id}/live-ticket`,
+            { method: 'POST', body: '{}' },
+            persona,
+          );
+          if (disposed || paused.current) return;
+          url.searchParams.set('ticket', proof.ticket);
+        } else url.searchParams.set('persona', persona);
+        socket = new WebSocket(url);
+        socket.onopen = () => {
+          attempt = 0;
+          liveRef.current = true;
+          setRealtime(true);
+          void flush();
+        };
+        socket.onmessage = (e) => {
+          try {
+            if (JSON.parse(e.data).type === 'event.changed') void refresh();
+          } catch {}
+        };
+        socket.onerror = () => socket?.close();
+        socket.onclose = retry;
+      } catch {
+        retry();
+      }
+    };
+    void connect();
     return () => {
       disposed = true;
       clearTimeout(timer);
       socket?.close();
+      liveRef.current = false;
       setRealtime(false);
     };
   }, [data?.event.id, data?.me.id, persona, simulatedOffline, refresh, flush]);
