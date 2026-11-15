@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Store } from '../backend/src/database.ts';
 import { createApp } from '../backend/src/api.ts';
 import { id } from '../backend/src/auth.ts';
-export async function server() {
+export async function server(mode: 'preview' | 'disabled' = 'preview') {
   if (process.env.RALLY_TEST_URL)
     return { url: process.env.RALLY_TEST_URL, store: undefined, close: async () => {} };
   const dir = mkdtempSync(join(tmpdir(), 'rally-http-')),
@@ -13,7 +13,7 @@ export async function server() {
     app = createApp({
       store,
       emailSettings: {
-        mode: 'preview',
+        mode,
         origin: 'http://127.0.0.1:3001',
         from: 'Rally <hello@localhost>',
         previewDir: dir,

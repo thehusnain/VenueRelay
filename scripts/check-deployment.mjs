@@ -40,7 +40,7 @@ try {
 } catch (error) {
   console.error(
     error.message === 'Invalid URL'
-      ? 'Usage: npm run check:deployment -- https://your-project.vercel.app'
+      ? 'Usage: npm run check:deployment -- https://venuerelay.onrender.com'
       : error.message,
   );
   process.exitCode = 1;

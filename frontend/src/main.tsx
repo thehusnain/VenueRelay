@@ -1,5 +1,4 @@
 import { createRoot } from 'react-dom/client';
-import '@fontsource/antonio/latin-400.css';
 import '@fontsource/manrope/latin-400.css';
 import '@fontsource/manrope/latin-500.css';
 import '@fontsource/manrope/latin-600.css';
@@ -7,8 +6,6 @@ import '@fontsource/ibm-plex-mono/latin-400.css';
 import { App } from './App';
 import { ErrorBoundary } from './ErrorBoundary';
 import './styles.css';
-import './reference.css';
-import './account.css';
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <App />

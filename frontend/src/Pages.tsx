@@ -416,7 +416,7 @@ export function IntegrationPage({ data, notify }: { data: Snapshot; notify: (m: 
             </div>
             <div>
               <dt>Live updates</dt>
-              <dd>Snapshot polling · 3 seconds in the app</dd>
+              <dd>Live WebSocket updates with polling fallback</dd>
             </div>
           </dl>
           <a

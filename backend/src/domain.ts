@@ -63,7 +63,7 @@ export function context(
     );
     ensure(me, 403, 'FORBIDDEN', 'Event membership has been removed.');
     const issuer = store.get<User>(
-      'SELECT id,email,name,email_verified_at FROM users WHERE id=?',
+      'SELECT id,email,name,email_verified_at,access_approved_at FROM users WHERE id=?',
       me.user_id,
     );
     ensure(issuer, 403, 'FORBIDDEN', 'The issuing account is unavailable.');

@@ -128,7 +128,7 @@ export class MongoBackend implements ApplicationBackend {
         method === 'POST' ? await body() : {},
       );
       send(result);
-      if (['logout', 'reset-password', 'login'].includes(route)) this.changed();
+      if (['logout', 'reset-password', 'recover-account', 'login'].includes(route)) this.changed();
       return;
     }
     if (path === '/api/v1/bootstrap' && method === 'POST') {

@@ -12,6 +12,8 @@ export interface User {
   name: string;
   password_hash?: string | null;
   email_verified_at?: string | null;
+  access_approved_at?: string | null;
+  recovery_code_hash?: string | null;
 }
 const derive = (password: string, salt: string) =>
   new Promise<Buffer>((resolve, reject) =>
@@ -50,7 +52,7 @@ export function currentUser(store: Store, req: IncomingMessage): User | undefine
   const value = sessionValue(req);
   if (!value) return;
   return store.get<User>(
-    'SELECT u.id,u.email,u.name,u.email_verified_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
+    'SELECT u.id,u.email,u.name,u.email_verified_at,u.access_approved_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?',
     hash(value),
     now(),
   );
@@ -61,16 +63,33 @@ export function publicUser(user: User) {
     email: user.email,
     name: user.name,
     emailVerified: !user.email || !!user.email_verified_at,
+    accessGranted: !user.email || !!user.email_verified_at || !!user.access_approved_at,
   };
 }
 export function requireVerified(user: User) {
   ensure(
-    !user.email || user.email_verified_at,
+    !user.email || user.email_verified_at || user.access_approved_at,
     403,
     'EMAIL_UNVERIFIED',
     'Please confirm your email address before continuing.',
   );
   return user;
+}
+export function recoveryCode() {
+  return randomBytes(20)
+    .toString('hex')
+    .match(/.{1,8}/g)!
+    .join('-');
+}
+export function recoveryHash(value: unknown) {
+  const code = typeof value === 'string' ? value.replace(/[\s-]/g, '').toLowerCase() : '';
+  ensure(
+    /^[a-f0-9]{40}$/.test(code),
+    401,
+    'INVALID_RECOVERY',
+    'Email or recovery code is incorrect.',
+  );
+  return hash(code);
 }
 export function requireUser(store: Store, req: IncomingMessage) {
   const user = currentUser(store, req);

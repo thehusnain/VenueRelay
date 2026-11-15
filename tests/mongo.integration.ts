@@ -582,3 +582,79 @@ test('reconnection preserves records and the read-only migration is atomic and r
     rmSync(folder, { recursive: true, force: true });
   }
 });
+
+test('Render no-email signup and recovery are transactional, keep event records and reject concurrent code replay', async () => {
+  const isolated = await MongoStore.connect(replica.getUri(), 'rally_without_email');
+  const native = new MongoBackend(isolated, { mail: { ...mail, mode: 'disabled' }, demo: true });
+  const server = createApp({ backend: native });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = 'http://127.0.0.1:' + (server.address() as { port: number }).port;
+  const post = async (path: string, body: unknown, cookie = '') => {
+    const response = await fetch(base + '/api/v1' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify(body),
+    });
+    return {
+      status: response.status,
+      data: await response.json(),
+      cookie: response.headers.get('set-cookie')?.split(';')[0],
+    };
+  };
+  try {
+    const email = 'no-email@example.com';
+    const signup = await post('/auth/register', {
+      name: 'Event lead',
+      email,
+      password: 'first password 2026',
+    });
+    assert.equal(signup.status, 200);
+    assert.equal(signup.data.user.emailVerified, false);
+    assert.equal(signup.data.user.accessGranted, true);
+    assert.ok(signup.data.recoveryCode);
+    assert.equal(await isolated.collection('email_outbox').countDocuments(), 0);
+    const event = await post(
+      '/events',
+      { name: 'Community day', venue: 'Town hall', date: '2026-12-01' },
+      signup.cookie,
+    );
+    assert.equal(event.status, 201);
+    const rotate = await post(
+      '/auth/recovery-code',
+      { password: 'first password 2026' },
+      signup.cookie,
+    );
+    assert.equal(rotate.status, 200);
+    assert.notEqual(rotate.data.recoveryCode, signup.data.recoveryCode);
+    const outcomes = await Promise.all(
+      [1, 2].map(() =>
+        post('/auth/recover-account', {
+          email,
+          recoveryCode: rotate.data.recoveryCode,
+          password: 'replacement password 2026',
+        }),
+      ),
+    );
+    assert.deepEqual(outcomes.map((x) => x.status).sort(), [200, 401]);
+    assert.equal((await post('/bootstrap', {}, signup.cookie)).status, 401);
+    assert.equal(
+      (await post('/auth/login', { email, password: 'first password 2026' })).status,
+      401,
+    );
+    const login = await post('/auth/login', { email, password: 'replacement password 2026' });
+    assert.equal(login.status, 200);
+    const bootstrap = await post('/bootstrap', {}, login.cookie);
+    assert.equal(bootstrap.data.event.id, event.data.eventId);
+    assert.equal(bootstrap.data.members.length, 1);
+    assert.equal(bootstrap.data.tasks.length, 0);
+    const stored = await isolated.get('users', { email });
+    assert.equal(stored!.email_verified_at, null);
+    assert.notEqual(stored!.recovery_code_hash, rotate.data.recoveryCode);
+    assert.ok(!('recoveryCode' in bootstrap.data.user));
+  } finally {
+    native.stopLive();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await isolated.close();
+  }
+});

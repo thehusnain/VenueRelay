@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: venuerelay-api
+    name: venuerelay
     runtime: node
     plan: 0.5c-512mb
     numInstances: 1
-    buildCommand: npm ci --include=dev && npm run typecheck
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -15,7 +15,7 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: API_ONLY
-        value: 'true'
+        value: 'false'
       - key: COOKIE_SECURE
         value: 'true'
       - key: MONGODB_DATABASE

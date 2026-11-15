@@ -1,6 +1,6 @@
 # Five-minute HS-0130 demonstration
 
-Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **Sign in → Fill demo → Sign in**. The credentials are shown on the login page. Filling them does not log in automatically. The sample guide explains the community festival, your current role and a first task to try.
+Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **Explore the demo**. A separate Sign in page also offers Open demo event and optional public credentials. The sample guide explains the community festival, your current role and a first task to try.
 
 ## Follow one request
 
@@ -11,7 +11,7 @@ Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **S
 5. Preview the organiser and confirm the task is done.
 6. Preview the attendee. The request is finished and **Updates** shows the result. The attendee cannot assign or finish other people's work.
 
-The sample selector is an owner-only rehearsal. For real collaboration, use separate registered/verified accounts and **Your team → Invite someone**. Share each single-use invitation link with its intended person. Real events do not expose role preview.
+The sample selector is an owner-only rehearsal. For real collaboration, use separate registered accounts and **Your team → Invite someone**. Share each single-use invitation link with its intended person. Real events do not expose role preview.
 
 ## Interrupt the connection
 
@@ -30,10 +30,10 @@ The automated lost-response scenario lets the server commit before aborting its 
 
 ## Show an actual account
 
-Create an account with a valid email domain. No sample event is created for this account. Use `npm run email:preview -- EMAIL` to read the private local message. Confirm the link, then enter the event name, date and place in one short form. The empty workspace guides you to invite a teammate and add the first task. In the invitation form choose a role, create the link, and share it or its QR code. The recipient opens it and signs in with their own verified account. Once they join, manually assign them a task. Request a password reset, use the latest local message, set a new password and sign back into the same records. External delivery is deferred; the interface says so.
+Create an account with your name, email and password. Save the recovery code and continue. Add the event name, date and place in one form. The event starts with no sample work and only its organiser. Invite a teammate, choose a role, and share the secret link or QR code directly. The recipient signs up with their own account and accepts the invitation. Assign a task, complete it as the teammate and confirm it as the organiser. Use the saved recovery code to reset the password without email; save the replacement code and sign back into the same records. More → Account security can replace a lost code while you are signed in.
 
 ## Show integration readiness
 
-As a verified organiser, open **More → Connect another app**. Create an event key and call the documented snapshot/command API. Revoke it and show access is denied. **More → What changed** offers the activity log and complete event export. API documentation is served at `/api/openapi.json`.
+As an organiser, open **More → Connect another app**. Create an event key and call the documented snapshot/command API. Revoke it and show access is denied. **More → What changed** offers the activity log and complete event export. API documentation is served at `/api/openapi.json`.
 
 See [validation](VALIDATION.md) for measured results and [PWA instructions](PWA.md) for browser installation and phone access. No public deployment is needed.

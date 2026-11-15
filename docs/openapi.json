@@ -23,7 +23,7 @@
       "post": {
         "summary": "Create account",
         "operationId": "post__auth_register",
-        "description": "Validates syntax and DNS mail delivery records. Creates an unverified account and durable verification email atomically, then establishes a session. Verification is required for real events. Default local preview writes a private .eml; it does not send email. API clients set X-Rally-Client: api and receive sessionToken. No automatic retry.",
+        "description": "Creates a password account and session. With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.",
         "responses": {
           "200": {
             "description": "Success",
@@ -159,6 +159,312 @@
                 "required": [
                   "name",
                   "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/recovery-code": {
+      "post": {
+        "summary": "Replace your private recovery code",
+        "operationId": "post__auth_recovery_code",
+        "description": "Own signed-in account and current password required. Demo accounts denied. Rate limited to five replacements per hour. Replaces the old code atomically, records account activity, and returns the new code once. Store it privately; never log it. Does not change event records.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recoveryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "recoveryCode"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/recover-account": {
+      "post": {
+        "summary": "Reset password using a private recovery code",
+        "operationId": "post__auth_recover_account",
+        "description": "Rate limited by account and IP. Atomically replaces the password and single-use recovery code, cancels pending resets and revokes sessions. MongoDB also removes device push subscriptions. Returns a replacement recoveryCode once; save it before signing in. Invalid or replayed codes return 401 without changing records. Keep the code secret. Do not automatically retry: if the response is lost, sign in with the new password.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "recoveryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "recoveryCode"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "recoveryCode": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "email",
+                  "recoveryCode",
                   "password"
                 ]
               }
@@ -1245,7 +1551,7 @@
       "post": {
         "summary": "Open an event or return real-account onboarding",
         "operationId": "post__bootstrap",
-        "description": "Verified real accounts without events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.",
+        "description": "Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1394,7 +1700,7 @@
       "post": {
         "summary": "Create clean event",
         "operationId": "post__events",
-        "description": "Verified registered account required; sample-only sessions cannot create real events. Returns eventId. No automatic retry.",
+        "description": "Registered account with accessGranted=true required; sample-only sessions cannot create real events. Returns eventId. No automatic retry.",
         "responses": {
           "201": {
             "description": "Success",
@@ -4229,6 +4535,9 @@
             "type": "string"
           },
           "emailVerified": {
+            "type": "boolean"
+          },
+          "accessGranted": {
             "type": "boolean"
           }
         }

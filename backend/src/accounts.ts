@@ -9,6 +9,8 @@ import {
   passwordHash,
   passwordInput,
   passwordMatches,
+  recoveryCode,
+  recoveryHash,
   publicUser,
   session,
   token,
@@ -16,6 +18,7 @@ import {
 } from './auth.ts';
 import { checkEmailDomain, normaliseEmail, emailReady, type EmailSettings } from './email.ts';
 import { ApiError, ensure, text } from './errors.ts';
+import { demoCredentials } from '../../shared/contracts.ts';
 
 export function limitAttempt(
   store: Store,
@@ -131,19 +134,14 @@ export async function registerAccount(
     name = text(p.name, 'Name', 80, 2),
     password = passwordInput(p.password);
   ensure(
-    settings.mode !== 'disabled',
-    503,
-    'EMAIL_NOT_CONFIGURED',
-    'Account registration will be available when email delivery is connected. You can still try the sample event.',
-  );
-  ensure(
     !store.get('SELECT id FROM users WHERE email=?', email),
     409,
     'EMAIL_EXISTS',
     'This email already has an account. Sign in or reset your password.',
   );
-  await checkDomain(email);
+  if (settings.mode !== 'disabled') await checkDomain(email);
   const saved = await passwordHash(password);
+  const secret = recoveryCode();
   return store.transaction(() => {
     ensure(
       !store.get('SELECT id FROM users WHERE email=?', email),
@@ -151,18 +149,26 @@ export async function registerAccount(
       'EMAIL_EXISTS',
       'This email already has an account. Sign in instead.',
     );
-    const user: User = { id: id(), email, name, email_verified_at: null };
+    const user: User = {
+      id: id(),
+      email,
+      name,
+      email_verified_at: null,
+      access_approved_at: settings.mode === 'disabled' ? now() : null,
+    };
     store.run(
-      'INSERT INTO users (id,email,name,password_hash,created_at,email_verified_at) VALUES (?,?,?,?,?,NULL)',
+      'INSERT INTO users (id,email,name,password_hash,created_at,email_verified_at,access_approved_at,recovery_code_hash) VALUES (?,?,?,?,?,NULL,?,?)',
       user.id,
       email,
       name,
       saved,
       now(),
+      user.access_approved_at ?? null,
+      secret ? recoveryHash(secret) : null,
     );
     record(store, user.id, 'registered');
-    issueProof(store, user, 'verify', settings);
-    return user;
+    if (settings.mode !== 'disabled') issueProof(store, user, 'verify', settings);
+    return { ...user, recoveryCode: secret };
   });
 }
 export function resendVerification(store: Store, user: User, settings: EmailSettings) {
@@ -297,6 +303,66 @@ export async function handleAccountRoute(options: {
   const p = await options.body(),
     ip = req.socket.remoteAddress ?? 'unknown';
   limitAttempt(store, 'auth-global:' + ip, 200, 3600000);
+  if (route === 'recovery-code') {
+    const account = currentUser(store, req);
+    ensure(
+      account?.email && account.email !== demoCredentials.email,
+      403,
+      'ACCOUNT_REQUIRED',
+      'Sign in to your own account first.',
+    );
+    limitAttempt(store, 'rotate-recovery:' + account.id, 5, 3600000);
+    const user = store.get<User>('SELECT * FROM users WHERE id=?', account.id)!;
+    ensure(
+      user.password_hash &&
+        (await passwordMatches(passwordInput(p.password, 1), user.password_hash)),
+      401,
+      'INVALID_CREDENTIALS',
+      'Your current password is incorrect.',
+    );
+    const secret = recoveryCode();
+    store.transaction(() => {
+      ensure(
+        store.get<User>('SELECT password_hash FROM users WHERE id=?', user.id)?.password_hash ===
+          user.password_hash,
+        401,
+        'INVALID_CREDENTIALS',
+        'Your password changed. Sign in again.',
+      );
+      store.run('UPDATE users SET recovery_code_hash=? WHERE id=?', recoveryHash(secret), user.id);
+      record(store, user.id, 'recovery_code_replaced');
+    });
+    send({ recoveryCode: secret });
+    return;
+  }
+  if (route === 'recover-account') {
+    const email = normaliseEmail(p.email);
+    limitAttempt(store, 'recovery-ip:' + ip, 20, 900000);
+    limitAttempt(store, 'recovery:' + email, 5, 900000);
+    const proof = recoveryHash(p.recoveryCode);
+    const saved = await passwordHash(passwordInput(p.password));
+    const next = recoveryCode();
+    store.transaction(() => {
+      const user = store.get<User>(
+        'SELECT * FROM users WHERE email=? AND recovery_code_hash=?',
+        email,
+        proof,
+      );
+      ensure(user, 401, 'INVALID_RECOVERY', 'Email or recovery code is incorrect.');
+      store.run(
+        'UPDATE users SET password_hash=?,recovery_code_hash=? WHERE id=?',
+        saved,
+        recoveryHash(next),
+        user.id,
+      );
+      cancelTokens(store, user.id, 'reset');
+      store.run('DELETE FROM sessions WHERE user_id=?', user.id);
+      record(store, user.id, 'password_recovered');
+    });
+    res.setHeader('Set-Cookie', cookie('', true));
+    send({ ok: true, recoveryCode: next });
+    return;
+  }
   if (route === 'verify-email') {
     limitAttempt(store, 'verify-ip:' + ip, 30, 900000);
     verifyEmail(store, text(p.token, 'Confirmation link', 200));
@@ -330,9 +396,12 @@ export async function handleAccountRoute(options: {
     return;
   }
   let user: User;
+  let recoverySecret: string | undefined;
   if (route === 'register') {
     limitAttempt(store, 'register:' + ip, 20, 3600000);
-    user = await registerAccount(store, p, settings, options.checkDomain);
+    const created = await registerAccount(store, p, settings, options.checkDomain);
+    user = created;
+    recoverySecret = created.recoveryCode;
   } else if (route === 'login') {
     const email = normaliseEmail(p.email),
       password = passwordInput(p.password, 1);
@@ -348,12 +417,33 @@ export async function handleAccountRoute(options: {
       'INVALID_CREDENTIALS',
       'Email or password is incorrect. Check your details or reset your password.',
     );
+    ensure(
+      store.get<User>('SELECT password_hash FROM users WHERE id=?', found.id)?.password_hash ===
+        saved,
+      401,
+      'INVALID_CREDENTIALS',
+      'Your password changed. Sign in again.',
+    );
     user = {
       id: found.id,
       email: found.email,
       name: found.name,
       email_verified_at: found.email_verified_at,
+      access_approved_at: found.access_approved_at,
     };
+    if (settings.mode === 'disabled' && !user.email_verified_at && !user.access_approved_at) {
+      recoverySecret = recoveryCode();
+      store.transaction(() => {
+        user.access_approved_at = now();
+        store.run(
+          'UPDATE users SET access_approved_at=?,recovery_code_hash=? WHERE id=?',
+          user.access_approved_at,
+          recoveryHash(recoverySecret),
+          user.id,
+        );
+        record(store, user.id, 'account_access_enabled');
+      });
+    }
     if (
       !user.email_verified_at &&
       settings.mode !== 'disabled' &&
@@ -377,12 +467,12 @@ export async function handleAccountRoute(options: {
     );
   } else throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
   endSession(store, req);
-  endSession(store, req);
   const value = session(store, user.id);
   res.setHeader('Set-Cookie', cookie(value));
   send({
     user: publicUser(user),
     delivery,
+    ...(recoverySecret ? { recoveryCode: recoverySecret } : {}),
     ...(['api', 'native'].includes(String(req.headers['x-rally-client']))
       ? { sessionToken: value }
       : {}),

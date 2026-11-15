@@ -110,6 +110,7 @@ export interface Account {
   name: string;
   email: string | null;
   emailVerified: boolean;
+  accessGranted?: boolean;
 }
 export interface Delivery {
   mode: 'smtp' | 'brevo' | 'preview' | 'disabled';

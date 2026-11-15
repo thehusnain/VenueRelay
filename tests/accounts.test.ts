@@ -216,7 +216,7 @@ test('schema upgrade preserves existing accounts and event data without assuming
     )!.email_verified_at,
     null,
   );
-  assert.equal(s.get<{ user_version: number }>('PRAGMA user_version')!.user_version, 3);
+  assert.equal(s.get<{ user_version: number }>('PRAGMA user_version')!.user_version, 4);
   s.close();
   rmSync(dir, { recursive: true });
 });

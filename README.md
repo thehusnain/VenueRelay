@@ -1,82 +1,71 @@
 # VenueRelay
 
-**Every Team. Every Update. One Place.**
+A shared event workspace for organisers, volunteers, vendors and attendees. Built for hackathon challenge **HS-0130**.
 
-An event coordination website and installable PWA for HS-0130. Attendees request help, organisers assign an owner, volunteers/vendors do the work, and organisers check completion. The same website works on phones, tablets and desktops. There is no separate native application.
+Attendees request help. Organisers assign an owner. Volunteers and vendors report progress or blockers. The organiser checks the result before closing the task. Every confirmed change produces an activity entry and the relevant inbox updates.
 
 ## Run locally
 
-Use Node.js 24 LTS:
+Requires Node.js 24.
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:3001**. SQLite is created automatically under `data/`; no database installation, Docker, email account or API key is required. Keep the terminal running. `Ctrl+C` stops the app. `npm run dev` is the command, not `npm dev`.
+Open **http://127.0.0.1:3001**. The app creates a local SQLite database automatically. No email provider, API key or separate database installation is needed. Port 5173 provides frontend hot reload; port 3001 serves the built, offline-capable app.
 
-The built app on port 3001 supports offline testing. Port 5173 is the live frontend editor. After source changes, rebuild/restart to update port 3001.
+Choose **Explore the demo** for immediate access, or create an account and an empty event. The optional demo credentials are `demo@rally.local` / `RallyDemo2026!`.
 
-## Judge demo login
+## Accounts without email
 
-- Email: **demo@rally.local**
-- Password: **RallyDemo2026!**
+`EMAIL_TRANSPORT=disabled` is the default. Sign up with a name, email address and password, save the private recovery code, then create or join an event. The email is a sign-in identifier; the app does not claim that ownership was verified. Invitations are secret, single-use links shared by the organiser.
 
-Choose **Sign in → Fill demo → Sign in**. The button only fills the fields; it does not submit. The login screen shows both credentials. This verified demo account is created automatically on a fresh local startup and opens a sample event. Use **More → Try a different role** to inspect organiser, volunteer, vendor and attendee workflows. These credentials are public demo data, not for real events. The account is seeded locally by default and on Render when `DEMO_ACCOUNT_ENABLED=true`. It is isolated from real events in the MongoDB backend. The public demo credentials remain compatible with earlier versions.
+Use **Forgot your password?** with the saved recovery code to reset access. Resetting rotates the code and signs out existing sessions. Save the replacement code. Optional email verification and email reset APIs remain available when an email transport is configured.
 
-The welcome screen links to this demo login. Real registrations remain separate: after verification, one short form creates an empty event. The organiser invites people with chosen roles, shares each invitation link/QR code, and manually adds and assigns tasks. No sample teammates, tasks or schedule are added to a real event. Email verification/recovery uses private local previews by default. For Render Free, use the documented Brevo HTTPS transport; SMTP remains available on hosts that allow it. For local previews:
+## Reliability and access
 
-```sh
-npm run email:preview -- YOUR_EMAIL
-```
+- Server-enforced event membership, roles, task ownership and state transitions.
+- MongoDB transactions in production; SQLite transactions for local development.
+- An append-only command and activity journal with stable retry keys and version conflict checks.
+- Device snapshots and a persistent outbox for interrupted connections; conflicts require review.
+- Live WebSocket updates, reconnect refresh and polling fallback.
+- Durable in-app notifications, with optional browser push using VAPID keys.
+- Phone layouts, keyboard access, labelled forms, QR invitations and locally bundled fonts.
 
-## Features
+The **Install** button appears when the browser provides its native install prompt and opens that prompt directly. Installation is optional. Browsers without that API can use the website immediately.
 
-- Server-enforced roles, task ownership, progress, blockers and checked completion.
-- Transactional MongoDB records on Atlas (SQLite for local judging), an append-only activity journal, persistent inbox and integrity checks.
-- IndexedDB snapshots and per-person outbox, concurrent-tab leases, persistent retries and explicit conflict review.
-- Service-worker precaching, install controls and optional Background Sync, with foreground/reopen retries when the browser lacks it.
-- Authenticated WebSockets for live invalidations; role-filtered snapshots and periodic refresh recover missed updates.
-- Optional browser push with permission controls, durable delivery jobs and provider retry handling.
-- Mobile QR camera scanning, image upload and pasted-link fallback; invitation QR codes.
-- Keyboard support, responsive layout and locally bundled Antonio/Manrope fonts.
+## Render deployment
 
-Open **More → Install VenueRelay & notifications** for installation and push controls, or **More → Connection help** to inspect pending work and record integrity. Never clear device storage while unsent work is waiting.
+The frontend and backend run in **one Render web service**. Render serves the Vite build, API, service worker and WebSocket endpoint from the same origin. See [deployment settings](docs/DEPLOYMENT.md). Existing production records remain in MongoDB Atlas.
 
-## Hosting
-
-Use [the Render + Vercel + Atlas deployment guide](docs/DEPLOYMENT.md). `render.yaml` configures the Node API, and `vercel.json` builds the existing frontend with a same-origin API proxy. No cloud resources are created by running local commands.
-
-## Checks and API
+## Validation
 
 ```sh
 npm test
 npm run build
-npm run api:docs
+npm run test:mongo
 ```
 
-`npm run test:mongo` separately starts a disposable MongoDB replica set and checks production transactions, concurrency, authentication, notifications and migration. Its first run downloads a MongoDB binary; the normal judge tests need no database download.
-
-If test subprocesses cannot open ports, start VenueRelay first and run `RALLY_TEST_URL=http://127.0.0.1:3001 npm test`.
-
-With the built app running, install the Playwright browser once, then run:
+Browser checks require Playwright Chromium and a running built app:
 
 ```sh
 npx playwright install chromium
 npm run test:browser
-npm run test:pwa
-npm run test:install
 npm run test:design
 npm run test:layout
 npm run test:usability
+npm run test:pwa
+npm run test:install
+npm run test:accounts
 ```
 
-Interactive Swagger: **http://127.0.0.1:3001/api/docs**. OpenAPI: `/api/openapi.json`.
+See [validation results](docs/VALIDATION.md) and the [judge walkthrough](docs/DEMO.md).
 
-- [PWA setup, phone access and browser limits](docs/PWA.md)
-- [API contract and retry protocol](docs/API.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Judge submission notes and credentials](docs/SUBMISSION.md)
-- [Validation](docs/VALIDATION.md)
+## API
 
-`backend/` owns records and permissions; `frontend/` contains React, service worker and IndexedDB code; `shared/` holds contracts; `tests/` covers behaviour. Keep `.env`, `data/`, dependencies and generated browser output out of Git. This repository has no APK, iOS project or native build workflow.
+Interactive documentation: `/api/docs`. OpenAPI 3.1: `/api/openapi.json`.
+
+[API and retry protocol](docs/API.md) · [Architecture](docs/ARCHITECTURE.md) · [Installation and offline use](docs/PWA.md) · [Submission](docs/SUBMISSION.md) · [Interface](docs/DESIGN.md)
+
+`backend/` handles records and permissions, `frontend/` contains the React app and offline client, `shared/` defines contracts, and `tests/` covers behaviour. Keep environment variables, local databases, dependencies and generated browser output out of Git.

@@ -8,6 +8,8 @@ import {
   passwordHash,
   passwordMatches,
   passwordInput,
+  recoveryCode,
+  recoveryHash,
   publicUser,
   requireVerified,
   sessionValue,
@@ -197,6 +199,66 @@ export class MongoAccounts {
     }
     const ip = req.socket.remoteAddress ?? 'unknown';
     await this.limit('global:' + ip, 2000, 3600000);
+    if (route === 'recovery-code') {
+      const user = await this.user(req);
+      ensure(
+        user?.email && !(user as User & { is_demo?: boolean }).is_demo,
+        403,
+        'ACCOUNT_REQUIRED',
+        'Sign in to your own account first.',
+      );
+      await this.limit('rotate-recovery:' + user.id, 5, 3600000);
+      ensure(
+        user.password_hash &&
+          (await passwordMatches(passwordInput(p.password, 1), user.password_hash)),
+        401,
+        'INVALID_CREDENTIALS',
+        'Your current password is incorrect.',
+      );
+      const secret = recoveryCode();
+      await this.store.transaction(async (tx) => {
+        const current = await tx.get<User>('users', { id: user.id });
+        ensure(
+          current?.password_hash === user.password_hash,
+          401,
+          'INVALID_CREDENTIALS',
+          'Your password changed. Sign in again.',
+        );
+        await tx.update(
+          'users',
+          { id: user.id },
+          { $set: { recovery_code_hash: recoveryHash(secret) } },
+        );
+        await this.record(tx, user.id, 'recovery_code_replaced');
+      });
+      return { recoveryCode: secret };
+    }
+    if (route === 'recover-account') {
+      const email = normaliseEmail(p.email);
+      await this.limit('recovery-ip:' + ip, 20, 900000);
+      await this.limit('recovery:' + email, 5, 900000);
+      const proof = recoveryHash(p.recoveryCode);
+      const saved = await passwordHash(passwordInput(p.password));
+      const next = recoveryCode();
+      await this.store.transaction(async (tx) => {
+        const user = await tx.get<User>('users', {
+          email,
+          recovery_code_hash: proof,
+          is_demo: { $ne: true },
+        });
+        ensure(user, 401, 'INVALID_RECOVERY', 'Email or recovery code is incorrect.');
+        await tx.update(
+          'users',
+          { id: user.id },
+          { $set: { password_hash: saved, recovery_code_hash: recoveryHash(next) } },
+        );
+        await this.cancelProofs(tx, user.id, 'reset');
+        await this.revokeSessions(tx, user.id);
+        await this.record(tx, user.id, 'password_recovered');
+      });
+      res.setHeader('Set-Cookie', this.cookie('', true));
+      return { ok: true, recoveryCode: next };
+    }
     if (route === 'verify-email') {
       await this.limit('verify:' + ip, 30, 900000);
       await this.store.transaction(async (tx) => {
@@ -298,19 +360,15 @@ export class MongoAccounts {
       return { ok: true };
     }
     let user: User;
+    let recoverySecret: string | undefined;
     if (route === 'register') {
       const email = normaliseEmail(p.email),
         name = text(p.name, 'Name', 80, 2),
         password = passwordInput(p.password);
       await this.limit('register:' + email, 5, 3600000);
-      ensure(
-        this.mail.mode !== 'disabled',
-        503,
-        'EMAIL_NOT_CONFIGURED',
-        'Registration requires connected email delivery.',
-      );
-      await this.checkDomain(email);
+      if (this.mail.mode !== 'disabled') await this.checkDomain(email);
       const saved = await passwordHash(password);
+      recoverySecret = recoveryCode();
       try {
         user = await this.store.transaction(async (tx) => {
           ensure(
@@ -319,15 +377,22 @@ export class MongoAccounts {
             'EMAIL_EXISTS',
             'This email already has an account. Sign in or reset your password.',
           );
-          const created = { id: id(), email, name, email_verified_at: null };
+          const created = {
+            id: id(),
+            email,
+            name,
+            email_verified_at: null,
+            access_approved_at: this.mail.mode === 'disabled' ? now() : null,
+          };
           await tx.insert('users', {
             ...created,
             password_hash: saved,
             created_at: now(),
             is_demo: false,
+            recovery_code_hash: recoverySecret ? recoveryHash(recoverySecret) : null,
           });
           await this.record(tx, created.id, 'registered');
-          await this.proof(tx, created, 'verify');
+          if (this.mail.mode !== 'disabled') await this.proof(tx, created, 'verify');
           return created;
         });
       } catch (e) {
@@ -350,24 +415,61 @@ export class MongoAccounts {
         'INVALID_CREDENTIALS',
         'Email or password is incorrect. Check your details or reset your password.',
       );
-      user = found;
-      await this.store.transaction(async (tx) => {
+      const nextRecovery = recoveryCode();
+      user = await this.store.transaction(async (tx) => {
+        const latest = await tx.get<User>('users', { id: found.id });
+        ensure(
+          latest?.password_hash === saved,
+          401,
+          'INVALID_CREDENTIALS',
+          'Your password changed. Sign in again.',
+        );
+        let current = latest;
+        recoverySecret = undefined;
         if (
-          !user.email_verified_at &&
+          this.mail.mode === 'disabled' &&
+          !current.email_verified_at &&
+          !current.access_approved_at
+        ) {
+          recoverySecret = nextRecovery;
+          current = { ...current, access_approved_at: now() };
+          await tx.update(
+            'users',
+            { id: current.id },
+            {
+              $set: {
+                access_approved_at: current.access_approved_at,
+                recovery_code_hash: recoveryHash(nextRecovery),
+              },
+            },
+          );
+          await this.record(tx, current.id, 'account_access_enabled');
+        }
+        if (
+          !current.email_verified_at &&
           this.mail.mode !== 'disabled' &&
           !(await tx.get('account_tokens', {
-            user_id: user.id,
+            user_id: current.id,
             purpose: 'verify',
             used_at: null,
             expires_at: { $gt: now() },
           }))
         )
-          await this.proof(tx, user, 'verify');
-        await this.record(tx, user.id, 'signed_in');
+          await this.proof(tx, current, 'verify');
+        await this.record(tx, current.id, 'signed_in');
+        return current;
       });
     } else throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
     const raw = token();
     await this.store.transaction(async (tx) => {
+      const current = await tx.get<User>('users', { id: user.id });
+      ensure(
+        current?.password_hash === user.password_hash || route === 'register',
+        401,
+        'INVALID_CREDENTIALS',
+        'Your password changed. Sign in again.',
+      );
+      await tx.update('users', { id: user.id }, { $inc: { session_version: 1 } });
       await this.endSession(tx, req);
       await tx.insert('sessions', {
         token_hash: hash(raw),
@@ -379,6 +481,7 @@ export class MongoAccounts {
     return {
       user: publicUser(user),
       delivery,
+      ...(recoverySecret ? { recoveryCode: recoverySecret } : {}),
       ...(req.headers['x-rally-client'] === 'api' ? { sessionToken: raw } : {}),
     };
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 import { Modal } from './components';
 import { request } from './use-rally';
@@ -50,12 +50,28 @@ export function InstallButton({
   label?: string;
 }) {
   const installed = useInstalled();
-  return installed ? null : (
+  const [available, setAvailable] = useState(!!installPrompt);
+  useEffect(() => {
+    const changed = () => setAvailable(!!installPrompt);
+    window.addEventListener('rally:install-available', changed);
+    return () => window.removeEventListener('rally:install-available', changed);
+  }, []);
+  return installed || !available ? null : (
     <button
       className={`install-access ${className}`}
-      onClick={onClick}
+      onClick={async () => {
+        const prompt = installPrompt;
+        if (!prompt) return;
+        installPrompt = undefined;
+        window.dispatchEvent(new Event('rally:install-available'));
+        try {
+          await prompt.prompt();
+          await prompt.userChoice;
+        } catch {
+          onClick();
+        }
+      }}
       aria-label="Install VenueRelay"
-      aria-haspopup="dialog"
     >
       <Download size={16} aria-hidden="true" />
       <span>{label}</span>
@@ -79,13 +95,8 @@ export function PwaTools({
     [push, setPush] = useState<{ enabled: boolean; publicKey: string | null }>(),
     [subscribed, setSubscribed] = useState(false),
     [busy, setBusy] = useState(false),
-    [installing, setInstalling] = useState(false),
-    [showSteps, setShowSteps] = useState(false);
+    [installing, setInstalling] = useState(false);
   const installed = useInstalled();
-  const steps = useRef<HTMLDivElement>(null);
-  const appleMobile =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const supported =
     typeof window !== 'undefined' &&
     window.isSecureContext &&
@@ -107,12 +118,8 @@ export function PwaTools({
     };
   }, []);
   useEffect(() => {
-    if (showSteps) steps.current?.focus();
-  }, [showSteps]);
-  useEffect(() => {
     if (!open) return;
     setMessage('');
-    setShowSteps(false);
     void request('/push/public-key')
       .then(setPush)
       .catch(() => setMessage('Push settings could not be checked. Retry when connected.'));
@@ -132,18 +139,22 @@ export function PwaTools({
     const prompt = installPrompt;
     if (!prompt) {
       setAvailable(false);
-      setShowSteps(true);
+      setMessage('Installation is not available in this browser. Continue using VenueRelay here.');
       return;
     }
     installPrompt = undefined;
+    window.dispatchEvent(new Event('rally:install-available'));
     setInstalling(true);
     try {
       await prompt.prompt();
       const choice = await prompt.userChoice;
-      if (choice.outcome !== 'accepted') setShowSteps(true);
+      setMessage(
+        choice.outcome === 'accepted'
+          ? 'Installation accepted. Your browser will add VenueRelay.'
+          : 'Installation cancelled. You can keep using VenueRelay here.',
+      );
     } catch {
-      setMessage('Use your browser’s install menu or Add to Home Screen.');
-      setShowSteps(true);
+      setMessage('Your browser could not start installation. Continue using VenueRelay here.');
     } finally {
       setAvailable(!!installPrompt);
       setInstalling(false);
@@ -214,56 +225,12 @@ export function PwaTools({
               ? 'VenueRelay is already running as an installed web app.'
               : 'Install this same website for quick access. No app-store download is needed.'}
           </p>
-          {!installed ? (
-            <>
-              <button
-                className="button primary"
-                disabled={installing}
-                onClick={() => void install()}
-                aria-controls={!available ? 'pwa-install-steps' : undefined}
-                aria-expanded={!available ? showSteps : undefined}
-              >
-                {installing
-                  ? 'Opening install…'
-                  : available
-                    ? 'Install VenueRelay'
-                    : 'Show installation steps'}
-              </button>
-              {appleMobile ? <p>Your mobile browser installs from Safari’s Share menu.</p> : null}
-              <div
-                hidden={!showSteps}
-                id="pwa-install-steps"
-                className="install-steps"
-                tabIndex={-1}
-                ref={steps}
-                aria-label="Installation steps"
-              >
-                <h4>Install VenueRelay on mobile</h4>
-                {appleMobile ? (
-                  <ol>
-                    <li>
-                      Open this website in Safari. If a link opened inside another app, open it in
-                      Safari first.
-                    </li>
-                    <li>Tap Share. Depending on your Safari layout, open the More menu first.</li>
-                    <li>Choose Add to Home Screen. If it is missing, look under Edit Actions.</li>
-                    <li>Turn on Open as Web App if shown, then tap Add.</li>
-                  </ol>
-                ) : (
-                  <ol>
-                    <li>
-                      Open this website directly in Chrome or Edge, outside another app’s browser.
-                    </li>
-                    <li>Open the browser menu and choose Install app or Add to Home screen.</li>
-                    <li>Confirm the installation, then open VenueRelay from your device.</li>
-                  </ol>
-                )}
-                <p>
-                  If your browser has no install option, you can keep using every online feature on
-                  this website.
-                </p>
-              </div>
-            </>
+          {!installed && available ? (
+            <button className="button primary" disabled={installing} onClick={() => void install()}>
+              {installing ? 'Opening install…' : 'Install VenueRelay'}
+            </button>
+          ) : !installed ? (
+            <p>Installation is not available here. Your event works directly in this browser.</p>
           ) : null}
           {!window.isSecureContext ? (
             <p role="status">

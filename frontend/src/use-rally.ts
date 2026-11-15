@@ -110,7 +110,7 @@ export function useRally() {
             current.current = null;
             return;
           }
-          if (!auth.user.emailVerified) {
+          if (!(auth.user.accessGranted ?? auth.user.emailVerified)) {
             setStage('verify');
             setData(null);
             current.current = null;

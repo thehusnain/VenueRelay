@@ -11,6 +11,14 @@ test-results/
 
 .playwright-mcp/
 .sites-runtime/
-.vercel/
 *.apk
 *.ipa
+
+# Local development tools and private working notes
+.codex/
+.agents/
+.grok/
+.impeccable/
+.openai/
+AGENTS.md
+PROGRESS.md

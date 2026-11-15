@@ -32,8 +32,7 @@ export interface MailJob {
   created_at: string;
 }
 export function emailSettings(env: NodeJS.ProcessEnv = process.env): EmailSettings {
-  const mode = (env.EMAIL_TRANSPORT ??
-    (env.NODE_ENV === 'production' ? 'disabled' : 'preview')) as EmailMode;
+  const mode = (env.EMAIL_TRANSPORT ?? 'disabled') as EmailMode;
   ensure(
     ['smtp', 'brevo', 'preview', 'disabled'].includes(mode),
     500,

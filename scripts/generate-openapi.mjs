@@ -86,6 +86,7 @@ schemas.User = object({
   email: nullable,
   name: string,
   emailVerified: { type: 'boolean' },
+  accessGranted: { type: 'boolean' },
 });
 schemas.Delivery = object({
   mode: { type: 'string', enum: ['preview', 'smtp', 'brevo', 'disabled'] },
@@ -248,7 +249,27 @@ add('/auth/register', 'post', 'Create account', {
     ['name', 'email', 'password'],
   ),
   description:
-    'Validates syntax and DNS mail delivery records. Creates an unverified account and durable verification email atomically, then establishes a session. Verification is required for real events. Default local preview writes a private .eml; it does not send email. API clients set X-Rally-Client: api and receive sessionToken. No automatic retry.',
+    'Creates a password account and session. With EMAIL_TRANSPORT=disabled (default), accessGranted is true immediately, emailVerified remains false, and a private recoveryCode is returned once. Save it securely; it is stored hashed. With an email transport, DNS validation and single-use email verification apply. API clients set X-Rally-Client: api to receive sessionToken. Do not automatically retry signup.',
+});
+add('/auth/recovery-code', 'post', 'Replace your private recovery code', {
+  body: object({ password: string }, ['password']),
+  response: object({ recoveryCode: string }, ['recoveryCode']),
+  description:
+    'Own signed-in account and current password required. Demo accounts denied. Rate limited to five replacements per hour. Replaces the old code atomically, records account activity, and returns the new code once. Store it privately; never log it. Does not change event records.',
+});
+add('/auth/recover-account', 'post', 'Reset password using a private recovery code', {
+  publicAccess: true,
+  body: object(
+    {
+      email: { type: 'string', format: 'email' },
+      recoveryCode: string,
+      password: { type: 'string', minLength: 10, maxLength: 200 },
+    },
+    ['email', 'recoveryCode', 'password'],
+  ),
+  response: object({ ok: { type: 'boolean' }, recoveryCode: string }, ['ok', 'recoveryCode']),
+  description:
+    'Rate limited by account and IP. Atomically replaces the password and single-use recovery code, cancels pending resets and revokes sessions. MongoDB also removes device push subscriptions. Returns a replacement recoveryCode once; save it before signing in. Invalid or replayed codes return 401 without changing records. Keep the code secret. Do not automatically retry: if the response is lost, sign in with the new password.',
 });
 add('/auth/login', 'post', 'Sign in', {
   publicAccess: true,
@@ -297,7 +318,7 @@ add('/bootstrap', 'post', 'Open an event or return real-account onboarding', {
     ],
   },
   description:
-    'Verified real accounts without events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
+    'Accounts with accessGranted=true and no events get requiresSetup=true; no sample records are added. The public judge account opens its sample event. Anonymous private samples are available only in the local SQLite adapter. Idempotent for existing membership. Session required. Demo-only X-Rally-Persona previews are restricted to the demo owner. Integration tokens cannot bootstrap.',
 });
 add('/events', 'post', 'Create clean event', {
   body: object({ name: string, venue: string, date: { type: 'string', format: 'date' } }, [
@@ -307,7 +328,7 @@ add('/events', 'post', 'Create clean event', {
   ]),
   status: 201,
   description:
-    'Verified registered account required; sample-only sessions cannot create real events. Returns eventId. No automatic retry.',
+    'Registered account with accessGranted=true required; sample-only sessions cannot create real events. Returns eventId. No automatic retry.',
 });
 add('/events/{eventId}/snapshot', 'get', 'Read role-filtered event snapshot', {
   response: ref('Snapshot'),

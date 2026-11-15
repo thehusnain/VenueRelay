@@ -19,7 +19,7 @@ function pwaShell(): Plugin {
         ...files.filter((name) => name !== 'index.html').map((name) => '/' + name),
       ];
       const fingerprint = createHash('sha256').update(files.join('|'));
-      for (const name of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png'])
+      for (const name of ['favicon.svg', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'])
         fingerprint.update(readFileSync(resolve(import.meta.dirname, 'public', name)));
       fingerprint.update(bundle['sw.js']?.type === 'chunk' ? bundle['sw.js'].code : '');
       const version = fingerprint.digest('hex').slice(0, 12);

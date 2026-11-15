@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Mail, RefreshCw } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Eye,
+  EyeOff,
+  Mail,
+  RefreshCw,
+  Download,
+  MapPin,
+  ShieldCheck,
+} from 'lucide-react';
 import { request, RequestError } from './use-rally';
 import type { Account, Delivery } from '../../shared/contracts';
 import { demoCredentials } from '../../shared/contracts';
+import { downloadRecoveryCode } from './AccountSecurity';
 import { InstallButton } from './PwaTools';
 export function Brand({ onClick }: { onClick: () => void }) {
   return (
@@ -37,6 +49,22 @@ export function Entry({
   onInstall: () => void;
   onScan: () => void;
 }) {
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoError, setDemoError] = useState('');
+  const openDemo = async () => {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    setDemoError('');
+    try {
+      await request('/auth/login', { method: 'POST', body: JSON.stringify(demoCredentials) });
+      await onReady();
+      onNavigate('/');
+    } catch (error) {
+      setDemoError((error as Error).message);
+    } finally {
+      setDemoBusy(false);
+    }
+  };
   const proof = path === '/verify-email' || path === '/reset-password';
   const authPath = ['/sign-in', '/create-account', '/forgot-password'].includes(path);
   const workflow =
@@ -49,12 +77,11 @@ export function Entry({
         </div>
         {!workflow ? (
           <nav className="entry-navigation" aria-label="Welcome navigation">
-            <button className="active" onClick={() => onNavigate('/')}>
-              Home
-            </button>
             <InstallButton onClick={onInstall} />
             <button onClick={onScan}>Scan invitation</button>
-            <button onClick={() => onNavigate('/sign-in')}>Demo login</button>
+            <button disabled={demoBusy} onClick={() => void openDemo()}>
+              {demoBusy ? 'Opening…' : 'Try the demo'}
+            </button>
           </nav>
         ) : null}
         {workflow && authPath ? (
@@ -102,6 +129,9 @@ export function Entry({
               onNavigate={onNavigate}
               onReady={onReady}
               email={account?.email ?? ''}
+              onDemo={openDemo}
+              demoBusy={demoBusy}
+              demoError={demoError}
             />
           ) : stage === 'loading' ? (
             <div className="opening">
@@ -138,13 +168,15 @@ export function Entry({
               <section className="welcome">
                 <div className="welcome-copy">
                   <h1>
-                    <span>Every Team.</span>
-                    <span>Every Update.</span>
-                    <span>One Place.</span>
+                    Every team.
+                    <br />
+                    Every update.
+                    <br />
+                    <span>One place.</span>
                   </h1>
                   <p>
-                    Coordinate your team, manage the plan, and follow every request through to
-                    completion. One shared place for your event.
+                    The doors are opening. The team is ready. Keep requests, people and plans
+                    together — even when the connection drops.
                   </p>
                   <div className="welcome-actions">
                     <button
@@ -154,19 +186,73 @@ export function Entry({
                       Start your event
                       <ArrowRight size={19} />
                     </button>
-                    <button className="text-link" onClick={() => onNavigate('/sign-in')}>
-                      Sign in to demo
+                    <button
+                      className="button secondary"
+                      disabled={demoBusy}
+                      onClick={() => void openDemo()}
+                    >
+                      {demoBusy ? 'Opening demo…' : 'Explore the demo'}
                       <ArrowRight size={17} />
                     </button>
                   </div>
                   <p className="welcome-reassurance">
-                    Already invited? Sign in using the email on your invitation.
+                    No email confirmation. No extra apps. Just your team, connected.
                   </p>
-                  {error ? (
+                  {error || demoError ? (
                     <p className="form-error" role="alert">
-                      {error}
+                      {error || demoError}
                     </p>
                   ) : null}
+                </div>
+                <div className="welcome-preview" aria-label="Sample event preview">
+                  <div className="preview-heading">
+                    <span className="preview-live">
+                      <span /> Sample event
+                    </span>
+                    <span>Event day</span>
+                  </div>
+                  <h2>Community festival</h2>
+                  <p className="preview-venue">
+                    <MapPin size={15} /> Riverside Gardens
+                  </p>
+                  <div className="preview-tasks">
+                    {[
+                      [
+                        'Ready to start',
+                        'Welcome the first guests',
+                        'Ayesha · North entrance',
+                        'assigned',
+                      ],
+                      [
+                        'Being worked on',
+                        'Set up the food stalls',
+                        'Hamza · Food court',
+                        'in_progress',
+                      ],
+                      ['Finished', 'Check the accessible route', 'Maya · Main entrance', 'closed'],
+                    ].map(([status, title, detail, state]) => (
+                      <button
+                        className="preview-task"
+                        key={title}
+                        disabled={demoBusy}
+                        onClick={() => void openDemo()}
+                        aria-label={'Explore demo: ' + title}
+                      >
+                        <span className={'preview-check ' + state}>
+                          <Check size={16} />
+                        </span>
+                        <span>
+                          <strong>{title}</strong>
+                          <small>{detail}</small>
+                        </span>
+                        <span className={'preview-status ' + state}>{status}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="preview-footer">
+                    <ShieldCheck size={17} />
+                    <span>One owner. Every change recorded.</span>
+                  </div>
                 </div>
               </section>
               <section
@@ -178,7 +264,11 @@ export function Entry({
                   ['Attendee', 'Ask for help', 'Describe the problem and where it is.'],
                   ['Organiser', 'Choose an owner', 'Give one person a clear task.'],
                   ['Volunteer or vendor', 'Do the work', 'Share progress or ask for support.'],
-                  ['Organiser', 'Check it’s done', 'Confirm the result. Everyone gets an update.'],
+                  [
+                    'Organiser',
+                    'Check it’s done',
+                    'Confirm the result. The people involved get an update.',
+                  ],
                 ].map(([role, title, detail]) => (
                   <div key={title}>
                     <span className="handoff-role">{role}</span>
@@ -203,18 +293,28 @@ function AccountPage({
   email,
   onNavigate,
   onReady,
+  onDemo,
+  demoBusy,
+  demoError,
 }: {
   mode: 'signin' | 'register' | 'forgot';
   email: string;
   onNavigate: (p: string) => void;
   onReady: () => Promise<void>;
+  onDemo: () => Promise<void>;
+  demoBusy: boolean;
+  demoError: string;
 }) {
+  const [recovery, setRecovery] = useState('');
+  const recoveryHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (recovery) recoveryHeading.current?.focus();
+  }, [recovery]);
+  const [recovered, setRecovered] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [errorField, setErrorField] = useState(''),
-    [show, setShow] = useState(false),
-    [sent, setSent] = useState(false),
-    [connected, setConnected] = useState(true);
+    [show, setShow] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const [emailValue, setEmailValue] = useState(email),
     [passwordValue, setPasswordValue] = useState(''),
@@ -234,10 +334,10 @@ function AccountPage({
   useEffect(() => {
     setError('');
     setErrorField('');
-    setSent(false);
   }, [mode]);
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (busy) return;
     const values = Object.fromEntries(new FormData(e.currentTarget));
     setBusy(true);
     setError('');
@@ -245,12 +345,16 @@ function AccountPage({
     try {
       const result = await request(
         '/auth/' +
-          (mode === 'signin' ? 'login' : mode === 'register' ? 'register' : 'forgot-password'),
+          (mode === 'signin' ? 'login' : mode === 'register' ? 'register' : 'recover-account'),
         { method: 'POST', body: JSON.stringify(values) },
       );
-      if (mode === 'forgot') {
-        setSent(true);
-        setConnected(result.delivery?.connected ?? false);
+      if (result.recoveryCode) {
+        setRecovery(result.recoveryCode);
+        setRecovered(mode === 'forgot');
+      } else if (mode === 'forgot') {
+        throw new Error(
+          'The reset response was incomplete. Try signing in with your new password.',
+        );
       } else {
         await onReady();
         onNavigate('/');
@@ -270,164 +374,226 @@ function AccountPage({
       setBusy(false);
     }
   };
+  if (recovery)
+    return (
+      <section className="entry-form recovery-form">
+        <ShieldCheck size={32} className="recovery-symbol" />
+        <h1 ref={recoveryHeading} tabIndex={-1}>
+          {recovered ? 'You’re back in control.' : 'Your account is ready.'}
+        </h1>
+        <p className="entry-intro">
+          Save your recovery code somewhere private. You’ll need it to reset your password without
+          email.{' '}
+          {recovered
+            ? 'Your old code has been replaced and other sessions have been signed out.'
+            : 'We only show it here once.'}
+        </p>
+        <div className="recovery-code-label">
+          <label htmlFor="account-recovery">Your recovery code</label>
+          <textarea
+            id="account-recovery"
+            readOnly
+            value={recovery}
+            rows={2}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
+        <button
+          className="button secondary full-width"
+          onClick={() => {
+            downloadRecoveryCode(emailValue, recovery);
+          }}
+        >
+          <Download size={17} />
+          Download recovery code
+        </button>
+        <button
+          className="button primary full-width"
+          onClick={async () => {
+            if (recovered) onNavigate('/sign-in');
+            else {
+              await onReady();
+              onNavigate('/');
+            }
+          }}
+        >
+          {recovered ? 'Sign in with new password' : 'Continue to my event'}
+          <ArrowRight size={18} />
+        </button>
+      </section>
+    );
   return (
     <section className={`entry-form account-form ${mode === 'signin' ? 'is-signin' : ''}`}>
       <div className="account-heading">
         <h1>
-          {sent
-            ? 'Check your email'
-            : mode === 'signin'
-              ? 'Welcome back.'
-              : mode === 'register'
-                ? 'Let’s get your team together.'
-                : 'Forgot your password?'}
+          {mode === 'signin'
+            ? 'Welcome back.'
+            : mode === 'register'
+              ? 'Create your account.'
+              : 'Forgot your password?'}
         </h1>
         <p className="entry-intro">
-          {sent
-            ? connected
-              ? 'If your email has an account, you’ll receive a link to choose a new password.'
-              : 'If your email has an account, a reset request is saved. Email delivery needs to be connected before it can reach your inbox.'
-            : mode === 'signin'
-              ? 'Sign in to pick up where you left off.'
-              : mode === 'register'
-                ? 'First, create your account. We’ll help you set up the event next.'
-                : 'Enter the email you use for VenueRelay. We’ll help you get back in.'}
+          {mode === 'signin'
+            ? 'Sign in to pick up where you left off.'
+            : mode === 'register'
+              ? 'Your name, email and a password. You can start straight away.'
+              : 'Use the recovery code you saved when you created your account. No email needed.'}
         </p>
       </div>
+      <form onSubmit={submit}>
+        {mode === 'register' ? (
+          <label htmlFor="account-name">
+            Your name
+            <input
+              id="account-name"
+              name="name"
+              autoComplete="name"
+              required
+              minLength={2}
+              maxLength={80}
+            />
+          </label>
+        ) : null}
+        <label htmlFor="account-email">
+          Email address
+          <input
+            id="account-email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            required
+            maxLength={254}
+            value={emailValue}
+            onChange={(e) => {
+              setEmailValue(e.target.value);
+              setDemoFilled(false);
+            }}
+            aria-invalid={errorField === 'email' || undefined}
+            aria-describedby={errorField === 'email' ? 'account-email-error' : undefined}
+          />
+        </label>
+        {errorField === 'email' ? (
+          <p className="inline-error" id="account-email-error">
+            {error}
+          </p>
+        ) : null}
+        {mode === 'forgot' ? (
+          <label htmlFor="recovery-code">
+            Recovery code
+            <input
+              id="recovery-code"
+              name="recoveryCode"
+              required
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="none"
+            />
+          </label>
+        ) : null}
+        <>
+          <label htmlFor="account-password">
+            {mode === 'forgot' ? 'New password' : 'Password'}
+            <div className="password-field">
+              <input
+                id="account-password"
+                name="password"
+                value={passwordValue}
+                onChange={(e) => {
+                  setPasswordValue(e.target.value);
+                  setDemoFilled(false);
+                }}
+                type={show ? 'text' : 'password'}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                required
+                minLength={mode === 'signin' ? 1 : 10}
+                maxLength={200}
+                aria-invalid={errorField === 'password' || undefined}
+                aria-describedby={mode !== 'signin' ? 'password-hint' : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setShow(!show)}
+                aria-label={show ? 'Hide password' : 'Show password'}
+              >
+                {show ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
+            </div>
+          </label>
+          {mode !== 'signin' ? (
+            <p className="field-hint" id="password-hint">
+              Use at least 10 characters. You can paste a password from your password manager.
+            </p>
+          ) : (
+            <button
+              className="text-link forgot-link"
+              type="button"
+              onClick={() => onNavigate('/forgot-password')}
+            >
+              Forgot your password?
+            </button>
+          )}
+        </>
+        {error || demoError ? (
+          <div className="form-error-summary" ref={errorRef} tabIndex={-1} role="alert">
+            <strong>There’s something to check.</strong>
+            <p>
+              {errorField ? <a href={'#account-' + errorField}>{error}</a> : error || demoError}
+            </p>
+          </div>
+        ) : null}
+        <button className="button primary full-width" disabled={busy} ref={signInButton}>
+          {busy
+            ? 'Please wait…'
+            : mode === 'signin'
+              ? 'Sign in'
+              : mode === 'register'
+                ? 'Create my account'
+                : 'Reset password'}
+          <ArrowRight size={18} />
+        </button>
+      </form>
       {mode === 'signin' ? (
         <aside className="demo-access" aria-label="Demo login credentials">
-          <h2>Demo account</h2>
-          <p className="demo-description">
-            Run a sample community festival as the organiser. Explore tasks and team roles.
-          </p>
-          <dl>
-            <div>
-              <dt>Email</dt>
-              <dd>{demoCredentials.email}</dd>
-            </div>
-            <div>
-              <dt>Password</dt>
-              <dd>{demoCredentials.password}</dd>
-            </div>
-          </dl>
+          <h2>Here for a quick look?</h2>
           <button
             type="button"
             className="button secondary"
-            onClick={fillDemo}
-            aria-label="Fill demo credentials"
+            disabled={demoBusy}
+            onClick={() => void onDemo()}
           >
-            Fill demo
+            {demoBusy ? 'Opening…' : 'Open demo event'}
+            <ArrowRight size={17} />
           </button>
-          {demoFilled ? <p role="status">Credentials filled. Select Sign in to continue.</p> : null}
+          <details className="demo-credentials">
+            <summary>View demo credentials</summary>
+            <p className="demo-description">
+              Run a sample community festival as the organiser. Explore tasks and team roles.
+            </p>
+            <dl>
+              <div>
+                <dt>Email</dt>
+                <dd>{demoCredentials.email}</dd>
+              </div>
+              <div>
+                <dt>Password</dt>
+                <dd>{demoCredentials.password}</dd>
+              </div>
+            </dl>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={fillDemo}
+              aria-label="Fill demo credentials"
+            >
+              Fill demo
+            </button>
+            {demoFilled ? (
+              <p role="status">Credentials filled. Select Sign in to continue.</p>
+            ) : null}
+          </details>
         </aside>
       ) : null}
-      {sent ? (
-        <button className="button primary" onClick={() => onNavigate('/sign-in')}>
-          Back to sign in
-          <ArrowRight size={18} />
-        </button>
-      ) : (
-        <form onSubmit={submit}>
-          {mode === 'register' ? (
-            <label htmlFor="account-name">
-              Your name
-              <input
-                id="account-name"
-                name="name"
-                autoComplete="name"
-                required
-                minLength={2}
-                maxLength={80}
-              />
-            </label>
-          ) : null}
-          <label htmlFor="account-email">
-            Email address
-            <input
-              id="account-email"
-              name="email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              required
-              maxLength={254}
-              value={emailValue}
-              onChange={(e) => {
-                setEmailValue(e.target.value);
-                setDemoFilled(false);
-              }}
-              aria-invalid={errorField === 'email' || undefined}
-              aria-describedby={errorField === 'email' ? 'account-email-error' : undefined}
-            />
-          </label>
-          {errorField === 'email' ? (
-            <p className="inline-error" id="account-email-error">
-              {error}
-            </p>
-          ) : null}
-          {mode !== 'forgot' ? (
-            <>
-              <label htmlFor="account-password">
-                Password
-                <div className="password-field">
-                  <input
-                    id="account-password"
-                    name="password"
-                    value={passwordValue}
-                    onChange={(e) => {
-                      setPasswordValue(e.target.value);
-                      setDemoFilled(false);
-                    }}
-                    type={show ? 'text' : 'password'}
-                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                    required
-                    minLength={mode === 'register' ? 10 : 1}
-                    maxLength={200}
-                    aria-invalid={errorField === 'password' || undefined}
-                    aria-describedby={mode === 'register' ? 'password-hint' : undefined}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShow(!show)}
-                    aria-label={show ? 'Hide password' : 'Show password'}
-                  >
-                    {show ? <EyeOff size={19} /> : <Eye size={19} />}
-                  </button>
-                </div>
-              </label>
-              {mode === 'register' ? (
-                <p className="field-hint" id="password-hint">
-                  Use at least 10 characters. You can paste a password from your password manager.
-                </p>
-              ) : (
-                <button
-                  className="text-link forgot-link"
-                  type="button"
-                  onClick={() => onNavigate('/forgot-password')}
-                >
-                  Forgot your password?
-                </button>
-              )}
-            </>
-          ) : null}
-          {error ? (
-            <div className="form-error-summary" ref={errorRef} tabIndex={-1} role="alert">
-              <strong>There’s something to check.</strong>
-              <p>{errorField ? <a href={'#account-' + errorField}>{error}</a> : error}</p>
-            </div>
-          ) : null}
-          <button className="button primary full-width" disabled={busy} ref={signInButton}>
-            {busy
-              ? 'Please wait…'
-              : mode === 'signin'
-                ? 'Sign in'
-                : mode === 'register'
-                  ? 'Create my account'
-                  : 'Send reset link'}
-            <ArrowRight size={18} />
-          </button>
-        </form>
-      )}
       <p className="account-alternative">
         {mode === 'signin' ? 'New to VenueRelay?' : 'Already have an account?'}{' '}
         <button
@@ -462,6 +628,20 @@ function ConfirmWaiting({
     const timer = setTimeout(() => setWait(wait - 1), 1000);
     return () => clearTimeout(timer);
   }, [wait]);
+  if (delivery.mode === 'disabled')
+    return (
+      <section className="entry-form">
+        <h1>Sign in to continue.</h1>
+        <p className="entry-intro">
+          Email confirmation is no longer required here. Sign in with your existing password to
+          enable your account and save a recovery code.
+        </p>
+        <button className="button primary full-width" onClick={() => void onDemo()}>
+          Go to sign in
+          <ArrowRight size={18} />
+        </button>
+      </section>
+    );
   return (
     <section className="entry-form">
       <span className="entry-state-icon">

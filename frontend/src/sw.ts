@@ -35,20 +35,26 @@ worker.addEventListener('fetch', (event) => {
           const controller = new AbortController(),
             timer = setTimeout(() => controller.abort(), 4000);
           try {
-            return await fetch(event.request, { signal: controller.signal });
+            const response = await fetch(event.request, { signal: controller.signal });
+            if (!response.ok) throw new Error('The app shell is temporarily unavailable.');
+            return response;
           } finally {
             clearTimeout(timer);
           }
         } catch {
           return (
-            (await caches.match('/index.html')) ??
+            (await (await caches.open(CACHE)).match('/index.html')) ??
             new Response('VenueRelay is offline. Open it once while connected.', { status: 503 })
           );
         }
       })(),
     );
   } else if (assets.includes(url.pathname)) {
-    event.respondWith(caches.match(url.pathname).then((cached) => cached ?? fetch(event.request)));
+    event.respondWith(
+      caches
+        .open(CACHE)
+        .then(async (cache) => (await cache.match(url.pathname)) ?? fetch(event.request)),
+    );
   }
 });
 async function flush() {

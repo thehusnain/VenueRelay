@@ -2,7 +2,9 @@ import QRCode from 'qrcode';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-const mode = ['design', 'pwa', 'layout', 'usability', 'install'].includes(process.argv[2])
+const mode = ['design', 'pwa', 'layout', 'usability', 'install', 'account'].includes(
+  process.argv[2],
+)
   ? process.argv[2]
   : 'browser';
 const browser = await chromium.launch({

@@ -2,7 +2,6 @@ node_modules
 frontend/dist
 package-lock.json
 test-results
-.openai
 .sites-runtime
 tests/browser-scenario.js
 tests/design-scenario.js

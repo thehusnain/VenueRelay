@@ -8,6 +8,8 @@ import {
   CalendarDays,
   Check,
   Home as HomeIcon,
+  History,
+  ShieldCheck,
   ListChecks,
   MoreHorizontal,
   UsersRound,
@@ -21,6 +23,7 @@ import { Modal } from './components';
 import { TeamPage, SchedulePage, LogPage, IntegrationPage, ReliabilityPage } from './Pages';
 import { SimpleForm } from './Dialogs';
 import { Inbox } from './Inbox';
+import { AccountSecurity } from './AccountSecurity';
 function useLocation() {
   const [path, setPath] = useState(location.pathname);
   useEffect(() => {
@@ -105,6 +108,9 @@ export function App() {
         data={data}
         waiting={!!pending.length}
       />
+      {dialog === 'security' && rally.account?.email ? (
+        <AccountSecurity email={rally.account.email} onClose={() => setDialog('')} />
+      ) : null}
       {dialog === 'qr' ? <QrScanner onClose={() => setDialog('')} onRead={scanned} /> : null}
     </>
   );
@@ -356,6 +362,16 @@ export function App() {
                   {!data.user.email ? (
                     <button onClick={account}>Create your own account</button>
                   ) : null}
+                  {!data.event.is_demo ? (
+                    <button
+                      onClick={() => {
+                        if (more.current) more.current.open = false;
+                        setDialog('security');
+                      }}
+                    >
+                      Account security
+                    </button>
+                  ) : null}
                   <button
                     onClick={async () => {
                       await rally.signOut();
@@ -392,6 +408,26 @@ export function App() {
                 <span>{item.label}</span>
               </button>
             ))}
+          </div>
+          {[
+            { path: '/history', label: 'Activity log', icon: History },
+            { path: '/connection-help', label: 'Saved records', icon: ShieldCheck },
+          ].map((item) => (
+            <button
+              key={item.path}
+              className={`nav-extra ${path === item.path ? 'active' : ''}`}
+              aria-current={path === item.path ? 'page' : undefined}
+              onClick={() => go(item.path)}
+            >
+              <item.icon size={19} />
+              <span>{item.label}</span>
+            </button>
+          ))}
+          <div className="nav-person">
+            <strong>{data.me.name}</strong>
+            <span>
+              {data.me.role} · {data.me.team}
+            </span>
           </div>
         </nav>
         {data.event.is_demo ? (

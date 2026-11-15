@@ -8,7 +8,7 @@ MongoDB uses snapshot/majority transactions and unique command/request indexes. 
 
 ## Hosting
 
-Vercel serves the built website, its PWA assets and a same-origin HTTP API proxy to Render. Render hosts the persistent Node HTTP/WebSocket process and leased mail/push workers. Production startup requires an Atlas URI, HTTPS origins and secure cookies; it cannot silently use temporary SQLite storage. Mongo indexes are created at startup. Health checks ping the database. SIGTERM stops sockets/workers and drains requests before closing the connection pool.
+One Render Node process serves the built website, PWA assets, HTTP API, WebSockets and leased optional mail/push workers. Browser requests use the same origin. Production startup requires an Atlas URI, HTTPS origins and secure cookies; it cannot silently use temporary SQLite storage. Mongo indexes are created at startup. Health checks ping the database. SIGTERM stops sockets/workers and drains requests before closing the connection pool.
 
 HTTP auth cookies are host-only, HttpOnly and SameSite=Lax; the proxy keeps them first-party. Direct cross-origin WebSocket connections use a 30-second one-use ticket stored hashed in MongoDB, bound to origin/event/persona/session. The server consumes it atomically and rechecks membership/session. A reconnect always requests a new ticket. No session credentials enter WebSocket URLs. Exact origin allowlists and API body limits remain in force.
 
@@ -30,6 +30,6 @@ The same HTTP server accepts authenticated WebSocket upgrades for an event. Orig
 
 Vite builds a module service worker with a precache manifest containing the actual hashed app assets and bundled fonts. Navigation can fall back to the shell. API/auth responses never enter Cache Storage. Browser Background Sync is optional; reconnect/foreground/reopen retries remain available.
 
-Browser push subscriptions belong to the current session and member. Persistent delivery jobs have unique notification/subscription pairs, expiring leases and bounded retries. Existing inbox records remain authoritative. Push delivery is at-least-once under ambiguous failures; stable tags limit duplicate display. External email remains the existing separate leased outbox, with local previews by default.
+Browser push subscriptions belong to the current session and member. Persistent delivery jobs have unique notification/subscription pairs, expiring leases and bounded retries. Existing inbox records remain authoritative. Push delivery is at-least-once under ambiguous failures; stable tags limit duplicate display. External email remains the existing separate leased outbox, disabled by default; local preview mode is available for email tests.
 
 MongoDB Atlas provides durable hosted storage independently of Render process restarts. Local SQLite remains on the developer’s disk. Browser storage eviction, provider outages, capacity and database restoration still require operational planning; this app does not claim unlimited capacity or distributed disaster recovery. See DEPLOYMENT.md for setup, limits and optional read-only-source migration.
