@@ -2,7 +2,7 @@
 
 VenueRelay is a task workspace used during an event. The interface puts the next hand-off ahead of summary statistics: find the request, name an owner, act, then check the result.
 
-## Colour
+## Colors
 
 | Token | Value | Use |
 | --- | --- | --- |
