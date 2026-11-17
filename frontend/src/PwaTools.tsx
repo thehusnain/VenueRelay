@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Smartphone, CheckCircle2 } from 'lucide-react';
 import { Modal } from './components';
 import { request } from './use-rally';
 import type { Snapshot } from '../../shared/contracts';
@@ -9,6 +9,7 @@ interface InstallPrompt extends Event {
   userChoice: Promise<{ outcome: string }>;
 }
 let installPrompt: InstallPrompt | undefined;
+let installedThisSession = false;
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
@@ -17,11 +18,13 @@ if (typeof window !== 'undefined') {
   });
   window.addEventListener('appinstalled', () => {
     installPrompt = undefined;
+    installedThisSession = true;
     window.dispatchEvent(new Event('rally:install-available'));
   });
 }
 function isInstalled() {
   return (
+    installedThisSession ||
     matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
@@ -51,18 +54,15 @@ export function InstallButton({
   label?: string;
 }) {
   const installed = useInstalled();
-  const [available, setAvailable] = useState(!!installPrompt);
-  useEffect(() => {
-    const changed = () => setAvailable(!!installPrompt);
-    window.addEventListener('rally:install-available', changed);
-    return () => window.removeEventListener('rally:install-available', changed);
-  }, []);
-  return installed || !available ? null : (
+  return installed ? null : (
     <button
       className={`install-access ${className}`}
       onClick={async () => {
         const prompt = installPrompt;
-        if (!prompt) return;
+        if (!prompt) {
+          onClick();
+          return;
+        }
         installPrompt = undefined;
         window.dispatchEvent(new Event('rally:install-available'));
         try {
@@ -77,6 +77,85 @@ export function InstallButton({
       <Download size={16} aria-hidden="true" />
       <span>{label}</span>
     </button>
+  );
+}
+type InstallPlatform = 'ios' | 'android' | 'desktop';
+function suggestedPlatform(): InstallPlatform {
+  if (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+    return 'ios';
+  return /Android/.test(navigator.userAgent) ? 'android' : 'desktop';
+}
+function InstallGuide() {
+  const [platform, setPlatform] = useState<InstallPlatform>(suggestedPlatform);
+  return (
+    <div className="install-guide">
+      <div className="button-row install-platforms" role="group" aria-label="Installation device">
+        {(
+          [
+            ['ios', 'iPhone / iPad'],
+            ['android', 'Android'],
+            ['desktop', 'Computer'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            className={`button ${platform === value ? 'primary' : 'secondary'}`}
+            aria-pressed={platform === value}
+            onClick={() => setPlatform(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {platform === 'ios' ? (
+        <ol className="install-steps" aria-label="iPhone and iPad installation steps">
+          <li>
+            Open this website in <strong>Safari</strong>.
+          </li>
+          <li>
+            Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. You may need to
+            scroll or tap More to find it.
+          </li>
+          <li>
+            Keep <strong>Open as Web App</strong> on if shown, then tap <strong>Add</strong>.
+          </li>
+        </ol>
+      ) : platform === 'android' ? (
+        <ol className="install-steps" aria-label="Android installation steps">
+          <li>
+            Open this website in <strong>Chrome</strong>.
+          </li>
+          <li>
+            Open the <strong>three-dot menu</strong> and choose{' '}
+            <strong>Install and create shortcut</strong>, <strong>Install app</strong>, or{' '}
+            <strong>Add to Home screen</strong>.
+          </li>
+          <li>
+            Choose <strong>Install</strong> and follow the confirmation on your phone.
+          </li>
+        </ol>
+      ) : (
+        <ol className="install-steps" aria-label="Computer installation steps">
+          <li>
+            Open this website in <strong>Chrome or Edge</strong>.
+          </li>
+          <li>
+            Use the <strong>install icon in the address bar</strong> or the browser menu’s app
+            installation option.
+          </li>
+          <li>
+            Confirm installation, then open <strong>VenueRelay</strong> from your apps.
+          </li>
+        </ol>
+      )}
+      <p>
+        Then open VenueRelay from its icon whenever you need it. If an install option is missing,
+        use your regular browser instead of an in-app or private browser, or bookmark this page.
+      </p>
+    </div>
   );
 }
 export function PwaTools({
@@ -94,6 +173,7 @@ export function PwaTools({
     [message, setMessage] = useState(''),
     [update, setUpdate] = useState(false),
     [push, setPush] = useState<{ enabled: boolean; publicKey: string | null }>(),
+    [pushError, setPushError] = useState(false),
     [subscribed, setSubscribed] = useState(false),
     [busy, setBusy] = useState(false),
     [installing, setInstalling] = useState(false);
@@ -121,27 +201,47 @@ export function PwaTools({
   }, []);
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setMessage('');
+    setPushError(false);
+    setPush(undefined);
+    setSubscribed(false);
     void request('/push/public-key')
-      .then(setPush)
-      .catch(() => setMessage('Push settings could not be checked. Retry when connected.'));
-    void navigator.serviceWorker?.getRegistration().then((reg) => {
-      if (reg?.waiting) setUpdate(true);
-    });
+      .then((result) => {
+        if (!cancelled) setPush(result);
+      })
+      .catch(() => {
+        if (!cancelled) setPushError(true);
+      });
+    void navigator.serviceWorker
+      ?.getRegistration()
+      .then((reg) => {
+        if (!cancelled && reg?.waiting) setUpdate(true);
+      })
+      .catch(() => {
+        /* Installation guidance stays available without service-worker access. */
+      });
     if (data)
       void request(
         `/events/${data.event.id}/push/subscription`,
         {},
         data.event.is_demo ? data.me.role : 'self',
       )
-        .then((result) => setSubscribed(result.enabled))
-        .catch(() => setSubscribed(false));
+        .then((result) => {
+          if (!cancelled) setSubscribed(result.enabled);
+        })
+        .catch(() => {
+          if (!cancelled) setPushError(true);
+        });
+    return () => {
+      cancelled = true;
+    };
   }, [open, data?.event.id, data?.me.id]);
   const install = async () => {
     const prompt = installPrompt;
     if (!prompt) {
       setAvailable(false);
-      setMessage('Installation is not available in this browser. Continue using VenueRelay here.');
+      setMessage('Follow the steps for your device below to add VenueRelay.');
       return;
     }
     installPrompt = undefined;
@@ -199,6 +299,7 @@ export function PwaTools({
   };
   const disable = async () => {
     if (!data) return;
+    setBusy(true);
     try {
       const reg = await navigator.serviceWorker.getRegistration(),
         subscription = await reg?.pushManager.getSubscription();
@@ -214,12 +315,43 @@ export function PwaTools({
       setMessage('Browser notifications disabled on this device.');
     } catch (e) {
       setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
   if (!open) return null;
   return (
     <Modal title="Alerts & installation" onClose={onClose}>
       <div className="pwa-options">
+        <section className="install-section" aria-labelledby="install-heading">
+          <div className="install-intro">
+            {installed ? (
+              <CheckCircle2 size={24} aria-hidden="true" />
+            ) : (
+              <Smartphone size={24} aria-hidden="true" />
+            )}
+            <h3 id="install-heading">VenueRelay on your Home Screen</h3>
+          </div>
+          <p>
+            {installed
+              ? 'VenueRelay is installed. Open it from your Home Screen or app launcher.'
+              : 'Your event, one tap away. Add VenueRelay to your phone or computer. No app-store download needed.'}
+          </p>
+          {!installed && available ? (
+            <button className="button primary" disabled={installing} onClick={() => void install()}>
+              <Download size={18} aria-hidden="true" />
+              {installing ? 'Opening install…' : 'Install VenueRelay'}
+            </button>
+          ) : null}
+          {!installed ? <InstallGuide /> : null}
+          {!window.isSecureContext ? (
+            <p role="status" className="install-notice">
+              Use the event’s HTTPS website on your phone for installation and offline features. A
+              local network HTTP address does not support these features. Computer localhost works
+              for testing.
+            </p>
+          ) : null}
+        </section>
         <section>
           <h3>Event notifications</h3>
           {!data ? (
@@ -230,13 +362,18 @@ export function PwaTools({
               require the Home Screen app and notification permission. In-app alerts and the bell
               work here.
             </p>
+          ) : pushError ? (
+            <p role="status">
+              Notification settings could not be checked. Reconnect and reopen this panel to try
+              again.
+            </p>
           ) : !push ? (
             <p role="status">Checking notification availability…</p>
           ) : !push.enabled ? (
             <p>Browser push is not configured on this server. Your in-app updates still work.</p>
           ) : subscribed ? (
-            <button className="button secondary" onClick={() => void disable()}>
-              Turn off browser notifications
+            <button className="button secondary" disabled={busy} onClick={() => void disable()}>
+              {busy ? 'Turning off…' : 'Turn off browser notifications'}
             </button>
           ) : (
             <button
@@ -288,27 +425,6 @@ export function PwaTools({
           )}
         </section>
         <section>
-          <h3>VenueRelay on your Home Screen</h3>
-          <p>
-            {installed
-              ? 'VenueRelay is already running as an installed web app.'
-              : 'Install this same website for quick access. No app-store download is needed.'}
-          </p>
-          {!installed && available ? (
-            <button className="button primary" disabled={installing} onClick={() => void install()}>
-              {installing ? 'Opening install…' : 'Install VenueRelay'}
-            </button>
-          ) : !installed ? (
-            <p>Installation is not available here. Your event works directly in this browser.</p>
-          ) : null}
-          {!window.isSecureContext ? (
-            <p role="status">
-              A trusted HTTPS connection is required on a phone. Computer localhost also works for
-              testing.
-            </p>
-          ) : null}
-        </section>
-        <section>
           <h3>Offline work</h3>
           <p>
             Open your event while connected first. Changes are stored on this device and retried
@@ -323,6 +439,11 @@ export function PwaTools({
                 void navigator.serviceWorker
                   .getRegistration()
                   .then((reg) => reg?.waiting?.postMessage({ type: 'SKIP_WAITING' }))
+                  .catch(() =>
+                    setMessage(
+                      'The update could not start. Close and reopen this panel to try again.',
+                    ),
+                  )
               }
             >
               {waiting ? 'Save waiting changes before updating' : 'Update VenueRelay and reload'}

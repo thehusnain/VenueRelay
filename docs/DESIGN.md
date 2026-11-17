@@ -43,7 +43,7 @@ The team page shows pending invitations before the staff roster. Each invitation
 
 The sign-in form comes before optional demo details. Demo access is one click. Staff signup uses a username and password, with a private recovery code before continuing to setup; Account security can replace it after password confirmation. Real events begin empty and guide organisers to invitations and the first task.
 
-Install controls appear only while a browser-provided install event is available. They open the native prompt directly. Unsupported browsers retain the website without manual installation steps. Save status distinguishes confirmed work, pending changes and an interrupted connection.
+Install controls remain discoverable before installation. Where the browser offers a native prompt, the control opens it directly. Otherwise it opens three-step guidance for iPhone/iPad, Android or computer, with automatic device selection and an explicit override. Installed apps hide redundant install controls. HTTPS requirements are explained alongside the instructions. Save status distinguishes confirmed work, pending changes and an interrupted connection.
 
 ## Validation
 
@@ -51,3 +51,18 @@ Automated browser checks cover narrow phones, tablets, desktop, short viewports,
 
 
 Attendees use a separate narrow request form reached through a shared QR/link. It has no account fields or staff controls. After submission, a private tracking view shows only that request, its status and updates, plus a clearly labelled link-saving action. Public entry tokens and private receipt tokens stay in URL fragments. The staff sharing dialog provides a QR, copyable link and controls to disable links. Guest reporters stay out of the staff roster.
+
+## Event overview and first-use guidance
+
+The event header uses deep evergreen (`#173f35`), pale mint text and a warm sand (`#f4dba8`) progress track. Its task total comes from the current workspace and opens the task list. The welcome page pairs the existing sample task list with a clearly labelled schematic venue plan. This diagram is illustrative, not an interactive event map. Labels scale for phone layouts. Manrope remains locally bundled for a consistent experience without external font requests.
+
+A six-step tutorial explains event creation, volunteer invitations, vendor invitations, attendee requests, task completion and installation. Each step has concise instructions, the actual control labels and a visual sequence. Next, Back and Skip preserve user control. Completion and dismissal are stored per account; a memory fallback keeps the guide usable when storage is blocked. The tutorial is available on the welcome screen, from More, and through a dismissible first-workspace invitation below the work area.
+
+## HCI choices
+
+- **Visibility of status:** labelled task states, save status, pending changes, tutorial progress and a real completion total.
+- **Recognition:** consistent wording in controls, tutorial routes and documentation; icons always accompany meaningful labels.
+- **User control:** Back, Skip, dismissal, replay, Escape and restored focus.
+- **Error prevention and recovery:** explicit invitation roles, one-use links, disabled busy actions, inline errors, safe retry IDs and connection help.
+- **Progressive disclosure:** one tutorial topic at a time; advanced event tools stay in More.
+- **Accessibility:** locally bundled readable type, text contrast, 44px primary navigation targets, keyboard access, native dialogs and reduced-motion support. Automated checks supplement, rather than replace, real assistive-technology and user testing.

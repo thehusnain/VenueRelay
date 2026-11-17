@@ -31,14 +31,21 @@ function pwaShell(): Plugin {
     },
   };
 }
+const apiHost = process.env.HOST ?? '127.0.0.1';
+const proxyHost = ['0.0.0.0', '::'].includes(apiHost) ? '127.0.0.1' : apiHost;
 export default defineConfig({
   root: resolve(import.meta.dirname),
   plugins: [react(), pwaShell()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: Number(process.env.WEB_PORT ?? 5173),
     strictPort: true,
-    proxy: { '/api': { target: 'http://127.0.0.1:3001', ws: true } },
+    proxy: {
+      '/api': {
+        target: `http://${proxyHost.includes(':') ? `[${proxyHost}]` : proxyHost}:${process.env.PORT ?? 3001}`,
+        ws: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

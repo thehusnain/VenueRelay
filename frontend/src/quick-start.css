@@ -1,0 +1,220 @@
+.quick-start-offer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  background: var(--selected);
+  border-radius: 12px;
+  color: var(--brand);
+}
+.quick-start-offer > svg {
+  flex: 0 0 auto;
+}
+.quick-start-offer > div {
+  flex: 1;
+}
+.quick-start-offer strong {
+  display: inline;
+  margin-right: 8px;
+  color: var(--fg);
+}
+.quick-start-offer span {
+  color: var(--muted);
+}
+.quick-start-offer > button {
+  flex: 0 0 auto;
+}
+.welcome-tutorial {
+  margin-top: 14px;
+  gap: 8px;
+}
+.quick-start-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.quick-start-progress > span {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.quick-start-progress > ol {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-width: 280px;
+}
+.quick-start-progress li {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.quick-start-progress li.reached {
+  background: var(--brand);
+}
+.quick-start-progress .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.quick-start-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.quick-start-visual {
+  padding: 26px 20px;
+  background: #eaf2ed;
+  color: #145549;
+  border-radius: 12px;
+  align-self: stretch;
+}
+.quick-start-visual > svg {
+  margin-bottom: 28px;
+}
+.quick-start-visual ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 20px;
+}
+.quick-start-visual li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quick-start-stop {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #799c8d;
+  font-variant-numeric: tabular-nums;
+}
+.quick-start-copy h3 {
+  font-size: clamp(23px, 3vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  text-wrap: balance;
+}
+.quick-start-copy > p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+.quick-start-copy > ol {
+  padding-left: 20px;
+  margin: 0;
+  display: grid;
+  gap: 15px;
+}
+.quick-start-copy li {
+  padding-left: 4px;
+}
+.quick-start-copy li::marker {
+  color: var(--brand);
+  font-weight: 600;
+}
+.quick-start-tip {
+  margin: 24px 0 0;
+  padding: 16px 0;
+  border-block: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+.quick-start-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+.quick-start-actions > div {
+  display: flex;
+  gap: 10px;
+}
+.quick-start-install {
+  margin-top: 16px;
+}
+@media (max-width: 600px) {
+  .quick-start-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+  .quick-start-visual {
+    display: flex;
+    align-items: center;
+    padding: 18px;
+    gap: 20px;
+  }
+  .quick-start-visual > svg {
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .quick-start-visual ol {
+    gap: 9px;
+  }
+  .quick-start-visual li {
+    font-size: 12px;
+  }
+  .quick-start-stop {
+    width: 23px;
+    height: 23px;
+    flex-basis: 23px;
+  }
+  .quick-start-offer {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 12px 14px;
+  }
+  .quick-start-offer > div {
+    min-width: 160px;
+  }
+  .quick-start-offer strong,
+  .quick-start-offer span {
+    display: block;
+    font-size: 12px;
+  }
+  .quick-start-offer > .text-link {
+    margin-left: 33px;
+  }
+  .quick-start-offer > .icon-button {
+    margin-left: auto;
+  }
+}
+@media (max-width: 380px) {
+  .quick-start-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .quick-start-actions > div {
+    justify-content: space-between;
+  }
+  .quick-start-actions > .text-link {
+    align-self: center;
+  }
+}

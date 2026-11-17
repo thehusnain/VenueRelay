@@ -2,13 +2,33 @@
 
 VenueRelay is a website with an offline-capable app shell. It works without installation.
 
-## Install experience
+## Install on your phone
 
-When a browser emits `beforeinstallprompt`, VenueRelay shows **Install**. Clicking it calls the browser prompt directly, in the same user gesture. The browser asks the user to confirm. A consumed prompt is never reused; cancellation returns to the website. Once installed, install controls disappear.
+Choose **Install VenueRelay** on the welcome page or in the workspace. Installation stays discoverable even when the browser has no automatic prompt. **More → Alerts & installation** also opens these instructions.
 
-Browsers that do not expose that API show the website without an install button or browser-specific instructions. A website cannot silently install itself or force an unsupported browser to provide a native prompt. The settings screen reports installation availability without redirecting people to a specific browser.
+### iPhone and iPad
 
-[MDN: triggering a PWA install prompt](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Trigger_install_prompt).
+1. Open the event’s HTTPS website in **Safari**.
+2. Tap **Share → Add to Home Screen**. Scroll the share sheet or open More if necessary.
+3. Leave **Open as Web App** on if offered, then tap **Add**.
+
+Open VenueRelay from its new Home Screen icon. These instructions follow [Apple’s web app guide](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
+
+### Android
+
+1. Open the event’s HTTPS website in **Chrome**.
+2. Choose **Install VenueRelay**. If no native prompt appears, open Chrome’s three-dot menu and choose **Install and create shortcut**, **Install app**, or **Add to Home screen**, depending on your browser version.
+3. Choose **Install** and confirm.
+
+The icon opens VenueRelay directly. See [Google’s web app guide](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=en).
+
+### Computers and other browsers
+
+Chrome and Edge can install from the address bar or browser menu. If installation is unavailable, use the website or bookmark it. In-app browsers, private browsing, managed devices, and older browsers may restrict installation. The guide lets you select a device manually, so a browser’s device detection cannot hide instructions.
+
+When a browser emits `beforeinstallprompt`, clicking **Install VenueRelay** invokes it directly in the same user gesture. A consumed prompt is never reused. Cancellation leaves guidance available, and prompt failures open the manual steps. Install controls disappear after the browser’s installed event or when running in standalone mode. A normal browser tab may not know that an app was previously installed; open its Home Screen icon if it is already there.
+
+The app needs no app-store account or download. Installation is a browser capability; a website cannot silently install itself or guarantee installation on every device. See [MDN’s install prompt documentation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Trigger_install_prompt).
 
 ## Offline work
 
@@ -24,7 +44,7 @@ Each service worker reads its own versioned cache. Older retained caches cannot 
 
 In-app updates are durable and do not need browser permissions. Opening a notification navigates immediately; its read acknowledgement is saved in the device outbox and retried safely. New unread updates show an actionable banner while the app is visible. **More → Alerts & installation → Turn on alert sound** unlocks a short chime with a real user gesture. No sound is played for the existing inbox on initial load or for duplicate refreshes.
 
-Browser push requires HTTPS and explicit permission. The MongoDB backend retains its own VAPID pair unless environment keys override it. Push links include the event, task and notification IDs so a tap opens the correct event, including after sign-in. The service worker requests normal sound and vibration where supported; OS silent/Focus settings take precedence. On iPhone, background web notifications require the Home Screen app. Website-controlled installation prompts are not supported by iOS, including Chrome on iOS. No unsupported one-click installer or browser redirect is shown.
+Browser push requires HTTPS and explicit permission. The MongoDB backend retains its own VAPID pair unless environment keys override it. Push links include the event, task and notification IDs so a tap opens the correct event, including after sign-in. The service worker requests normal sound and vibration where supported; OS silent/Focus settings take precedence. On iPhone, background web notifications require the Home Screen app. On iOS, use the manual Home Screen steps above; the app does not pretend to provide a one-click native installer.
 
 QR scanning uses the camera only after **Start camera**. Image upload and pasted links remain available when camera access fails. Only links belonging to the same VenueRelay origin are accepted.
 

@@ -1,6 +1,8 @@
 # Five-minute HS-0130 demonstration
 
-Run `npm install`, then `npm run dev`. Open http://127.0.0.1:3001 and choose **Explore the demo**. A separate Sign in page also offers Open demo event and optional public credentials. The sample guide explains the community festival, your current role and a first task to try.
+Use Node.js 24. Run `npm install`, then `npm run dev`. Wait for **VenueRelay is ready**, open http://127.0.0.1:3001 and choose **Explore the demo**. No `.env`, API key or database service is needed. A separate Sign in page also offers Open demo event and optional public credentials. The sample guide explains the community festival, your current role and a first task to try.
+
+Open the **Step-by-step tutorial** for the short Next/Back tutorial. It covers event creation, volunteer invitations, vendor invitations, attendee QR entry and completing a request. It can be skipped and replayed when needed.
 
 ## Follow one request
 
@@ -38,7 +40,11 @@ The invitation dialog puts **Copy invitation** beside the readable link. **Your 
 
 As an organiser, open **More → Connect another app**. Create an event key and call the documented snapshot/command API. Revoke it and show access is denied. **More → What changed** offers the activity log and complete event export. API documentation is served at `/api/openapi.json`.
 
-See [validation](VALIDATION.md) for measured results and [PWA instructions](PWA.md) for browser installation and phone access. No public deployment is needed.
+See [validation](VALIDATION.md) for measured results and [PWA instructions](PWA.md) for browser installation and phone access. No public deployment is needed for the computer demo; phones need shared HTTPS access for full PWA features.
+
+## Show mobile installation
+
+Open **Install VenueRelay** on the welcome screen or **More → Alerts & installation** in the workspace. On a supported Android browser, use the native install action or the browser menu. On iPhone/iPad, open in Safari, then **Share → Add to Home Screen**. Open the new Home Screen icon and return to your event. Use a trusted HTTPS deployment on a physical phone; desktop localhost can exercise the built PWA at port 3001.
 
 
 ## No-signup attendee demonstration

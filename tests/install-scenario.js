@@ -16,54 +16,89 @@ async (existingPage, options = {}) => {
     });
     try {
       const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(base);
       await page.locator('.welcome-copy h1').waitFor();
+      const installButton = page.getByRole('button', { name: 'Install VenueRelay', exact: true });
+      await installButton.click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('heading', { name: 'VenueRelay on your Home Screen' }).waitFor();
+      const device = userAgent.includes('iPhone') ? 'iPhone / iPad' : 'Android';
       assert(
-        (await page.getByRole('button', { name: 'Install VenueRelay', exact: true }).count()) === 0,
-        'No unsupported install action',
+        (await dialog
+          .getByRole('button', { name: device, exact: true })
+          .getAttribute('aria-pressed')) === 'true',
+        'Device guidance is selected automatically',
       );
       assert(
-        !/Safari|installation steps/.test(await page.locator('body').innerText()),
-        'No browser-specific manual installation instructions',
+        (await dialog.locator('.install-steps li').count()) === 3,
+        'Installation has three short steps',
       );
+      assert(
+        (await dialog.locator('.install-steps').innerText()).includes(
+          userAgent.includes('iPhone') ? 'Add to Home Screen' : 'Install and create shortcut',
+        ),
+        'Correct browser-specific instructions',
+      );
+      await dialog.getByRole('button', { name: 'Computer', exact: true }).click();
+      assert(
+        (await dialog.locator('.install-steps').innerText()).includes('Chrome or Edge'),
+        'User can select another device',
+      );
+      assert(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        'Installation does not overflow a phone',
+      );
+      await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
       await page.evaluate(() => {
         window.promptCalls = 0;
-        window.fakeInstall = (outcome) => {
+        window.fakeInstall = (outcome, fail = false) => {
           const event = new Event('beforeinstallprompt');
           event.prompt = async () => {
             window.promptCalls++;
+            if (fail) throw new Error('Install prompt unavailable');
           };
           event.userChoice = Promise.resolve({ outcome });
           dispatchEvent(event);
         };
         window.fakeInstall('dismissed');
       });
-      await page.getByRole('button', { name: 'Install VenueRelay', exact: true }).click();
+      await installButton.click();
       assert(
         (await page.evaluate(() => window.promptCalls)) === 1,
-        'One click must invoke native installation directly',
+        'One click invokes native installation directly',
       );
-      assert((await page.getByRole('dialog').count()) === 0, 'No intermediary instruction dialog');
+      assert((await dialog.count()) === 0, 'No intermediary dialog for native prompt');
+      await installButton.click();
+      await dialog.waitFor();
       assert(
-        (await page.getByRole('button', { name: 'Install VenueRelay', exact: true }).count()) === 0,
-        'Consumed prompt is removed',
+        (await page.evaluate(() => window.promptCalls)) === 1,
+        'Consumed prompt is not reused; guidance remains available',
       );
+      await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+      await page.evaluate(() => window.fakeInstall('dismissed', true));
+      await installButton.click();
+      await dialog.waitFor();
+      assert(
+        await dialog.locator('.install-steps').isVisible(),
+        'Failed native prompt recovers to manual guidance',
+      );
+      await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
       await page.evaluate(() => window.fakeInstall('accepted'));
-      await page.getByRole('button', { name: 'Install VenueRelay', exact: true }).click();
+      await installButton.click();
       assert(
-        (await page.evaluate(() => window.promptCalls)) === 2,
-        'Fresh prompts work after cancellation',
+        (await page.evaluate(() => window.promptCalls)) === 3,
+        'Fresh prompts work after cancellation and failure',
       );
       await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
       await page.evaluate(() => window.fakeInstall('accepted'));
-      assert(
-        (await page.getByRole('button', { name: 'Install VenueRelay', exact: true }).count()) === 0,
-        'Installed apps do not show install actions',
-      );
+      assert((await installButton.count()) === 0, 'Installed apps do not show install actions');
+      assert(errors.length === 0, 'No unhandled errors: ' + errors.join(', '));
       passed.push(
         userAgent.includes('iPhone')
-          ? 'iPhone identity: no unsupported prompt or Safari instructions; native event lifecycle'
-          : 'Android identity: direct native prompt, cancellation, fresh retry and installed state',
+          ? 'iPhone guidance, device selection, prompt cancellation/failure recovery, installed state'
+          : 'Android guidance, direct native prompt, consumed prompt safety, installed state',
       );
     } finally {
       await context.close();

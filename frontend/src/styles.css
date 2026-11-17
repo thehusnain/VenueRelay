@@ -423,8 +423,15 @@ pre {
   gap: 6px;
   align-items: center;
 }
+.venue-plan {
+  display: block;
+  width: calc(100% + 48px);
+  height: auto;
+  margin: 22px -24px 0;
+  background: #173f35;
+}
 .preview-tasks {
-  margin-top: 24px;
+  margin-top: 0;
 }
 .preview-task {
   display: grid;
@@ -434,7 +441,7 @@ pre {
   gap: 11px;
   width: 100%;
   text-align: left;
-  padding: 19px 0;
+  padding: 15px 0;
   border-top: 1px solid var(--border);
 }
 .preview-task:hover strong {
@@ -988,7 +995,62 @@ pre {
 }
 /* Event and tasks */
 .event-cover {
-  padding: 3px 0 30px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22px;
+  padding: 26px 28px;
+  margin-bottom: 26px;
+  border-radius: 14px;
+  background: #173f35;
+  color: #f7faf6;
+}
+.event-cover-main {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.event-cover .cover-meta {
+  color: #c5dbcf;
+}
+.event-cover .cover-meta > span:first-child {
+  color: #f4dba8;
+}
+.event-progress {
+  flex: 0 1 230px;
+  min-width: 200px;
+  padding: 10px 0;
+  color: #e6f3ec;
+  text-align: left;
+}
+.event-progress:focus-visible {
+  outline-color: #f4dba8;
+}
+.event-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.event-progress-label > svg:last-child {
+  margin-left: auto;
+}
+.event-progress-track {
+  display: block;
+  height: 5px;
+  margin-top: 12px;
+  background: #50776a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.event-progress-track > span {
+  display: block;
+  height: 100%;
+  background: #f4dba8;
+}
+.event-progress:hover .event-progress-label {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .cover-meta {
   display: flex;
@@ -2218,6 +2280,57 @@ pre {
   border-radius: 50%;
   margin-top: 9px;
 }
+/* Installation remains available when a browser needs manual Home Screen steps. */
+.install-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--brand);
+}
+.install-intro h3 {
+  color: var(--fg);
+}
+.install-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 16px;
+}
+.install-platforms button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.install-platforms button[aria-pressed='true'] {
+  color: white;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.install-platforms button:hover:not([aria-pressed='true']) {
+  background: var(--selected);
+}
+.install-steps {
+  padding-left: 25px;
+  margin: 0;
+}
+.install-steps li {
+  padding: 7px 0 7px 7px;
+}
+.install-steps li::marker {
+  color: var(--brand);
+  font-weight: 600;
+}
+.install-notice {
+  padding: 14px;
+  background: var(--selected);
+  border-radius: 8px;
+}
 .pwa-options > section + section {
   margin-top: 24px;
   border-top: 1px solid var(--border);
@@ -2481,6 +2594,10 @@ pre {
   .welcome-preview {
     padding-inline: 20px;
   }
+  .venue-plan {
+    width: calc(100% + 40px);
+    margin-inline: -20px;
+  }
   .welcome-copy h1 {
     font-size: clamp(40px, 6.6vw, 60px);
   }
@@ -2555,6 +2672,12 @@ pre {
   }
   .preview-heading {
     margin-bottom: 18px;
+  }
+  .venue-plan g text {
+    font-size: 20px;
+  }
+  .venue-plan > text {
+    font-size: 17px;
   }
   .welcome-explanation {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2657,7 +2780,17 @@ pre {
     padding-top: 25px;
   }
   .event-cover {
-    padding-bottom: 24px;
+    padding: 20px;
+    margin-bottom: 22px;
+    gap: 12px;
+  }
+  .event-cover-main {
+    flex-basis: 100%;
+  }
+  .event-progress {
+    flex: 1;
+    max-width: 360px;
+    padding-block: 0;
   }
   .event-cover h1 {
     font-size: 28px;

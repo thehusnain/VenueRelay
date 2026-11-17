@@ -143,6 +143,7 @@ export function Home({
   );
   const priority = { urgent: 0, high: 1, normal: 2 };
   important.sort((a, b) => priority[a.priority] - priority[b.priority]);
+  const finished = data.tasks.filter((task) => task.status === 'closed').length;
   const nextSession = data.schedule.find((s) => Date.parse(s.ends_at) > Date.now());
   const planItems = data.schedule.filter((s) => Date.parse(s.ends_at) > Date.now()).slice(0, 3);
   const focusOptions = [
@@ -183,6 +184,21 @@ export function Home({
             </span>
           </div>
         </div>
+        {data.tasks.length ? (
+          <button
+            className="event-progress"
+            onClick={onTasks}
+            aria-label={`View tasks: ${finished} of ${data.tasks.length} checked and finished`}
+          >
+            <span className="event-progress-label">
+              <Check size={16} /> {finished} of {data.tasks.length} tasks finished{' '}
+              <ArrowRight size={16} />
+            </span>
+            <span className="event-progress-track" aria-hidden="true">
+              <span style={{ width: `${(finished / data.tasks.length) * 100}%` }} />
+            </span>
+          </button>
+        ) : null}
       </section>
       <PendingTasks items={pending} />
       <div className="home-workspace">

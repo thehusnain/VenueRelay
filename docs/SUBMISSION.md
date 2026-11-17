@@ -1,34 +1,74 @@
-# Submission notes
+# Hackathon submission guide
 
-Paste the following into the form’s run guide/notes:
+## Project summary
+
+**VenueRelay — Every team. Every update. One place.**
+
+An event coordination workspace for organisers, volunteers, vendors and attendees. An attendee scans a QR and requests help; the organiser assigns it; a teammate completes it; the organiser confirms the result. The attendee follows progress through a private link without creating an account.
+
+The application combines role-based access, live updates, mobile Home Screen installation and offline task recovery. Retried actions keep their original request IDs to avoid duplicate work. Human-readable statuses, a short guided tutorial and accessible responsive controls keep the workflow understandable during a busy event.
+
+Repository: https://github.com/thehusnain/VenueRelay
+
+Demo: https://venuerelay.onrender.com
+
+Problem statement reference: **HS-0130**. Confirm this matches the category selected in the submission form.
+
+## Paste into the run instructions
 
 ```text
-VenueRelay — Every Team. Every Update. One Place.
-HS-0130 event coordination website + PWA.
+Requires Node.js 24 and Git.
 
-Requires Node.js 24 LTS.
-1. Open a terminal in the project folder.
-2. npm install
-3. npm run dev
-4. Open http://127.0.0.1:3001. Choose Explore the demo.
+git clone https://github.com/thehusnain/VenueRelay.git
+cd VenueRelay
+npm install
+npm run dev
 
-DEMO ACCOUNT
-Email: demo@rally.local
-Password: RallyDemo2026!
+Open http://127.0.0.1:3001 after “VenueRelay is ready”.
+Choose Explore the demo. No account, .env, API key, external service
+or database installation is needed. Stop both servers with Ctrl+C.
 
-The verified demo account and sample event are created automatically on a fresh local startup. No registration, email verification, API key or database installation is required for this account. More → Try a different role lets you inspect organiser, volunteer, vendor and attendee views. These are public demo credentials for sample data only. Open demo event signs in directly; optional credentials remain available under View demo credentials. Staff use username/password accounts, create an empty event, and invite teammates with specific roles. Attendees scan a shared QR, submit without signup, and keep a private tracking link.
+The local database and sample event are created automatically.
+For your own event, choose Start your event and follow the Step-by-step tutorial.
 
-Suggested journey: attendee requests help → organiser assigns a person → volunteer starts work and submits a result → organiser confirms completion → attendee reads the update. More → Connection help shows waiting changes and can check record integrity.
-
-VenueRelay is one responsive website/installable PWA, not separate Android/iOS apps. Offline work uses Service Workers and IndexedDB; reconnect retries retain request IDs. Browser support affects Background Sync and push; see docs/PWA.md. Browser push is optional and requires VAPID setup and permission. Phone camera/PWA access requires trusted HTTPS.
-
-Interactive API docs: http://127.0.0.1:3001/api/docs
-OpenAPI: http://127.0.0.1:3001/api/openapi.json
-Tests: npm test
-Build: npm run build
-Stop: Ctrl+C
+Checks: npm test
+Type check and build: npm run build
+API explorer: http://127.0.0.1:3001/api/docs
 ```
 
-Repository: https://github.com/thehusnain/VenueRelay. If the form asks for a demo video, link a short public recording of the working app and recovery journey; a demo recording is not included in this repository.
+## A five-minute presentation
 
-Live URL: **https://venuerelay.onrender.com**. Choose Explore the demo or use the credentials above. The Render blueprint explicitly enables the demo account. Setup: [DEPLOYMENT.md](DEPLOYMENT.md). The service already exists; updates must be deployed to it.
+| Time | Show | Explain |
+| --- | --- | --- |
+| 0:00–0:30 | Welcome screen and Step-by-step tutorial | A clear path from an attendee request to a checked result. |
+| 0:30–1:15 | Sample event, team and invitations | Organiser, volunteer and vendor permissions; one invitation per teammate. |
+| 1:15–2:30 | Attendee QR in a private window | Submit without signup, save the tracking link, then assign the request. |
+| 2:30–3:30 | Volunteer starts work; organiser confirms | A result is checked before it is marked finished. |
+| 3:30–4:15 | Connection help: pause, add a task, reconnect | Waiting work is visible and the action is saved once. |
+| 4:15–5:00 | Narrow mobile layout and Install VenueRelay | Home Screen access, readable controls and short onboarding. |
+
+Use **More → Try a different role** in the sample event for a single-presenter rehearsal. For genuine collaboration, open separate staff accounts and accept their invitations. A detailed script is in [DEMO.md](DEMO.md).
+
+Optional public sample credentials: `demo@rally.local` / `RallyDemo2026!`. These access sample data only; the **Explore the demo** button is simpler.
+
+## Screenshots
+
+[Desktop workspace](screenshots/desktop.png) · [Phone workspace](screenshots/mobile.png) · [First-user tutorial](screenshots/tutorial.png)
+
+These captures show the local revision checked on 17 November 2026.
+
+## Submission checklist
+
+- Run the clone/install/dev instructions from a clean folder.
+- Run `npm test` and `npm run build`; record the result in [VALIDATION.md](VALIDATION.md).
+- Verify the live demo URL before submitting it and deploy the final changes if needed.
+- Record a short video following the sequence above; a recording is not included in this repository.
+- Use current screenshots showing desktop, mobile and attendee entry.
+- Add the actual team names, event/category and video URL required by the hackathon form.
+- Check the event’s rules, deadline and required declarations. The repository does not establish eligibility or submit the form.
+
+## Scope and limitations
+
+VenueRelay is a responsive web app/PWA. Installation varies by browser; it is not an App Store or Play Store package. Phones need trusted HTTPS for full PWA/camera features. The local demo runs on one computer; shared phone access requires an HTTPS deployment. Browser push is optional and requires support, server configuration and permission. Open the event online once before relying on the cached shell and saved workspace offline; registration and invitations need a connection.
+
+The project contains automated API and browser checks, but emulation does not certify every physical device. Keep actual device results separate from automated results. See [PWA.md](PWA.md), [VALIDATION.md](VALIDATION.md) and [DEPLOYMENT.md](DEPLOYMENT.md).

@@ -29,6 +29,7 @@ import { InvitationDialog } from './Invitations';
 import type { Invitation } from '../../shared/contracts';
 import { notificationLink } from '../../shared/notification-link';
 import { NotificationAlerts } from './notification-alerts';
+import { QuickStart, QuickStartOffer } from './QuickStart';
 function useLocation() {
   const [route, setRoute] = useState(() => ({ path: location.pathname, fragment: location.hash }));
   useEffect(() => {
@@ -171,6 +172,14 @@ export function App() {
   };
   const browserTools = (
     <>
+      {dialog === 'guide' ? (
+        <QuickStart
+          key={data?.user.id ?? rally.account?.id ?? 'visitor'}
+          account={data?.user.id ?? rally.account?.id ?? 'visitor'}
+          onClose={() => setDialog('')}
+          onInstall={() => setDialog('pwa')}
+        />
+      ) : null}
       <PwaTools
         open={dialog === 'pwa'}
         onClose={() => setDialog('')}
@@ -205,6 +214,7 @@ export function App() {
           Skip to content
         </a>
         <Entry
+          onGuide={() => setDialog('guide')}
           onInstall={() => setDialog('pwa')}
           onScan={() => setDialog('qr')}
           path={path}
@@ -345,6 +355,14 @@ export function App() {
                   <span>More</span>
                 </summary>
                 <div className="more-panel">
+                  <button
+                    onClick={() => {
+                      if (more.current) more.current.open = false;
+                      setDialog('guide');
+                    }}
+                  >
+                    Step-by-step tutorial
+                  </button>
                   <button
                     onClick={() => {
                       if (more.current) more.current.open = false;
@@ -656,6 +674,9 @@ export function App() {
                 onInvite={invite}
               />
             )}
+            {path === '/' ? (
+              <QuickStartOffer account={data.user.id} onOpen={() => setDialog('guide')} />
+            ) : null}
           </div>
           <footer className="app-footer">
             <span>VenueRelay · {data.event.name}</span>
@@ -727,6 +748,10 @@ export function App() {
         <Modal title="A little help with VenueRelay" onClose={() => setDialog('')}>
           <div className="help-content">
             <p>VenueRelay helps everyone know what needs doing and who is helping.</p>
+            <button className="button secondary" onClick={() => setDialog('guide')}>
+              Open step-by-step tutorial
+              <ArrowRight size={18} />
+            </button>
             <ol>
               <li>
                 <strong>Ask or add a task.</strong> Say what’s needed and where.

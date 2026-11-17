@@ -1,3 +1,4 @@
+import { VenuePlan } from './VenuePlan';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
@@ -10,6 +11,7 @@ import {
   Download,
   MapPin,
   ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 import { request, RequestError } from './use-rally';
 import type { Account, Delivery } from '../../shared/contracts';
@@ -37,6 +39,7 @@ export function Entry({
   onSignOut,
   onInstall,
   onScan,
+  onGuide,
 }: {
   path: string;
   stage: string;
@@ -48,6 +51,7 @@ export function Entry({
   onSignOut: () => Promise<void>;
   onInstall: () => void;
   onScan: () => void;
+  onGuide: () => void;
 }) {
   const [demoBusy, setDemoBusy] = useState(false);
   const [demoError, setDemoError] = useState('');
@@ -203,6 +207,11 @@ export function Entry({
                   <p className="welcome-reassurance">
                     Staff use a username. Attendees scan a QR. No email needed.
                   </p>
+                  <button className="text-link welcome-tutorial" onClick={onGuide}>
+                    <BookOpen size={18} aria-hidden="true" />
+                    New here? Take the six-step tutorial
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </button>
                   {error || demoError ? (
                     <p className="form-error" role="alert">
                       {error || demoError}
@@ -220,6 +229,7 @@ export function Entry({
                   <p className="preview-venue">
                     <MapPin size={15} /> Riverside Gardens
                   </p>
+                  <VenuePlan />
                   <div className="preview-tasks">
                     {[
                       [
