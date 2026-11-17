@@ -27,7 +27,7 @@ const steps = [
       'Enter the event name, date and venue, then choose Create my event.',
     ],
     route: ['Start your event', 'Create account', 'Create my event'],
-    tip: 'Already organising? More → Create another event adds a separate event.',
+    tip: 'Already organising? More → Event tools → Create another event adds a separate event.',
   },
   {
     title: 'Invite a volunteer',
@@ -59,7 +59,7 @@ const steps = [
     description: 'Visitors scan a shared QR or open a link. They do not need an account.',
     icon: QrCode,
     instructions: [
-      'As organiser, open More → Share attendee QR, then choose Create attendee QR & link.',
+      'As organiser, open More → Event tools → Share attendee QR, then choose Create attendee QR & link.',
       'Display the QR at your event or copy the attendee link to share.',
       'Attendees describe what they need and where, then send the request. They keep their private tracking link to see updates.',
     ],
@@ -83,9 +83,9 @@ const steps = [
     description: 'Add VenueRelay to your Home Screen and come back with one tap.',
     icon: Smartphone,
     instructions: [
-      'Choose Install VenueRelay, or open More → Alerts & installation, for instructions for your device.',
+      'Choose Install VenueRelay, or open More → Help & settings → Alerts & installation, for instructions for your device.',
       'Open the event while connected first. If the connection drops, check the save status before repeating an action.',
-      'Waiting changes stay on this device until they sync. More → Connection help explains anything that needs attention.',
+      'Waiting changes stay on this device until they sync. More → Event tools → Connection help explains anything that needs attention.',
     ],
     route: ['Install', 'Open your event', 'Stay up to date'],
     tip: 'When the event is over, use More → My events & history → End this event. Its records stay in your account.',

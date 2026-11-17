@@ -52,13 +52,13 @@ Then use a private browser window:
 1. Open the home page and choose **Explore the demo**.
 2. Create a username/password staff account, save its recovery code and create an empty event.
 3. Invite a separate staff account as a volunteer. Assign a task, complete it as the volunteer, then confirm it as the organiser.
-4. Open **Saved records** on desktop, or **More → Connection help** on a phone. Confirm the record check passes.
+4. Open **Saved records** on desktop, or **More → Event tools → Connection help** on a phone. Confirm the record check passes.
 5. Queue a task while offline, reload, reconnect and confirm exactly one task appears. Repeat the documented lost-response and conflict tests locally before deployment.
 6. Check a phone-sized browser, the team invitation dialog, sign-in errors and keyboard navigation.
 7. Share an attendee QR from Your team, submit a request without signing in, and track it through completion. Disable the shared link and confirm the private tracking link still works.
 8. Where the browser offers installation, **Install VenueRelay** should open native confirmation. On iPhone/iPad, the installation help should explain Safari → Share → Add to Home Screen. Other browsers should show honest instructions and retain access to the website.
 
-Existing installed clients may finish using an older service worker. Close and reopen the app, or use **More → Alerts & installation → Update VenueRelay and reload** once pending work is saved. Never clear device storage while unsent work is waiting.
+Existing installed clients may finish using an older service worker. Close and reopen the app, or use **More → Help & settings → Alerts & installation → Update VenueRelay and reload** once pending work is saved. Never clear device storage while unsent work is waiting.
 
 ## Storage and operations
 

@@ -251,9 +251,15 @@ async (existingPage, options = {}) => {
         ['history', '/history'],
         ['new-task', '/new-task'],
       ]) {
+        if (new URL(page.url()).pathname === '/new-task')
+          await page.getByRole('button', { name: 'Back to tasks', exact: true }).tap();
         const navigation = page.getByRole('navigation', { name: 'Main navigation' });
         if (route === '/history') {
           await page.locator('.more-menu > summary').tap();
+          const tools = page
+            .locator('.more-tools')
+            .filter({ has: page.getByText('Event tools', { exact: true }) });
+          if (!(await tools.evaluate((el) => el.open))) await tools.locator('summary').tap();
           await page
             .locator('.more-panel')
             .getByRole('button', { name: 'What changed', exact: true })

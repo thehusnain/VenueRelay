@@ -65,7 +65,8 @@ async (existingPage, options = {}) => {
       'Empty event must guide the organiser',
     );
     passed.push('Mobile signup without email, recovery download and empty event setup');
-    await page.locator('.more-menu summary').click();
+    await page.locator('.more-menu > summary').click();
+    await page.getByText('Help & settings', { exact: true }).click();
     await page.getByRole('button', { name: 'Account security', exact: true }).click();
     await page.getByLabel('Current password', { exact: true }).fill('mobile password 2026');
     await page.getByRole('button', { name: 'Create replacement code', exact: true }).click();
@@ -85,7 +86,7 @@ async (existingPage, options = {}) => {
     assert(freshCode !== code, 'Security screen must replace the code');
     await audit();
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await page.locator('.more-menu summary').click();
+    await page.locator('.more-menu > summary').click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.goto(base + '/forgot-password');
     await page.getByLabel('Username', { exact: true }).fill(email);

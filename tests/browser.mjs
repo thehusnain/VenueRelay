@@ -14,6 +14,7 @@ const mode = [
   'flow',
   'tutorial',
   'team',
+  'events',
 ].includes(process.argv[2])
   ? process.argv[2]
   : 'browser';

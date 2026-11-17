@@ -57,6 +57,7 @@ export function App() {
     [dialog, setDialog] = useState(''),
     [inbox, setInbox] = useState(false),
     more = useRef<HTMLDetailsElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [sharedRole, setSharedRole] = useState<'volunteer' | 'vendor' | undefined>();
   const [selectedInvitation, setSelectedInvitation] = useState<Invitation | undefined>(),
     [invitationLinks, setInvitationLinks] = useState<Record<string, Record<string, string>>>({});
@@ -346,6 +347,7 @@ export function App() {
               <details
                 className="more-menu"
                 ref={more}
+                onToggle={(event) => setMoreOpen(event.currentTarget.open)}
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     e.currentTarget.open = false;
@@ -358,30 +360,6 @@ export function App() {
                   <span>More</span>
                 </summary>
                 <div className="more-panel">
-                  <button
-                    onClick={() => {
-                      if (more.current) more.current.open = false;
-                      setDialog('guide');
-                    }}
-                  >
-                    Step-by-step tutorial
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (more.current) more.current.open = false;
-                      setDialog('pwa');
-                    }}
-                  >
-                    Alerts & installation
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (more.current) more.current.open = false;
-                      setDialog('qr');
-                    }}
-                  >
-                    Scan a QR code
-                  </button>
                   <strong>{data.me.name}</strong>
                   <span className="account-caption">
                     {data.user.username ?? data.user.email ?? 'Sample account'}
@@ -394,28 +372,6 @@ export function App() {
                   >
                     My events & history
                   </button>
-                  {data.events.length > 1 ? (
-                    <label htmlFor="switch-event">
-                      Change event
-                      <select
-                        id="switch-event"
-                        aria-label="Change event"
-                        value={data.event.id}
-                        disabled={!!pending.length}
-                        onChange={async (e) => {
-                          await rally.switchContext(e.target.value, 'self');
-                          go('/');
-                        }}
-                      >
-                        {data.events.map((event) => (
-                          <option key={event.id} value={event.id}>
-                            {event.name}
-                            {event.ended_at ? ' (ended)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
                   {data.event.is_demo ? (
                     <label htmlFor="preview-role">
                       Try a different role
@@ -436,62 +392,92 @@ export function App() {
                       </select>
                     </label>
                   ) : null}
-                  <button onClick={() => go('/history')}>What changed</button>
-                  <button onClick={() => go('/connection-help')}>
-                    Connection help{pending.length ? ` (${pending.length})` : ''}
-                  </button>
-                  {org ? (
-                    <>
-                      <button
-                        disabled={!!data.event.ended_at}
-                        onClick={() => {
-                          if (more.current) more.current.open = false;
-                          if (!data.event.ended_at) setDialog('announcement');
-                        }}
-                      >
-                        Send a team update
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (more.current) more.current.open = false;
-                          setDialog('attendees');
-                        }}
-                      >
-                        Share attendee QR
-                      </button>
-                      <button onClick={() => go('/connections')}>Connect another app</button>
-                      <button
-                        onClick={() => {
-                          if (data.user.username || data.user.email) setDialog('event');
-                          else account();
-                          if (more.current) more.current.open = false;
-                        }}
-                      >
-                        Create another event
-                      </button>
-                    </>
-                  ) : null}
-                  <button
-                    onClick={() => {
-                      if (more.current) more.current.open = false;
-                      setDialog('help');
-                    }}
-                  >
-                    How to use VenueRelay
-                  </button>
-                  {!data.user.email && !data.user.username ? (
-                    <button onClick={account}>Create your own account</button>
-                  ) : null}
-                  {!data.event.is_demo ? (
+                  <details className="more-tools">
+                    <summary>Event tools</summary>
+                    <button onClick={() => go('/history')}>What changed</button>
+                    <button onClick={() => go('/connection-help')}>
+                      Connection help{pending.length ? ` (${pending.length})` : ''}
+                    </button>
+                    {org ? (
+                      <>
+                        <button
+                          disabled={!!data.event.ended_at}
+                          onClick={() => {
+                            if (more.current) more.current.open = false;
+                            if (!data.event.ended_at) setDialog('announcement');
+                          }}
+                        >
+                          Send a team update
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (more.current) more.current.open = false;
+                            setDialog('attendees');
+                          }}
+                        >
+                          Share attendee QR
+                        </button>
+                        <button onClick={() => go('/connections')}>Connect another app</button>
+                        <button
+                          onClick={() => {
+                            if (data.user.username || data.user.email) setDialog('event');
+                            else account();
+                            if (more.current) more.current.open = false;
+                          }}
+                        >
+                          Create another event
+                        </button>
+                      </>
+                    ) : null}
+                  </details>
+                  <details className="more-tools">
+                    <summary>Help & settings</summary>
                     <button
                       onClick={() => {
                         if (more.current) more.current.open = false;
-                        setDialog('security');
+                        setDialog('guide');
                       }}
                     >
-                      Account security
+                      Step-by-step tutorial
                     </button>
-                  ) : null}
+                    <button
+                      onClick={() => {
+                        if (more.current) more.current.open = false;
+                        setDialog('pwa');
+                      }}
+                    >
+                      Alerts & installation
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (more.current) more.current.open = false;
+                        setDialog('qr');
+                      }}
+                    >
+                      Scan a QR code
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (more.current) more.current.open = false;
+                        setDialog('help');
+                      }}
+                    >
+                      How to use VenueRelay
+                    </button>
+                    {!data.user.email && !data.user.username ? (
+                      <button onClick={account}>Create your own account</button>
+                    ) : null}
+                    {!data.event.is_demo ? (
+                      <button
+                        onClick={() => {
+                          if (more.current) more.current.open = false;
+                          setDialog('security');
+                        }}
+                      >
+                        Account security
+                      </button>
+                    ) : null}
+                  </details>
                   <button
                     onClick={async () => {
                       await rally.signOut();
@@ -723,6 +709,7 @@ export function App() {
       {browserTools}
       <NotificationAlerts
         data={data}
+        quiet={path === '/new-task' || !!selected || !!dialog || inbox || moreOpen}
         onOpen={(note) => {
           if (!note.read_at)
             void rally.markRead([note.id]).catch((error) => rally.setToast(error.message));
@@ -811,8 +798,8 @@ export function App() {
               </li>
             </ol>
             <p>
-              Updates appear in the bell at the top. Waiting changes can be checked in More →
-              Connection help.
+              Updates appear in the bell at the top. Waiting changes can be checked in More → Event
+              tools → Connection help.
             </p>
             <button className="button primary" onClick={() => setDialog('')}>
               Got it

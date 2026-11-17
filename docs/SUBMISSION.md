@@ -41,11 +41,11 @@ API explorer: http://127.0.0.1:3001/api/docs
 | Time | Show | Explain |
 | --- | --- | --- |
 | 0:00–0:30 | Welcome screen and Step-by-step tutorial | A clear path from an attendee request to a checked result. |
-| 0:30–1:15 | Sample event, team and invitations | Organiser, volunteer and vendor permissions; one invitation per teammate. |
+| 0:30–1:15 | Sample event, team and invitations | Organiser, volunteer and vendor permissions; reusable role links and optional personal invitations. |
 | 1:15–2:30 | Attendee QR in a private window | Submit without signup, save the tracking link, then assign the request. |
 | 2:30–3:30 | Volunteer starts work; organiser confirms | A result is checked before it is marked finished. |
 | 3:30–4:15 | Connection help: pause, add a task, reconnect | Waiting work is visible and the action is saved once. |
-| 4:15–5:00 | Narrow mobile layout and Install VenueRelay | Home Screen access, readable controls and short onboarding. |
+| 4:15–5:00 | Focused mobile task form, My events & history, installation guidance | Less distraction, Live/Upcoming/Past filters, retained event records and Home Screen access. |
 
 Use **More → Try a different role** in the sample event for a single-presenter rehearsal. For genuine collaboration, open separate staff accounts and accept their invitations. A detailed script is in [DEMO.md](DEMO.md).
 
@@ -53,9 +53,9 @@ Optional public sample credentials: `demo@rally.local` / `RallyDemo2026!`. These
 
 ## Screenshots
 
-[Desktop workspace](screenshots/desktop.png) · [Phone workspace](screenshots/mobile.png) · [First-user tutorial](screenshots/tutorial.png)
+[Desktop workspace](screenshots/desktop.png) · [Phone workspace](screenshots/mobile.png) · [Focused task form](screenshots/mobile-task.png) · [Event history](screenshots/event-history.png) · [First-user tutorial](screenshots/tutorial.png) · [Attendee help](screenshots/attendee-form.png)
 
-These captures show the local revision checked on 17 November 2026.
+These captures show the local revision checked on 17 November 2026, using sample data and illustrative local events. The event-history screenshot includes today’s, upcoming and ended events.
 
 ## Submission checklist
 

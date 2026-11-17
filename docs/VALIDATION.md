@@ -1,8 +1,37 @@
 # Validation
 
-Checked locally on **17 November 2026**, using Node.js 24 and Chromium. These results cover the working source in this revision. They do not establish that the hosted demo has been updated.
+Checked on **17 November 2026**, using Node.js 24 and Chromium. Local checks cover the working source. The separate [live test report](LIVE_TEST_REPORT.md) records checks against the hosted application; local changes have not been deployed by this run.
 
-## Latest follow-up: joining, date fields and event history
+## Latest follow-up: live testing, event filters and simpler mobile flows
+
+| Check | Result |
+| --- | --- |
+| Live site with four new staff accounts | 21 functional check groups passed; 24 layout/accessibility checks; one notification obstruction found and fixed locally |
+| `npm test` | 73 passed, including Pakistan-midnight classification, manual end/reopen precedence and event ordering |
+| `npm run test:events` | 3 groups passed: account filters, empty views and switching, mobile task focus and deferred notifications; phone/landscape/desktop axe checks passed |
+| `npm run test:mobile` | 52 checks passed |
+| `npm run test:usability` | 12 checks passed |
+| `npm run test:flow` | 5 journeys passed |
+| `npm run test:accounts` | 2 journeys passed |
+| `npm run test:tutorial` | 6 groups passed |
+| `npm run test:pwa` | 8 checks passed |
+| `npm run test:browser` | 15 checks passed, including duplicate retry and concurrent-edit conflict recovery |
+| `npm run build` | TypeScript and production build passed; Vite still reports its non-fatal main-chunk size advisory |
+| Formatting and `git diff --check` | Passed for the changed application files and new tests |
+
+The live test event was ended and its shared role links disabled after testing. Test accounts, screenshots and results are retained for inspection; private credentials are only in an ignored local file. New event filters only use events already connected to the account. Passing a date does not automatically archive records.
+
+The mobile task form now hides extra header actions, bottom navigation, the footer and the duplicate step indicator. More groups secondary actions under Event tools and Help & settings. Tests inject a real incoming attendee request while the task form is open, verify that the banner does not cover it, then verify that the deferred notification remains available after leaving. The open More menu is also protected from overlapping banners. Screenshot inspection caught and corrected a duplicate event-button label before the final event-filter check.
+
+Physical iPhone/Android installation, native iOS input rendering and background push delivery remain outside this validation. Automated sound checks verify Web Audio scheduling, not a physical speaker.
+
+## Judge-facing repository review
+
+The final source was copied into a fresh directory with no `.env`, dependencies, build output or database. Plain `npm install` completed, `npm test` passed all 73 tests, `npm run build` passed and plain `npm run dev` served the built app at port 3001 and the editor at port 5173. The sample event opened through Explore the demo. No database service or API keys were configured. This validates the install/start portion of the documented clone workflow against the reviewed source.
+
+README and submission documentation now explain role links, attendee help versus registration, task versus session, event date filters and the simpler mobile menu paths. Six screenshots were captured from the current local build. Relative documentation links and tracked-file credential/artifact checks were reviewed before committing; the credential-like URI in a deployment test is an intentional `example.com` fixture.
+
+## Earlier follow-up: joining, date fields and event history
 
 | Check | Result |
 | --- | --- |

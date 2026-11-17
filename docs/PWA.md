@@ -4,7 +4,7 @@ VenueRelay is a website with an offline-capable app shell. It works without inst
 
 ## Install on your phone
 
-Choose **Install VenueRelay** on the welcome page or in the workspace. Installation stays discoverable even when the browser has no automatic prompt. **More → Alerts & installation** also opens these instructions.
+Choose **Install VenueRelay** on the welcome page or **More → Help & settings → Alerts & installation** in the workspace. The desktop workspace also has a header install button. Installation guidance stays available even when the browser has no automatic prompt.
 
 ### iPhone and iPad
 
@@ -38,11 +38,11 @@ The outbox uses a stable key per intent. After a lost acknowledgement, retrying 
 
 Background Sync is optional. Where it is unavailable, foreground and reopen retries provide recovery. Do not erase browser data or uninstall the app while changes are waiting.
 
-Each service worker reads its own versioned cache. Older retained caches cannot replace the current shell or logo. Updates wait until it is safe to reload; **More → Alerts & installation** exposes the update action when available.
+Each service worker reads its own versioned cache. Older retained caches cannot replace the current shell or logo. Updates wait until it is safe to reload; **More → Help & settings → Alerts & installation** exposes the update action when available.
 
 ## Notifications and QR codes
 
-In-app updates are durable and do not need browser permissions. Opening a notification navigates immediately; its read acknowledgement is saved in the device outbox and retried safely. New unread updates show an actionable banner while the app is visible. **More → Alerts & installation → Turn on alert sound** unlocks a short chime with a real user gesture. No sound is played for the existing inbox on initial load or for duplicate refreshes.
+In-app updates are durable and do not need browser permissions. Opening a notification navigates immediately; its read acknowledgement is saved in the device outbox and retried safely. New unread updates show an actionable banner while the app is visible. Banners are deferred while a task, dialog, inbox or More menu is open so they cannot cover controls; updates remain in the bell. **More → Help & settings → Alerts & installation → Turn on alert sound** unlocks a short chime with a real user gesture. No sound is played for the existing inbox on initial load or for duplicate refreshes.
 
 Browser push requires HTTPS and explicit permission. The MongoDB backend retains its own VAPID pair unless environment keys override it. Push links include the event, task and notification IDs so a tap opens the correct event, including after sign-in. The service worker requests normal sound and vibration where supported; OS silent/Focus settings take precedence. On iPhone, background web notifications require the Home Screen app. On iOS, use the manual Home Screen steps above; the app does not pretend to provide a one-click native installer.
 

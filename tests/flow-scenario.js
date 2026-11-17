@@ -119,13 +119,18 @@ async (existingPage, options = {}) => {
         openMs +
         'ms) and updates the local unread badge',
     );
-    await page.locator('.more-menu summary').tap();
+    await page.locator('.more-menu > summary').tap();
+    await page.getByText('Help & settings', { exact: true }).tap();
     await page.getByRole('button', { name: 'Alerts & installation', exact: true }).tap();
     await page.getByRole('button', { name: 'Turn on alert sound', exact: true }).tap();
     await page.getByRole('button', { name: 'Turn off alert sound', exact: true }).waitFor();
     const soundBefore = await page.evaluate(() => window.__chimes ?? 0);
     await audit('alert-settings-320');
     await page.keyboard.press('Escape');
+    await page
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('button', { name: 'Tasks', exact: true })
+      .tap();
     await guest('Signs needed at the entrance');
     await page.locator('.notification-alert').waitFor();
     assert(

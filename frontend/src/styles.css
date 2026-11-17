@@ -856,7 +856,8 @@ pre {
   border-radius: 12px;
   padding: 10px;
 }
-.more-panel > button {
+.more-panel > button,
+.more-tools > button {
   display: block;
   min-height: 44px;
   width: 100%;
@@ -865,15 +866,26 @@ pre {
   padding: 11px 12px;
   border-radius: 6px;
 }
-.more-panel > button:hover {
+.more-panel > button:hover,
+.more-tools > button:hover,
+.more-tools > summary:hover {
   background: var(--selected);
 }
 .more-panel > strong {
   display: block;
   padding: 16px 12px 0;
-  margin-top: 5px;
-  border-top: 1px solid var(--border);
   font-size: 13px;
+}
+.more-tools {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.more-tools > summary {
+  min-height: 44px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .account-caption {
   display: block;
@@ -2753,11 +2765,7 @@ pre {
     font-size: 9px;
   }
   .header-install {
-    font-size: 10px;
-    padding-inline: 3px;
-    margin-left: 0;
-    flex-direction: column;
-    gap: 3px;
+    display: none;
   }
   .more-panel {
     right: -4px;
@@ -3367,6 +3375,35 @@ pre {
   margin-top: 4px;
 }
 @media (max-width: 720px) {
+  .is-task-form .main-navigation,
+  .is-task-form .header-actions,
+  .is-task-form .header-install,
+  .is-task-form .sample-strip,
+  .is-task-form .app-footer,
+  .is-task-form .wizard-stepper {
+    display: none;
+  }
+  .is-task-form .app-main {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  .is-task-form .task-wizard .entry-intro {
+    margin-bottom: 20px;
+  }
+  .is-task-form .task-wizard form {
+    margin-top: 20px;
+  }
+  .is-task-form .step-actions {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .is-task-form .step-actions .button.secondary {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .is-task-form .step-actions .button.primary {
+    flex: 1;
+    width: auto;
+  }
   .attendee-main {
     margin-top: 18px;
   }
@@ -3545,6 +3582,52 @@ pre {
 .join-alert-settings {
   padding-top: 14px;
 }
+.event-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 20px;
+}
+.event-filters button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.event-filters button:hover,
+.event-filters button[aria-pressed='true'] {
+  background: var(--selected);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.event-filters button span {
+  font-variant-numeric: tabular-nums;
+}
+.event-filter-description,
+.account-events-empty p {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.account-events-empty {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.account-events-empty .text-link {
+  margin-top: 16px;
+}
+.event-lifecycle-actions .event-lifecycle-current {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
 .account-event {
   display: flex;
   align-items: center;
@@ -3608,5 +3691,10 @@ pre {
   }
   .account-event {
     flex-wrap: wrap;
+  }
+}
+@media (max-width: 480px) {
+  .event-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

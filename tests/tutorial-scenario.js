@@ -98,7 +98,8 @@ async (existingPage, options = {}) => {
       (await page.getByRole('button', { name: 'Start tutorial', exact: true }).count()) === 0,
       'Dismissal survives reload for this account',
     );
-    await page.locator('.more-menu summary').click();
+    await page.locator('.more-menu > summary').click();
+    await page.getByText('Help & settings', { exact: true }).click();
     await page.getByRole('button', { name: 'Step-by-step tutorial', exact: true }).click();
     await dialog.getByRole('heading', { name: titles[0], exact: true }).waitFor();
     passed.push('First workspace offers the tutorial; dismissal persists and More can replay it');

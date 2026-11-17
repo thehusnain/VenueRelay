@@ -64,9 +64,11 @@ export function useAlertSound(userId: string) {
 export function NotificationAlerts({
   data,
   onOpen,
+  quiet = false,
 }: {
   data: Snapshot;
   onOpen: (note: Notification) => void;
+  quiet?: boolean;
 }) {
   const [note, setNote] = useState<Notification | null>(null),
     [error, setError] = useState('');
@@ -103,7 +105,7 @@ export function NotificationAlerts({
     if (note && data.notifications.some((item) => item.id === note.id && item.read_at))
       setNote(null);
   }, [scope, data.notifications, enabled]);
-  if (!note) return null;
+  if (!note || quiet) return null;
   return (
     <aside className="notification-alert" aria-label="New event update">
       <Bell size={20} aria-hidden="true" />
