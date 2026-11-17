@@ -1,3 +1,5 @@
+import { sessionPreference } from './session-preferences';
+import { useAlertSound } from './notification-alerts';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, Clipboard, RefreshCw, Share2, ShieldCheck } from 'lucide-react';
 import type { Invitation, InvitationPage, Snapshot } from '../../shared/contracts';
@@ -8,6 +10,7 @@ import { request, RequestError } from './use-rally';
 
 export function InvitationDialog({
   data,
+  sharedRole,
   invitation,
   savedLink,
   onClose,
@@ -16,6 +19,7 @@ export function InvitationDialog({
   onPending,
 }: {
   data: Snapshot;
+  sharedRole?: 'volunteer' | 'vendor';
   invitation?: Invitation;
   savedLink?: string;
   onClose: () => void;
@@ -23,7 +27,17 @@ export function InvitationDialog({
   onCreated: (id: string, link: string) => void;
   onPending: () => void;
 }) {
-  const [link, setLink] = useState(savedLink ?? ''),
+  const reusable = !!sharedRole || !!invitation?.reusable;
+  const role = sharedRole ?? invitation?.role;
+  const [link, setLink] = useState(
+      savedLink ??
+        (invitation?.reusable
+          ? sessionPreference.get(
+              `rally:role-link:${data.user.id}:${data.event.id}:${invitation.id}`,
+            )
+          : '') ??
+        '',
+    ),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [copied, setCopied] = useState(false),
@@ -43,13 +57,20 @@ export function InvitationDialog({
     setError('');
     setDuplicate(false);
     try {
-      const payload = Object.fromEntries(new FormData(event.currentTarget));
+      const payload = sharedRole
+        ? { role: sharedRole, reusable: true }
+        : Object.fromEntries(new FormData(event.currentTarget));
       const response = await request(
         `/events/${data.event.id}/invitations${invitation ? '/' + invitation.id + '/renew' : ''}`,
         { method: 'POST', body: JSON.stringify(payload) },
         persona,
       );
       const next = `${location.origin}/?invite=${encodeURIComponent(response.token)}`;
+      if (response.reusable)
+        sessionPreference.set(
+          `rally:role-link:${data.user.id}:${data.event.id}:${response.id}`,
+          next,
+        );
       setLink(next);
       setCopied(false);
       onCreated(response.id, next);
@@ -71,7 +92,9 @@ export function InvitationDialog({
           ? 'Share this invitation'
           : invitation
             ? 'Replace invitation link'
-            : 'Invite a teammate'
+            : sharedRole
+              ? `Create ${sharedRole} join link`
+              : 'Invite a teammate'
       }
       onClose={onClose}
     >
@@ -81,8 +104,9 @@ export function InvitationDialog({
             <Check size={18} /> Your invitation is ready
           </h3>
           <p>
-            Send this personal link to your teammate. They sign in or create a staff account to
-            join. It works once and expires in 48 hours.
+            {reusable
+              ? `Send the same link to all your ${role === 'vendor' ? 'vendors' : 'volunteers'}. Each person signs in or creates an account and joins using their account name. This link works for seven days, until replaced or disabled.`
+              : 'Send this personal link to your teammate. They sign in or create a staff account to join. It works once and expires in 48 hours.'}
           </p>
           <label>
             Invitation link
@@ -154,9 +178,18 @@ export function InvitationDialog({
             <>
               <p className="form-intro">
                 Create a new link for <strong>{invitation.name}</strong> ({invitation.role}). The
-                previous link will stop working. Their invitation stays in your pending list.
+                previous link will stop working.{' '}
+                {reusable
+                  ? 'Anyone already joined stays on the team. Share the replacement with people who still need to join.'
+                  : 'Their invitation stays in your pending list.'}
               </p>
             </>
+          ) : sharedRole ? (
+            <p className="form-intro">
+              Create one link for all {sharedRole === 'vendor' ? 'vendors' : 'volunteers'}. Each
+              person creates an account or signs in, then joins under their own name. Only share
+              this link with people you want on your team.
+            </p>
           ) : (
             <>
               <p className="form-intro">
@@ -178,7 +211,11 @@ export function InvitationDialog({
           )}
           <div className="form-note">
             <ShieldCheck size={17} />
-            <span>Each invitation is single-use and lasts 48 hours.</span>
+            <span>
+              {reusable
+                ? 'Anyone with this link can join with this role. You can disable it anytime in Your team.'
+                : 'Each invitation is single-use and lasts 48 hours.'}
+            </span>
           </div>
           {error ? (
             <p className="form-error" role="alert">
@@ -196,7 +233,13 @@ export function InvitationDialog({
               Cancel
             </button>
             <button className="button primary" disabled={busy}>
-              {busy ? 'Creating…' : invitation ? 'Create replacement link' : 'Create invitation'}
+              {busy
+                ? 'Creating…'
+                : invitation
+                  ? 'Create replacement link'
+                  : sharedRole
+                    ? 'Create join link'
+                    : 'Create invitation'}
               <ArrowRight size={16} />
             </button>
           </div>
@@ -219,8 +262,10 @@ export function InvitationPanel({
   savedLinks,
   onShare,
   onChanged,
+  onCreateRole,
 }: {
   data: Snapshot;
+  onCreateRole: (role: 'volunteer' | 'vendor') => void;
   savedLinks: Record<string, string>;
   onShare: (invitation: Invitation) => void;
   onChanged: () => Promise<void>;
@@ -228,6 +273,7 @@ export function InvitationPanel({
   const [page, setPage] = useState<InvitationPage | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState('');
+  const sound = useAlertSound(data.user.id);
   const persona = data.event.is_demo ? data.me.role : 'self';
   const generation = useRef(0);
   const load = useCallback(
@@ -271,7 +317,7 @@ export function InvitationPanel({
         <p>
           <span className="invitation-role">{invitation.role}</span> ·{' '}
           {invitation.status === 'pending'
-            ? `Expires ${expiry(invitation.expiresAt)}`
+            ? `${invitation.reusable ? `${invitation.joinCount ?? 0} joined · ` : ''}Expires ${expiry(invitation.expiresAt)}`
             : invitation.status === 'accepted'
               ? 'Joined your team'
               : invitation.status === 'cancelled'
@@ -284,22 +330,36 @@ export function InvitationPanel({
           {invitation.status === 'accepted'
             ? 'Joined'
             : invitation.status === 'pending'
-              ? 'Pending'
+              ? invitation.reusable
+                ? 'Active'
+                : 'Pending'
               : invitation.status === 'expired'
                 ? 'Expired'
                 : 'Cancelled'}
         </span>
         {['pending', 'expired'].includes(invitation.status) ? (
-          <button className="text-link" onClick={() => onShare(invitation)}>
-            {invitation.status === 'pending' && savedLinks[invitation.id]
-              ? 'Share invitation'
+          <button
+            className="text-link"
+            onClick={() => onShare(invitation)}
+            disabled={!!data.event.ended_at}
+          >
+            {invitation.status === 'pending' &&
+            (savedLinks[invitation.id] ||
+              (invitation.reusable &&
+                sessionPreference.get(
+                  `rally:role-link:${data.user.id}:${data.event.id}:${invitation.id}`,
+                )))
+              ? invitation.reusable
+                ? 'Share join link'
+                : 'Share invitation'
               : 'Replace link'}
           </button>
         ) : null}
-        {invitation.status === 'pending' ? (
+        {invitation.status === 'pending' ||
+        (invitation.reusable && invitation.status === 'expired') ? (
           <button
             className="text-link cancel-invitation"
-            disabled={!!busy}
+            disabled={!!busy || !!data.event.ended_at}
             onClick={async () => {
               setBusy(invitation.id);
               setError('');
@@ -318,7 +378,11 @@ export function InvitationPanel({
               }
             }}
           >
-            {busy === invitation.id ? 'Cancelling…' : 'Cancel invitation'}
+            {busy === invitation.id
+              ? 'Cancelling…'
+              : invitation.reusable
+                ? 'Disable link'
+                : 'Cancel invitation'}
           </button>
         ) : null}
       </div>
@@ -328,6 +392,49 @@ export function InvitationPanel({
     history = page?.items.filter((invitation) => invitation.status !== 'pending') ?? [];
   return (
     <section className="invitation-panel" aria-labelledby="pending-invitations">
+      <section className="team-join-links" aria-labelledby="team-links-heading">
+        <h2 id="team-links-heading">Team join links</h2>
+        <p>
+          One link for your volunteers, another for your vendors. People join using their own
+          account name.
+        </p>
+        {page
+          ? (['volunteer', 'vendor'] as const).map((role) => {
+              const link = page.roleLinks?.find((item) => item.role === role);
+              return link ? (
+                row(link)
+              ) : (
+                <div className="invitation-row" key={role}>
+                  <div>
+                    <h3>{role === 'volunteer' ? 'Volunteers' : 'Vendors'}</h3>
+                    <p>No shared link yet.</p>
+                  </div>
+                  <button
+                    className="button secondary"
+                    onClick={() => onCreateRole(role)}
+                    disabled={!!data.event.ended_at}
+                  >
+                    Create {role} link
+                  </button>
+                </div>
+              );
+            })
+          : null}
+        <div className="join-alert-settings">
+          <p>
+            New team members and attendee help requests appear in Updates. Sound plays while the app
+            is open and active.
+          </p>
+          <button
+            className="text-link"
+            onClick={() =>
+              void sound.change(!sound.enabled).catch((error) => setError(error.message))
+            }
+          >
+            {sound.enabled ? 'Turn off notification sound' : 'Enable notification sound'}
+          </button>
+        </div>
+      </section>
       <div className="panel-heading">
         <h2 id="pending-invitations">
           Pending invitations{page ? <span className="count-tag">{page.pendingCount}</span> : null}

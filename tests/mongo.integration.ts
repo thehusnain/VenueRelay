@@ -930,3 +930,59 @@ test('public attendees submit once without accounts, remain private and preserve
     await isolated.close();
   }
 });
+
+test('shared role links serialize joins, notify the organiser once, and retain ended events', async () => {
+  const { lead, ctx } = await fixture();
+  const first = await account('Shared volunteer one'),
+    second = await account('Shared volunteer two'),
+    supplier = await account('Shared vendor');
+  const link = await backend.domain.invite(ctx, { role: 'volunteer', reusable: true });
+  await assert.rejects(
+    backend.domain.invite(ctx, { role: 'volunteer', reusable: true }),
+    /already exists/,
+  );
+  await Promise.all([
+    backend.domain.accept(first.user, link.token),
+    backend.domain.accept(second.user, link.token),
+    backend.domain.accept(first.user, link.token),
+  ]);
+  const roster = await store.all<Member>('members', { event_id: ctx.event.id });
+  assert.equal(roster.length, 3);
+  const notifications = await store.all('notifications', { member_id: ctx.me.id });
+  assert.equal(notifications.length, 2);
+  const listing = await backend.domain.listInvitations(ctx, 0, 50);
+  assert.equal(listing.roleLinks[0].joinCount, 2);
+  assert.ok(!JSON.stringify(listing).includes(link.token));
+  const vendorLink = await backend.domain.invite(ctx, { role: 'vendor', reusable: true });
+  await assert.rejects(backend.domain.accept(first.user, vendorLink.token), /already belong/);
+  await backend.domain.accept(supplier.user, vendorLink.token);
+  const key = id(),
+    input: CommandInput = {
+      action: 'task.create',
+      payload: { title: 'Keep the event record', location: 'Town hall', priority: 'normal' },
+    };
+  const created = await backend.domain.execute(ctx, key, input);
+  await backend.domain.setEnded(ctx, true);
+  await backend.domain.setEnded(ctx, true);
+  assert.equal(
+    (await store.all('activity', { event_id: ctx.event.id, action: 'event.end' })).length,
+    1,
+  );
+  await assert.rejects(backend.domain.execute(ctx, id(), input), /read-only/);
+  assert.equal((await backend.domain.execute(ctx, key, input)).entityId, created.entityId);
+  await assert.rejects(
+    backend.domain.invite(ctx, { name: 'New teammate', role: 'vendor' }),
+    /read-only/,
+  );
+  const freshCtx = await backend.domain.context(req(lead.session), ctx.event.id);
+  assert.ok(freshCtx.event.ended_at);
+  await backend.domain.setEnded(freshCtx, false);
+  const renewed = await backend.domain.manageInvitation(ctx, link.id, true);
+  assert.ok('token' in renewed);
+  await assert.rejects(backend.domain.accept(second.user, link.token), /invalid or expired/);
+  await backend.domain.manageInvitation(ctx, vendorLink.id, false);
+  await assert.rejects(
+    backend.domain.accept(supplier.user, vendorLink.token),
+    /invalid or expired/,
+  );
+});

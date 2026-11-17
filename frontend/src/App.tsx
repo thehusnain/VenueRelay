@@ -1,3 +1,4 @@
+import { MyEvents } from './MyEvents';
 import { InstallButton, PwaTools } from './PwaTools';
 import { QrScanner, parseRallyLink } from './qr';
 import { sessionPreference } from './session-preferences';
@@ -56,6 +57,7 @@ export function App() {
     [dialog, setDialog] = useState(''),
     [inbox, setInbox] = useState(false),
     more = useRef<HTMLDetailsElement>(null);
+  const [sharedRole, setSharedRole] = useState<'volunteer' | 'vendor' | undefined>();
   const [selectedInvitation, setSelectedInvitation] = useState<Invitation | undefined>(),
     [invitationLinks, setInvitationLinks] = useState<Record<string, Record<string, string>>>({});
   const [joiningInvitation, setJoiningInvitation] = useState(
@@ -74,6 +76,7 @@ export function App() {
     }
   }, [joiningInvitation, rally.stage, data?.me.id]);
   const invite = () => {
+    setSharedRole(undefined);
     setSelectedInvitation(undefined);
     setDialog('invite');
   };
@@ -383,6 +386,14 @@ export function App() {
                   <span className="account-caption">
                     {data.user.username ?? data.user.email ?? 'Sample account'}
                   </span>
+                  <button
+                    onClick={() => {
+                      if (more.current) more.current.open = false;
+                      setDialog('my-events');
+                    }}
+                  >
+                    My events & history
+                  </button>
                   {data.events.length > 1 ? (
                     <label htmlFor="switch-event">
                       Change event
@@ -399,6 +410,7 @@ export function App() {
                         {data.events.map((event) => (
                           <option key={event.id} value={event.id}>
                             {event.name}
+                            {event.ended_at ? ' (ended)' : ''}
                           </option>
                         ))}
                       </select>
@@ -431,9 +443,10 @@ export function App() {
                   {org ? (
                     <>
                       <button
+                        disabled={!!data.event.ended_at}
                         onClick={() => {
                           if (more.current) more.current.open = false;
-                          setDialog('announcement');
+                          if (!data.event.ended_at) setDialog('announcement');
                         }}
                       >
                         Send a team update
@@ -557,6 +570,17 @@ export function App() {
         ) : null}
         <main id="main" className="app-main" tabIndex={-1}>
           <div className="page-scene" key={path + data.me.id}>
+            {data.event.ended_at ? (
+              <aside className="ended-event-notice" role="status">
+                <div>
+                  <strong>This event has ended</strong>
+                  <p>Your tasks, team and history are saved. This workspace is read-only.</p>
+                </div>
+                <button className="text-link" onClick={() => setDialog('my-events')}>
+                  My events & history
+                </button>
+              </aside>
+            ) : null}
             {rally.error ? (
               <div className="plain-notice warning" role="alert">
                 <p>{rally.error}</p>
@@ -636,8 +660,14 @@ export function App() {
                   <TeamPage
                     data={data}
                     onInvite={invite}
+                    onInviteRole={(role) => {
+                      setSharedRole(role);
+                      setSelectedInvitation(undefined);
+                      setDialog('invite');
+                    }}
                     onAttendees={() => setDialog('attendees')}
                     onShareInvitation={(invitation) => {
+                      setSharedRole(undefined);
                       setSelectedInvitation(invitation);
                       setDialog('invite');
                     }}
@@ -700,8 +730,21 @@ export function App() {
           else setInbox(true);
         }}
       />
+      {dialog === 'my-events' ? (
+        <MyEvents
+          data={data}
+          pending={!!pending.length}
+          onClose={() => setDialog('')}
+          onOpen={async (id) => {
+            await rally.switchContext(id, 'self');
+            go('/');
+          }}
+          onChanged={rally.refresh}
+        />
+      ) : null}
       {dialog === 'invite' ? (
         <InvitationDialog
+          sharedRole={sharedRole}
           key={selectedInvitation?.id ?? 'new'}
           data={data}
           invitation={selectedInvitation}

@@ -152,6 +152,7 @@ textarea {
 }
 label {
   display: grid;
+  min-width: 0;
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
@@ -161,6 +162,25 @@ label + label {
 }
 form {
   min-width: 0;
+}
+/* iOS date controls otherwise impose native content-box sizing and overflow. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+  text-align: left;
+}
+input::-webkit-date-and-time-value {
+  min-width: 0;
+  min-height: 1.5em;
+  text-align: left;
 }
 form > .button {
   margin-top: 20px;
@@ -423,15 +443,8 @@ pre {
   gap: 6px;
   align-items: center;
 }
-.venue-plan {
-  display: block;
-  width: calc(100% + 48px);
-  height: auto;
-  margin: 22px -24px 0;
-  background: #173f35;
-}
 .preview-tasks {
-  margin-top: 0;
+  margin-top: 24px;
 }
 .preview-task {
   display: grid;
@@ -2594,10 +2607,6 @@ pre {
   .welcome-preview {
     padding-inline: 20px;
   }
-  .venue-plan {
-    width: calc(100% + 40px);
-    margin-inline: -20px;
-  }
   .welcome-copy h1 {
     font-size: clamp(40px, 6.6vw, 60px);
   }
@@ -2672,12 +2681,6 @@ pre {
   }
   .preview-heading {
     margin-bottom: 18px;
-  }
-  .venue-plan g text {
-    font-size: 20px;
-  }
-  .venue-plan > text {
-    font-size: 17px;
   }
   .welcome-explanation {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3519,5 +3522,91 @@ pre {
   }
   .step-actions .button {
     width: 100%;
+  }
+}
+
+/* Shared access and retained event history. */
+.team-join-links {
+  margin-bottom: 26px;
+}
+.team-join-links > p,
+.join-alert-settings p {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 65ch;
+  margin-top: 8px;
+}
+.team-join-links .invitation-row > div {
+  min-width: 0;
+}
+.team-join-links .invitation-row > .button {
+  flex-shrink: 0;
+}
+.join-alert-settings {
+  padding-top: 14px;
+}
+.account-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.account-event > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-event p,
+.event-lifecycle-actions p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.account-event .button,
+.current-event {
+  flex-shrink: 0;
+}
+.current-event {
+  font-size: 12px;
+  color: var(--muted);
+}
+.event-lifecycle-label {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--brand);
+  font-size: 12px;
+}
+.event-lifecycle-actions {
+  margin-top: 22px;
+}
+.event-lifecycle-actions p {
+  margin-top: 12px;
+}
+.event-end-confirm p {
+  margin-top: 16px;
+  color: var(--muted);
+}
+.ended-event-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  border-radius: 10px;
+  background: var(--selected);
+}
+.ended-event-notice p {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .ended-event-notice {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .account-event {
+    flex-wrap: wrap;
   }
 }

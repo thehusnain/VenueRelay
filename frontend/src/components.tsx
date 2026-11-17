@@ -197,13 +197,17 @@ export function ActivityList({
                                 ? 'added a programme session'
                                 : a.action === 'announcement.create'
                                   ? 'posted an announcement'
-                                  : a.action === 'member.join'
-                                    ? 'joined the event'
-                                    : a.action === 'invitation.create'
-                                      ? 'created an invitation'
-                                      : a.action === 'integration.create'
-                                        ? 'created an integration token'
-                                        : 'revoked an integration token'}
+                                  : a.action === 'event.end'
+                                    ? 'ended the event'
+                                    : a.action === 'event.reopen'
+                                      ? 'reopened the event'
+                                      : a.action === 'member.join'
+                                        ? 'joined the event'
+                                        : a.action === 'invitation.create'
+                                          ? 'created an invitation'
+                                          : a.action === 'integration.create'
+                                            ? 'created an integration token'
+                                            : 'revoked an integration token'}
               </p>
               {a.entity_type === 'task' && onTask ? (
                 <button className="text-link" onClick={() => onTask(a.entity_id)}>

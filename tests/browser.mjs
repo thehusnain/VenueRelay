@@ -13,6 +13,7 @@ const mode = [
   'mobile',
   'flow',
   'tutorial',
+  'team',
 ].includes(process.argv[2])
   ? process.argv[2]
   : 'browser';

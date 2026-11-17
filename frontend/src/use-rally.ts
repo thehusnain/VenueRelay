@@ -455,6 +455,10 @@ export function useRally() {
     ) => {
       const s = current.current;
       if (!s) return false;
+      if (s.event.ended_at) {
+        setToast('This event has ended. Reopen it from My events before making changes.');
+        return false;
+      }
       try {
         await addIntent(s, {
           key: intentId(),

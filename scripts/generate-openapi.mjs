@@ -47,6 +47,8 @@ schemas.Invitation = object(
     id: string,
     name: string,
     role: { type: 'string', enum: ['volunteer', 'vendor', 'attendee'] },
+    reusable: { type: 'boolean' },
+    joinCount: integer,
     expiresAt: { type: 'string', format: 'date-time' },
     createdAt: nullable,
     status: { type: 'string', enum: ['pending', 'accepted', 'expired', 'cancelled'] },
@@ -58,6 +60,7 @@ schemas.Event = object({
     ['id', 'owner_id', 'name', 'venue', 'date', 'created_at'].map((k) => [k, string]),
   ),
   is_demo: { type: 'integer', enum: [0, 1] },
+  ended_at: nullable,
 });
 schemas.Activity = object({
   id: integer,
@@ -426,19 +429,28 @@ add('/events/{eventId}/activity', 'get', 'Read paginated immutable activity', {
     nextCursor: { type: ['integer', 'null'] },
   }),
 });
+add('/events/{eventId}/lifecycle', 'post', 'End or reopen an event', {
+  body: object({ ended: { type: 'boolean' } }, ['ended']),
+  description:
+    'Signed-in event creator only; integration tokens denied. Naturally idempotent. Ends an event without deleting tasks, members or history, and notifies staff. Ended events are read-only and reject new joins and attendee requests; existing receipt tracking and committed command retries remain available. Reopening re-enables existing unexpired links. Snapshot event and events include ended_at.',
+});
 add('/events/{eventId}/notifications/read', 'post', 'Acknowledge own notifications', {
   body: object({ ids: { type: 'array', items: string, maxItems: 100 } }, ['ids']),
   description:
     'Naturally idempotent. Preserves the first read time. Never changes another person’s inbox.',
 });
-add('/events/{eventId}/invitations', 'post', 'Create single-use invitation', {
+add('/events/{eventId}/invitations', 'post', 'Create personal invitation or shared role link', {
   body: object(
-    { name: string, role: { type: 'string', enum: ['volunteer', 'vendor', 'attendee'] } },
-    ['name', 'role'],
+    {
+      name: string,
+      role: { type: 'string', enum: ['volunteer', 'vendor', 'attendee'] },
+      reusable: { type: 'boolean', default: false },
+    },
+    ['role'],
   ),
   status: 201,
   description:
-    'Signed-in organiser only. Token returned once; hashed in storage, expires in 48 hours. A case/whitespace/Unicode-normalised name already pending or joined in this event gets 409 ALREADY_INVITED or ALREADY_MEMBER. Names are labels, not verified identity. No automatic retry.',
+    'Signed-in organiser only. Token returned once and hashed in storage. Personal invitations require name and expire in 48 hours. With reusable=true, only volunteer/vendor roles are accepted, name is generated, and the link lasts seven days. One non-cancelled shared link per role; duplicates return 409 ROLE_LINK_EXISTS. Repeated use by the same account does not duplicate membership or notifications. A case/whitespace/Unicode-normalised name already pending or joined in this event gets 409 ALREADY_INVITED or ALREADY_MEMBER. Names are labels, not verified identity. No automatic retry.',
 });
 add('/events/{eventId}/invitations', 'get', 'List staff invitation status', {
   parameters: [
@@ -450,12 +462,13 @@ add('/events/{eventId}/invitations', 'get', 'List staff invitation status', {
     },
   ],
   response: object({
+    roleLinks: { type: 'array', items: ref('Invitation') },
     items: { type: 'array', items: ref('Invitation') },
     pendingCount: integer,
     nextOffset: { type: ['integer', 'null'] },
   }),
   description:
-    'Signed-in organiser only; integration tokens and other roles are denied. Pending invitations are first, then expiry descending. No raw token, token hash or accepting account identifier is returned.',
+    'Signed-in organiser only; integration tokens and other roles are denied. Personal invitations are paginated, pending first, then expiry descending. Non-cancelled shared links are in roleLinks; pendingCount counts personal invitations only. No raw token, token hash or accepting account identifier is returned.',
 });
 add(
   '/events/{eventId}/invitations/{invitationId}/renew',
@@ -464,18 +477,18 @@ add(
   {
     parameters: [{ name: 'invitationId', in: 'path', required: true, schema: string }],
     description:
-      'Signed-in organiser only. Rotates a pending or expired invitation token and restarts its 48-hour expiry. The previous link stops working immediately. Accepted or cancelled invitations cannot be renewed. Returns the new token once. No automatic retry.',
+      'Signed-in organiser only. Rotates a pending or expired invitation token and restarts its expiry (48 hours personal, seven days shared). The previous link stops working immediately. Accepted or cancelled invitations cannot be renewed. Returns the new token once. No automatic retry.',
   },
 );
 add('/events/{eventId}/invitations/{invitationId}', 'delete', 'Cancel a staff invitation', {
   parameters: [{ name: 'invitationId', in: 'path', required: true, schema: string }],
   description:
-    'Signed-in organiser only. Idempotently disables an unused invitation without deleting its record. Repeated cancellation creates no extra audit entries. Accepted invitations return 409 INVITATION_USED.',
+    'Signed-in organiser only. Idempotently disables a shared link or unused personal invitation without deleting its record. Repeated cancellation creates no extra audit entries. Accepted invitations return 409 INVITATION_USED.',
 });
 add('/invitations/accept', 'post', 'Join invited event', {
   body: object({ token: string }, ['token']),
   description:
-    'Session required. Idempotent for the original accepting account. A different account gets 409. Expired or invalid tokens get 410.',
+    'Session required. Personal invitations are single-use and idempotent for their accepting account. Shared links admit separate accounts with their own account names; rejoining the same role is idempotent, and another existing role returns 409. Each new member notifies organisers once. Ended events reject new joins with 409 EVENT_ENDED. Expired or invalid tokens get 410.',
 });
 add('/events/{eventId}/api-keys', 'get', 'List token metadata', {
   description: 'Organiser only. Raw tokens are never returned.',

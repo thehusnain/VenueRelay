@@ -31,15 +31,15 @@ const steps = [
   },
   {
     title: 'Invite a volunteer',
-    description: 'Give each person their own invitation so everyone joins with the right role.',
+    description: 'Use one shared volunteer link so everyone joins with the right role.',
     icon: UserRoundPlus,
     instructions: [
-      'Open Your team and choose Invite a teammate.',
-      'Enter their name, select Volunteer, then choose Create invitation.',
-      'Copy and send their personal link. They open it and create an account or sign in to join your event.',
+      'Open Your team → Team join links and choose Create volunteer link.',
+      'Choose Create join link. Copy and send the same link to your volunteers.',
+      'Each person creates an account or signs in, then joins using their own account name. You receive a joining notification.',
     ],
-    route: ['Your team', 'Invite a teammate', 'Volunteer'],
-    tip: 'An invitation lasts 48 hours and works once. Your team shows who is still invited and who has joined.',
+    route: ['Your team', 'Create volunteer link', 'Share join link'],
+    tip: 'Shared links last seven days. Disable or replace one in Your team. Invite a teammate still creates a personal, single-use invitation.',
   },
   {
     title: 'Bring your vendors in',
@@ -47,12 +47,12 @@ const steps = [
       'Catering, sound, equipment and other suppliers can receive and update their own tasks.',
     icon: Store,
     instructions: [
-      'In Your team, choose Invite a teammate again.',
-      'Enter the vendor’s name and select Vendor before creating the invitation.',
-      'Share their personal link. Once they join, you can assign work to them from a task.',
+      'In Your team → Team join links, choose Create vendor link.',
+      'Choose Create join link and send it to your vendors. Each person signs in or creates an account.',
+      'Once they join, their account name appears in Your team and you can assign work to them.',
     ],
-    route: ['Your team', 'Invite a teammate', 'Vendor'],
-    tip: 'Share staff invitations privately. Use the attendee QR for visitors.',
+    route: ['Your team', 'Create vendor link', 'Share join link'],
+    tip: 'Anyone with a staff join link can join with that role. Share it privately. Use the attendee QR for visitors.',
   },
   {
     title: 'Let attendees ask for help',
@@ -88,7 +88,7 @@ const steps = [
       'Waiting changes stay on this device until they sync. More → Connection help explains anything that needs attention.',
     ],
     route: ['Install', 'Open your event', 'Stay up to date'],
-    tip: 'You’re ready. Replay this tutorial anytime from More → Step-by-step tutorial.',
+    tip: 'When the event is over, use More → My events & history → End this event. Its records stay in your account.',
   },
 ];
 

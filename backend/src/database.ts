@@ -18,6 +18,8 @@ export class Store {
       '004_account_access.sql',
       '005_attendee_access.sql',
       '006_invitation_management.sql',
+      '007_shared_invitations.sql',
+      '008_event_lifecycle.sql',
     ];
     const version = (this.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version;

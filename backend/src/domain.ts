@@ -4,8 +4,15 @@ import { hash, id, now, token, requireVerified, publicUser, type User } from './
 import { ensure, text, choice } from './errors.ts';
 import { demoScript } from './demo-script.ts';
 import { planCommand } from './mutations.ts';
-import { organiser, canRead } from './permissions.ts';
-import { ensureInvitable, invitationView, type InvitationRecord } from './invitations.ts';
+import { organiser, canRead, activeEvent } from './permissions.ts';
+import {
+  ensureInvitable,
+  invitationView,
+  invitationDetails,
+  invitationHours,
+  ensureRoleLinkAvailable,
+  type InvitationRecord,
+} from './invitations.ts';
 export { organiser, canRead } from './permissions.ts';
 import type {
   Event,
@@ -176,6 +183,7 @@ export function execute(
       );
       return { ...JSON.parse(previous.response_json), replayed: true };
     }
+    activeEvent(store.get<Event>('SELECT * FROM events WHERE id=?', ctx.event.id));
     const members = store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id);
     const task =
       typeof input?.taskId === 'string'
@@ -299,7 +307,7 @@ export function createEvent(store: Store, user: User, p: Record<string, unknown>
       'Use a valid YYYY-MM-DD event date.',
     );
     store.run(
-      'INSERT INTO events VALUES (?,?,?,?,?,?,?)',
+      'INSERT INTO events (id,owner_id,name,venue,date,is_demo,created_at) VALUES (?,?,?,?,?,?,?)',
       eventId,
       user.id,
       name,
@@ -410,25 +418,32 @@ export function invite(store: Store, ctx: Context, p: Record<string, unknown>) {
     'FORBIDDEN',
     'Manage access through a signed-in organiser account.',
   );
-  const role = choice(p.role, ['volunteer', 'vendor', 'attendee'] as const, 'Role'),
-    name = text(p.name, 'Name', 100, 2),
-    value = token(),
+  const { role, name, reusable } = invitationDetails(p);
+  const value = token(),
     inviteId = id();
   store.transaction(() => {
-    ensureInvitable(
-      name,
-      store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id),
-      store.all<InvitationRecord>('SELECT * FROM invitations WHERE event_id=?', ctx.event.id),
-    );
+    activeEvent(store.get<Event>('SELECT * FROM events WHERE id=?', ctx.event.id));
+    if (reusable)
+      ensureRoleLinkAvailable(
+        store.all<InvitationRecord>('SELECT * FROM invitations WHERE event_id=?', ctx.event.id),
+        role,
+      );
+    else
+      ensureInvitable(
+        name,
+        store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id),
+        store.all<InvitationRecord>('SELECT * FROM invitations WHERE event_id=?', ctx.event.id),
+      );
     store.run(
-      'INSERT INTO invitations (id,event_id,token_hash,role,name,expires_at,used_by,created_at) VALUES (?,?,?,?,?,?,NULL,?)',
+      'INSERT INTO invitations (id,event_id,token_hash,role,name,expires_at,used_by,created_at,reusable) VALUES (?,?,?,?,?,?,NULL,?,?)',
       inviteId,
       ctx.event.id,
       hash(value),
       role,
       name,
-      new Date(Date.now() + 2 * 86400000).toISOString(),
+      new Date(Date.now() + invitationHours(reusable) * 3600000).toISOString(),
       now(),
+      reusable ? 1 : 0,
     );
     append(
       store,
@@ -445,7 +460,14 @@ export function invite(store: Store, ctx: Context, p: Record<string, unknown>) {
       '',
     );
   });
-  return { id: inviteId, token: value, name, role, expiresInHours: 48 };
+  return {
+    id: inviteId,
+    token: value,
+    name,
+    role,
+    reusable,
+    expiresInHours: invitationHours(reusable),
+  };
 }
 export function listInvitations(store: Store, ctx: Context, offset: number, limit: number) {
   organiser(ctx);
@@ -456,17 +478,23 @@ export function listInvitations(store: Store, ctx: Context, offset: number, limi
     'Use a signed-in organiser account to manage invitations.',
   );
   const rows = store.all<InvitationRecord>(
-    'SELECT id,event_id,name,role,expires_at,used_by,created_at,revoked_at FROM invitations WHERE event_id=? ORDER BY CASE WHEN used_by IS NULL AND revoked_at IS NULL AND expires_at>? THEN 0 ELSE 1 END,expires_at DESC,id DESC LIMIT ? OFFSET ?',
+    'SELECT id,event_id,name,role,expires_at,used_by,created_at,revoked_at FROM invitations WHERE event_id=? AND reusable=0 ORDER BY CASE WHEN used_by IS NULL AND revoked_at IS NULL AND expires_at>? THEN 0 ELSE 1 END,expires_at DESC,id DESC LIMIT ? OFFSET ?',
     ctx.event.id,
     now(),
     limit + 1,
     offset,
   );
   return {
+    roleLinks: store
+      .all<InvitationRecord>(
+        'SELECT * FROM invitations WHERE event_id=? AND reusable=1 AND revoked_at IS NULL',
+        ctx.event.id,
+      )
+      .map(invitationView),
     items: rows.slice(0, limit).map(invitationView),
     nextOffset: rows.length > limit ? offset + limit : null,
     pendingCount: store.get<{ count: number }>(
-      'SELECT COUNT(*) AS count FROM invitations WHERE event_id=? AND used_by IS NULL AND revoked_at IS NULL AND expires_at>?',
+      'SELECT COUNT(*) AS count FROM invitations WHERE event_id=? AND reusable=0 AND used_by IS NULL AND revoked_at IS NULL AND expires_at>?',
       ctx.event.id,
       now(),
     )!.count,
@@ -500,7 +528,7 @@ export function manageInvitation(store: Store, ctx: Context, invitationId: strin
       'INVITATION_CANCELLED',
       'This invitation was cancelled. Create a new invitation instead.',
     );
-    if (renew)
+    if (renew && !row.reusable)
       ensureInvitable(
         row.name,
         store.all<Member>('SELECT * FROM members WHERE event_id=?', ctx.event.id),
@@ -508,7 +536,7 @@ export function manageInvitation(store: Store, ctx: Context, invitationId: strin
         row.id,
       );
     const value = renew ? token() : undefined;
-    const expiresAt = new Date(Date.now() + 172800000).toISOString();
+    const expiresAt = new Date(Date.now() + invitationHours(row.reusable) * 3600000).toISOString();
     if (renew)
       store.run(
         'UPDATE invitations SET token_hash=?,expires_at=? WHERE id=?',
@@ -533,21 +561,23 @@ export function manageInvitation(store: Store, ctx: Context, invitationId: strin
       '',
     );
     return renew
-      ? { id: row.id, token: value, name: row.name, role: row.role, expiresInHours: 48 }
+      ? {
+          id: row.id,
+          token: value,
+          name: row.name,
+          role: row.role,
+          reusable: !!row.reusable,
+          expiresInHours: invitationHours(row.reusable),
+        }
       : { ok: true };
   });
 }
 export function acceptInvitation(store: Store, user: User, value: string) {
   return store.transaction(() => {
-    const invitation = store.get<{
-      id: string;
-      event_id: string;
-      role: string;
-      name: string;
-      expires_at: string;
-      used_by: string | null;
-      revoked_at: string | null;
-    }>('SELECT * FROM invitations WHERE token_hash=?', hash(value));
+    const invitation = store.get<InvitationRecord>(
+      'SELECT * FROM invitations WHERE token_hash=?',
+      hash(value),
+    );
     ensure(
       invitation && !invitation.revoked_at && invitation.expires_at > now(),
       410,
@@ -561,6 +591,13 @@ export function acceptInvitation(store: Store, user: User, value: string) {
       'This invitation has already been accepted.',
     );
     if (invitation.used_by === user.id) return { eventId: invitation.event_id };
+    const existing = store.get<Member>(
+      'SELECT * FROM members WHERE event_id=? AND user_id=?',
+      invitation.event_id,
+      user.id,
+    );
+    if (invitation.reusable && existing?.role === invitation.role)
+      return { eventId: invitation.event_id };
     ensure(
       !store.get(
         'SELECT id FROM members WHERE event_id=? AND user_id=?',
@@ -571,6 +608,7 @@ export function acceptInvitation(store: Store, user: User, value: string) {
       'ALREADY_MEMBER',
       'You already belong to this event.',
     );
+    activeEvent(store.get<Event>('SELECT * FROM events WHERE id=?', invitation.event_id));
     const memberId = id();
     store.run(
       'INSERT INTO members VALUES (?,?,?,?,?,?)',
@@ -581,7 +619,9 @@ export function acceptInvitation(store: Store, user: User, value: string) {
       invitation.role,
       invitation.role === 'vendor' ? 'Vendor partner' : 'Event team',
     );
-    store.run('UPDATE invitations SET used_by=? WHERE id=?', user.id, invitation.id);
+    if (invitation.reusable)
+      store.run('UPDATE invitations SET join_count=join_count+1 WHERE id=?', invitation.id);
+    else store.run('UPDATE invitations SET used_by=? WHERE id=?', user.id, invitation.id);
     const event = store.get<Event>('SELECT * FROM events WHERE id=?', invitation.event_id)!;
     const me = store.get<Member>('SELECT * FROM members WHERE id=?', memberId)!;
     append(
@@ -595,8 +635,10 @@ export function acceptInvitation(store: Store, user: User, value: string) {
       'member.join',
       null,
       { id: memberId, name: user.name, role: me.role },
-      [],
-      '',
+      store
+        .all<Member>("SELECT * FROM members WHERE event_id=? AND role='organiser'", event.id)
+        .map((m) => m.id),
+      `${user.name} joined as a ${me.role}.`,
     );
     return { eventId: event.id };
   });
@@ -662,4 +704,46 @@ export function integrity(store: Store, ctx: Context) {
     foreignKeyViolations: foreign.length,
     checkedAt: now(),
   };
+}
+
+export function setEventEnded(store: Store, ctx: Context, ended: unknown) {
+  organiser(ctx);
+  ensure(
+    !ctx.isIntegration && ctx.event.owner_id === ctx.user.id,
+    403,
+    'FORBIDDEN',
+    'Only the event creator can end or reopen this event.',
+  );
+  ensure(
+    typeof ended === 'boolean',
+    422,
+    'VALIDATION_ERROR',
+    'Choose whether to end or reopen the event.',
+  );
+  return store.transaction(() => {
+    const event = store.get<Event>('SELECT * FROM events WHERE id=?', ctx.event.id)!;
+    if (!!event.ended_at === ended) return { eventId: event.id, endedAt: event.ended_at ?? null };
+    const endedAt = ended ? now() : null;
+    store.run('UPDATE events SET ended_at=? WHERE id=?', endedAt, event.id);
+    append(
+      store,
+      ctx,
+      `lifecycle-${id()}`,
+      hash(String(ended)),
+      { eventId: event.id, endedAt },
+      'event',
+      event.id,
+      ended ? 'event.end' : 'event.reopen',
+      event,
+      { ...event, ended_at: endedAt },
+      store
+        .all<Member>(
+          "SELECT * FROM members WHERE event_id=? AND user_id NOT LIKE 'guest:%'",
+          event.id,
+        )
+        .map((m) => m.id),
+      `${event.name} ${ended ? 'has ended. Its history is available in My events.' : 'has reopened.'}`,
+    );
+    return { eventId: event.id, endedAt };
+  });
 }

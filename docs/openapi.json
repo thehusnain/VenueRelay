@@ -2486,6 +2486,153 @@
         ]
       }
     },
+    "/api/v1/events/{eventId}/lifecycle": {
+      "post": {
+        "summary": "End or reopen an event",
+        "operationId": "post__events_eventId_lifecycle",
+        "description": "Signed-in event creator only; integration tokens denied. Naturally idempotent. Ends an event without deleting tasks, members or history, and notifies staff. Ended events are read-only and reject new joins and attendee requests; existing receipt tracking and committed command retries remain available. Reopening re-enables existing unexpired links. Snapshot event and events include ended_at.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict, used invite or request key mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired, consumed or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or state transition error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Outcome unconfirmed. Retry operational commands with the same request key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email delivery unavailable or temporary DNS failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ended": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ended"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{eventId}/notifications/read": {
       "post": {
         "summary": "Acknowledge own notifications",
@@ -2639,9 +2786,9 @@
     },
     "/api/v1/events/{eventId}/invitations": {
       "post": {
-        "summary": "Create single-use invitation",
+        "summary": "Create personal invitation or shared role link",
         "operationId": "post__events_eventId_invitations",
-        "description": "Signed-in organiser only. Token returned once; hashed in storage, expires in 48 hours. A case/whitespace/Unicode-normalised name already pending or joined in this event gets 409 ALREADY_INVITED or ALREADY_MEMBER. Names are labels, not verified identity. No automatic retry.",
+        "description": "Signed-in organiser only. Token returned once and hashed in storage. Personal invitations require name and expire in 48 hours. With reusable=true, only volunteer/vendor roles are accepted, name is generated, and the link lasts seven days. One non-cancelled shared link per role; duplicates return 409 ROLE_LINK_EXISTS. Repeated use by the same account does not duplicate membership or notifications. A case/whitespace/Unicode-normalised name already pending or joined in this event gets 409 ALREADY_INVITED or ALREADY_MEMBER. Names are labels, not verified identity. No automatic retry.",
         "responses": {
           "201": {
             "description": "Success",
@@ -2781,10 +2928,13 @@
                       "vendor",
                       "attendee"
                     ]
+                  },
+                  "reusable": {
+                    "type": "boolean",
+                    "default": false
                   }
                 },
                 "required": [
-                  "name",
                   "role"
                 ]
               }
@@ -2795,7 +2945,7 @@
       "get": {
         "summary": "List staff invitation status",
         "operationId": "get__events_eventId_invitations",
-        "description": "Signed-in organiser only; integration tokens and other roles are denied. Pending invitations are first, then expiry descending. No raw token, token hash or accepting account identifier is returned.",
+        "description": "Signed-in organiser only; integration tokens and other roles are denied. Personal invitations are paginated, pending first, then expiry descending. Non-cancelled shared links are in roleLinks; pendingCount counts personal invitations only. No raw token, token hash or accepting account identifier is returned.",
         "responses": {
           "200": {
             "description": "Success",
@@ -2804,6 +2954,12 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "roleLinks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Invitation"
+                      }
+                    },
                     "items": {
                       "type": "array",
                       "items": {
@@ -2960,7 +3116,7 @@
       "post": {
         "summary": "Replace a lost invitation link",
         "operationId": "post__events_eventId_invitations_invitationId_renew",
-        "description": "Signed-in organiser only. Rotates a pending or expired invitation token and restarts its 48-hour expiry. The previous link stops working immediately. Accepted or cancelled invitations cannot be renewed. Returns the new token once. No automatic retry.",
+        "description": "Signed-in organiser only. Rotates a pending or expired invitation token and restarts its expiry (48 hours personal, seven days shared). The previous link stops working immediately. Accepted or cancelled invitations cannot be renewed. Returns the new token once. No automatic retry.",
         "responses": {
           "200": {
             "description": "Success",
@@ -3097,7 +3253,7 @@
       "delete": {
         "summary": "Cancel a staff invitation",
         "operationId": "delete__events_eventId_invitations_invitationId",
-        "description": "Signed-in organiser only. Idempotently disables an unused invitation without deleting its record. Repeated cancellation creates no extra audit entries. Accepted invitations return 409 INVITATION_USED.",
+        "description": "Signed-in organiser only. Idempotently disables a shared link or unused personal invitation without deleting its record. Repeated cancellation creates no extra audit entries. Accepted invitations return 409 INVITATION_USED.",
         "responses": {
           "200": {
             "description": "Success",
@@ -3234,7 +3390,7 @@
       "post": {
         "summary": "Join invited event",
         "operationId": "post__invitations_accept",
-        "description": "Session required. Idempotent for the original accepting account. A different account gets 409. Expired or invalid tokens get 410.",
+        "description": "Session required. Personal invitations are single-use and idempotent for their accepting account. Shared links admit separate accounts with their own account names; rejoining the same role is idempotent, and another existing role returns 409. Each new member notifies organisers once. Ended events reject new joins with 409 EVENT_ENDED. Expired or invalid tokens get 410.",
         "responses": {
           "200": {
             "description": "Success",
@@ -5724,6 +5880,12 @@
               "attendee"
             ]
           },
+          "reusable": {
+            "type": "boolean"
+          },
+          "joinCount": {
+            "type": "integer"
+          },
           "expiresAt": {
             "type": "string",
             "format": "date-time"
@@ -5779,6 +5941,12 @@
             "enum": [
               0,
               1
+            ]
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         }

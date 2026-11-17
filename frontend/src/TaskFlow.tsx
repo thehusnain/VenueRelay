@@ -214,7 +214,11 @@ export function CreateTask({
               Back
             </button>
           ) : null}
-          <button className="button primary" type="submit" disabled={saving}>
+          <button
+            className="button primary"
+            type="submit"
+            disabled={saving || !!data.event.ended_at}
+          >
             {step === 2 ? (org ? 'Add this task' : 'Send my request') : 'Continue'}
             <ArrowRight size={18} />
           </button>
@@ -262,7 +266,7 @@ export function TaskView({
     }
   };
   const org = data.me.role === 'organiser',
-    canWork = org || task.owner_id === data.me.id,
+    canWork = !data.event.ended_at && (org || task.owner_id === data.me.id),
     waiting = pending.some((p) => p.taskId === task.id),
     owner = data.members.find((m) => m.id === task.owner_id);
   const act = (status: Status) => {
@@ -406,7 +410,7 @@ export function TaskView({
           )}
         </section>
       ) : null}
-      {org && task.status !== 'closed' && !waiting ? (
+      {org && !data.event.ended_at && task.status !== 'closed' && !waiting ? (
         <section className={`assignment ${task.status === 'open' ? 'assignment-needed' : ''}`}>
           <h2>{task.owner_id ? 'Who is helping' : 'Choose someone to help'}</h2>
           <form
@@ -479,7 +483,7 @@ export function TaskView({
         <p className="record-reference">
           Task reference {task.id.slice(0, 8)} · Record version {task.version}
         </p>
-        {org && task.status === 'closed' && !waiting ? (
+        {org && !data.event.ended_at && task.status === 'closed' && !waiting ? (
           <button className="text-link" onClick={() => act('in_progress')}>
             Reopen this task
           </button>

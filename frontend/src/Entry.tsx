@@ -1,4 +1,3 @@
-import { VenuePlan } from './VenuePlan';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
@@ -229,7 +228,6 @@ export function Entry({
                   <p className="preview-venue">
                     <MapPin size={15} /> Riverside Gardens
                   </p>
-                  <VenuePlan />
                   <div className="preview-tasks">
                     {[
                       [

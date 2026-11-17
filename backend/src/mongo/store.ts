@@ -148,6 +148,11 @@ export class MongoStore {
         { key: { member_id: 1, created_at: -1 } },
       ],
       invitations: [
+        {
+          key: { event_id: 1, role: 1 },
+          unique: true,
+          partialFilterExpression: { reusable: true, revoked_at: null },
+        },
         { key: { id: 1 }, unique: true },
         { key: { token_hash: 1 }, unique: true },
         { key: { event_id: 1, expires_at: -1 } },

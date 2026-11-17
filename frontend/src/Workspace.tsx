@@ -36,6 +36,7 @@ function PendingTasks({ items, search = '' }: { items: Pending[]; search?: strin
   );
 }
 export function taskSentence(task: Task, data: Snapshot) {
+  if (data.event.ended_at) return 'Event ended. This task is saved in its history.';
   const owner = data.members.find((m) => m.id === task.owner_id)?.name ?? 'Your teammate';
   switch (task.status) {
     case 'open':
@@ -133,7 +134,7 @@ export function Home({
   const [guideDetails, setGuideDetails] = useState(false);
   const [compactGuideOpen, setCompactGuideOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(() => sessionPreference.get(guideKey) !== 'hidden');
-  const gettingStarted = org && !data.event.is_demo && !data.tasks.length;
+  const gettingStarted = org && !data.event.ended_at && !data.event.is_demo && !data.tasks.length;
   const important = data.tasks.filter((t) =>
     org
       ? ['open', 'blocked', 'resolved'].includes(t.status)
@@ -210,7 +211,11 @@ export function Home({
               </h2>
             </div>
             {!gettingStarted ? (
-              <button className="button primary" onClick={onCreate}>
+              <button
+                className="button primary"
+                onClick={onCreate}
+                disabled={!!data.event.ended_at}
+              >
                 <Plus size={18} />
                 {org ? 'Add a task' : 'Ask for help'}
               </button>
@@ -237,7 +242,11 @@ export function Home({
                     Choose each person’s role. Share their invitation link or QR code; they join
                     using their own account.
                   </p>
-                  <button className="button primary" onClick={onInvite}>
+                  <button
+                    className="button primary"
+                    onClick={onInvite}
+                    disabled={!!data.event.ended_at}
+                  >
                     Invite a teammate
                   </button>
                 </div>
@@ -247,7 +256,11 @@ export function Home({
                 <div>
                   <h3>Add the first task</h3>
                   <p>Say what needs doing and where. Assign it once your teammate has joined.</p>
-                  <button className="button secondary" onClick={onCreate}>
+                  <button
+                    className="button secondary"
+                    onClick={onCreate}
+                    disabled={!!data.event.ended_at}
+                  >
                     Add your first task
                   </button>
                 </div>
@@ -323,13 +336,17 @@ export function Home({
                       : 'Your organiser’s assignments will appear here.'}
               </p>
               {!data.tasks.length && org ? (
-                <button className="button primary" onClick={onCreate}>
+                <button
+                  className="button primary"
+                  onClick={onCreate}
+                  disabled={!!data.event.ended_at}
+                >
                   Add your first task
                   <ArrowRight size={18} />
                 </button>
               ) : null}
               {!data.tasks.length && org ? (
-                <button className="text-link" onClick={onInvite}>
+                <button className="text-link" onClick={onInvite} disabled={!!data.event.ended_at}>
                   Invite someone to your team
                 </button>
               ) : null}
@@ -506,7 +523,7 @@ export function TaskWorkspace({
               : 'Open a task to assign it, update progress or check the result.'}
           </p>
         </div>
-        <button className="button primary" onClick={onCreate}>
+        <button className="button primary" onClick={onCreate} disabled={!!data.event.ended_at}>
           <Plus size={19} />
           {data.me.role === 'organiser' ? 'Add a task' : 'Ask for help'}
         </button>

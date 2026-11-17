@@ -24,9 +24,9 @@ export async function migrate(source: string, target: MongoStore, apply = false)
   try {
     db.exec('BEGIN');
     const version = db.prepare('PRAGMA user_version').get() as { user_version: number };
-    if (![3, 4, 5, 6].includes(version.user_version))
+    if (![3, 4, 5, 6, 7, 8].includes(version.user_version))
       throw new Error(
-        'Open the source with the current local VenueRelay first. Migration expects schema version 3, 4, 5 or 6.',
+        'Open the source with the current local VenueRelay first. Migration expects schema version 3 through 8.',
       );
     if (db.prepare('PRAGMA foreign_key_check').all().length)
       throw new Error('Source has invalid references. Migration stopped.');
@@ -38,6 +38,7 @@ export async function migrate(source: string, target: MongoStore, apply = false)
           : db.prepare(`SELECT * FROM ${table}`).all(),
       ]),
     );
+    for (const invitation of rows.invitations) invitation.reusable = !!invitation.reusable;
     for (const user of rows.users) user.is_demo = user.email === demoCredentials.email;
     const counts = Object.fromEntries(tables.map((table) => [table, rows[table].length]));
     if (!apply) return { applied: false, counts };

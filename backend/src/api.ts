@@ -1,3 +1,4 @@
+import { activeEvent } from './permissions.ts';
 import { attachRealtime } from './realtime.ts';
 import type { ApplicationBackend } from './backend.ts';
 import { PushService, pushSettings } from './push.ts';
@@ -22,6 +23,7 @@ import {
   listInvitations,
   manageInvitation,
   acceptInvitation,
+  setEventEnded,
   createApiKey,
   integrity,
   organiser,
@@ -294,6 +296,16 @@ export function createApp(options: Options) {
         ensure(match, 404, 'NOT_FOUND', 'Endpoint not found.');
         const ctx = context(store, req, currentUser(store, req), decodeURIComponent(match[1])),
           resource = match[2] ?? 'snapshot';
+        if (resource === 'lifecycle' && method === 'POST') {
+          send(setEventEnded(store, ctx, (await body(req)).ended));
+          return;
+        }
+        if (
+          ['POST', 'DELETE', 'PATCH', 'PUT'].includes(method ?? '') &&
+          !['commands', 'notifications/read', 'live-ticket', 'push/subscription'].includes(resource)
+        )
+          activeEvent(ctx.event);
+
         if (resource === 'attendee-links' && method === 'GET') {
           send({ items: attendees.links(ctx) });
           return;

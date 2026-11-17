@@ -32,7 +32,8 @@
     "test:attendees": "node tests/browser.mjs attendee",
     "test:mobile": "node tests/browser.mjs mobile",
     "test:flow": "node tests/browser.mjs flow",
-    "test:tutorial": "node tests/browser.mjs tutorial"
+    "test:tutorial": "node tests/browser.mjs tutorial",
+    "test:team": "node tests/browser.mjs team"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.3.0",

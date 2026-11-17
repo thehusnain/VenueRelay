@@ -2,11 +2,18 @@ import type { IncomingMessage } from 'node:http';
 import type { Document } from 'mongodb';
 import type { Context } from '../domain.ts';
 import { canonical } from '../domain.ts';
-import { organiser } from '../permissions.ts';
+import { organiser, activeEvent } from '../permissions.ts';
 import { planCommand, type CommandInput } from '../mutations.ts';
 import { id, now, hash, token, requireVerified, publicUser, type User } from '../auth.ts';
 import { ensure, text, choice } from '../errors.ts';
-import { ensureInvitable, invitationView, type InvitationRecord } from '../invitations.ts';
+import {
+  ensureInvitable,
+  invitationView,
+  invitationDetails,
+  invitationHours,
+  ensureRoleLinkAvailable,
+  type InvitationRecord,
+} from '../invitations.ts';
 import type {
   Event,
   Member,
@@ -232,6 +239,8 @@ export class MongoDomain {
           request_key: key,
         });
         if (previous) return replay(previous);
+        await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
+        activeEvent(await tx.get<Event>('events', { id: ctx.event.id }));
         ensure(
           await tx.get('members', { id: ctx.me.id, event_id: ctx.event.id, role: ctx.me.role }),
           403,
@@ -440,26 +449,34 @@ export class MongoDomain {
       'FORBIDDEN',
       'Manage access through a signed-in organiser account.',
     );
-    const role = choice(p.role, ['volunteer', 'vendor', 'attendee'] as const, 'Role'),
-      name = text(p.name, 'Name', 100, 2),
-      value = token(),
+    const { role, name, reusable } = invitationDetails(p);
+    const value = token(),
       inviteId = id();
     await this.store.transaction(async (tx) => {
       // Serialise access changes for this event before checking names. A concurrent
       // invitation or acceptance forces MongoDB to retry with the committed state.
       await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
-      ensureInvitable(
-        name,
-        await tx.all<Member>('members', { event_id: ctx.event.id }),
-        await tx.all<InvitationRecord>('invitations', { event_id: ctx.event.id }),
-      );
+      activeEvent(await tx.get<Event>('events', { id: ctx.event.id }));
+      if (reusable)
+        ensureRoleLinkAvailable(
+          await tx.all<InvitationRecord>('invitations', { event_id: ctx.event.id }),
+          role,
+        );
+      else
+        ensureInvitable(
+          name,
+          await tx.all<Member>('members', { event_id: ctx.event.id }),
+          await tx.all<InvitationRecord>('invitations', { event_id: ctx.event.id }),
+        );
       await tx.insert('invitations', {
         id: inviteId,
         event_id: ctx.event.id,
         token_hash: hash(value),
         role,
         name,
-        expires_at: new Date(Date.now() + 172800000).toISOString(),
+        expires_at: new Date(Date.now() + invitationHours(reusable) * 3600000).toISOString(),
+        reusable,
+        join_count: 0,
         used_by: null,
         created_at: now(),
         revoked_at: null,
@@ -477,7 +494,14 @@ export class MongoDomain {
         { id: inviteId, name, role },
       );
     });
-    return { id: inviteId, token: value, name, role, expiresInHours: 48 };
+    return {
+      id: inviteId,
+      token: value,
+      name,
+      role,
+      reusable,
+      expiresInHours: invitationHours(reusable),
+    };
   }
   async listInvitations(ctx: Context, offset: number, limit: number) {
     organiser(ctx);
@@ -487,7 +511,9 @@ export class MongoDomain {
       'FORBIDDEN',
       'Use a signed-in organiser account to manage invitations.',
     );
-    const rows = (await this.store.all<InvitationRecord>('invitations', { event_id: ctx.event.id }))
+    const all = await this.store.all<InvitationRecord>('invitations', { event_id: ctx.event.id });
+    const rows = all
+      .filter((row) => !row.reusable)
       .map(invitationView)
       .sort(
         (a, b) =>
@@ -496,6 +522,7 @@ export class MongoDomain {
           b.id.localeCompare(a.id),
       );
     return {
+      roleLinks: all.filter((row) => row.reusable && !row.revoked_at).map(invitationView),
       items: rows.slice(offset, offset + limit),
       nextOffset: rows.length > offset + limit ? offset + limit : null,
       pendingCount: rows.filter((row) => row.status === 'pending').length,
@@ -511,6 +538,7 @@ export class MongoDomain {
     );
     return this.store.transaction(async (tx) => {
       await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
+      activeEvent(await tx.get<Event>('events', { id: ctx.event.id }));
       const row = await tx.get<InvitationRecord>('invitations', {
         id: invitationId,
         event_id: ctx.event.id,
@@ -529,7 +557,7 @@ export class MongoDomain {
         'INVITATION_CANCELLED',
         'This invitation was cancelled. Create a new invitation instead.',
       );
-      if (renew)
+      if (renew && !row.reusable)
         ensureInvitable(
           row.name,
           await tx.all<Member>('members', { event_id: ctx.event.id }),
@@ -544,7 +572,9 @@ export class MongoDomain {
           $set: renew
             ? {
                 token_hash: hash(value!),
-                expires_at: new Date(Date.now() + 172800000).toISOString(),
+                expires_at: new Date(
+                  Date.now() + invitationHours(row.reusable) * 3600000,
+                ).toISOString(),
               }
             : { revoked_at: now() },
         },
@@ -563,21 +593,21 @@ export class MongoDomain {
         { id: row.id, name: row.name, role: row.role, status: renew ? 'pending' : 'cancelled' },
       );
       return renew
-        ? { id: row.id, token: value, name: row.name, role: row.role, expiresInHours: 48 }
+        ? {
+            id: row.id,
+            token: value,
+            name: row.name,
+            role: row.role,
+            reusable: !!row.reusable,
+            expiresInHours: invitationHours(row.reusable),
+          }
         : { ok: true };
     });
   }
   async accept(user: User, value: string) {
     await this.realUser(user);
     return this.store.transaction(async (tx) => {
-      const invitation = await tx.get<{
-        id: string;
-        event_id: string;
-        role: Member['role'];
-        expires_at: string;
-        used_by: string | null;
-        revoked_at?: string | null;
-      }>('invitations', { token_hash: hash(value) });
+      const invitation = await tx.get<InvitationRecord>('invitations', { token_hash: hash(value) });
       ensure(
         invitation && !invitation.revoked_at && invitation.expires_at > now(),
         410,
@@ -592,12 +622,19 @@ export class MongoDomain {
       );
       if (invitation.used_by === user.id) return { eventId: invitation.event_id };
       await tx.update('events', { id: invitation.event_id }, { $inc: { access_revision: 1 } });
+      const existing = await tx.get<Member>('members', {
+        event_id: invitation.event_id,
+        user_id: user.id,
+      });
+      if (invitation.reusable && existing?.role === invitation.role)
+        return { eventId: invitation.event_id };
       ensure(
         !(await tx.get('members', { event_id: invitation.event_id, user_id: user.id })),
         409,
         'ALREADY_MEMBER',
         'You already belong to this event.',
       );
+      activeEvent(await tx.get<Event>('events', { id: invitation.event_id }));
       const me: Member = {
         id: id(),
         event_id: invitation.event_id,
@@ -610,7 +647,7 @@ export class MongoDomain {
       await tx.update(
         'invitations',
         { id: invitation.id, used_by: null },
-        { $set: { used_by: user.id } },
+        invitation.reusable ? { $inc: { join_count: 1 } } : { $set: { used_by: user.id } },
       );
       const event = await tx.get<Event>('events', { id: me.event_id });
       ensure(event, 404, 'NOT_FOUND', 'Event not found.');
@@ -625,8 +662,50 @@ export class MongoDomain {
         'member.join',
         null,
         { id: me.id, name: me.name, role: me.role },
+        (await tx.all<Member>('members', { event_id: event.id, role: 'organiser' })).map(
+          (m) => m.id,
+        ),
+        `${me.name} joined as a ${me.role}.`,
       );
       return { eventId: event.id };
+    });
+  }
+  async setEnded(ctx: Context, ended: unknown) {
+    organiser(ctx);
+    ensure(
+      !ctx.isIntegration && ctx.event.owner_id === ctx.user.id,
+      403,
+      'FORBIDDEN',
+      'Only the event creator can end or reopen this event.',
+    );
+    ensure(
+      typeof ended === 'boolean',
+      422,
+      'VALIDATION_ERROR',
+      'Choose whether to end or reopen the event.',
+    );
+    return this.store.transaction(async (tx) => {
+      await tx.update('events', { id: ctx.event.id }, { $inc: { access_revision: 1 } });
+      const event = (await tx.get<Event>('events', { id: ctx.event.id }))!;
+      if (!!event.ended_at === ended) return { eventId: event.id, endedAt: event.ended_at ?? null };
+      const endedAt = ended ? now() : null;
+      await tx.update('events', { id: event.id }, { $set: { ended_at: endedAt } });
+      const members = await tx.all<Member>('members', { event_id: event.id });
+      await this.append(
+        tx,
+        ctx,
+        `lifecycle-${id()}`,
+        hash(String(ended)),
+        { eventId: event.id, endedAt },
+        'event',
+        event.id,
+        ended ? 'event.end' : 'event.reopen',
+        event,
+        { ...event, ended_at: endedAt },
+        members.filter((m) => !m.user_id.startsWith('guest:')).map((m) => m.id),
+        `${event.name} ${ended ? 'has ended. Its history is available in My events.' : 'has reopened.'}`,
+      );
+      return { eventId: event.id, endedAt };
     });
   }
   async createKey(ctx: Context, name: string) {

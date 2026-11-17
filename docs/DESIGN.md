@@ -54,7 +54,7 @@ Attendees use a separate narrow request form reached through a shared QR/link. I
 
 ## Event overview and first-use guidance
 
-The event header uses deep evergreen (`#173f35`), pale mint text and a warm sand (`#f4dba8`) progress track. Its task total comes from the current workspace and opens the task list. The welcome page pairs the existing sample task list with a clearly labelled schematic venue plan. This diagram is illustrative, not an interactive event map. Labels scale for phone layouts. Manrope remains locally bundled for a consistent experience without external font requests.
+The event header uses deep evergreen (`#173f35`), pale mint text and a warm sand (`#f4dba8`) progress track. Its task total comes from the current workspace and opens the task list. The welcome page shows a sample event with a concise task list. Manrope remains locally bundled for a consistent experience without external font requests.
 
 A six-step tutorial explains event creation, volunteer invitations, vendor invitations, attendee requests, task completion and installation. Each step has concise instructions, the actual control labels and a visual sequence. Next, Back and Skip preserve user control. Completion and dismissal are stored per account; a memory fallback keeps the guide usable when storage is blocked. The tutorial is available on the welcome screen, from More, and through a dismissible first-workspace invitation below the work area.
 
@@ -66,3 +66,11 @@ A six-step tutorial explains event creation, volunteer invitations, vendor invit
 - **Error prevention and recovery:** explicit invitation roles, one-use links, disabled busy actions, inline errors, safe retry IDs and connection help.
 - **Progressive disclosure:** one tutorial topic at a time; advanced event tools stay in More.
 - **Accessibility:** locally bundled readable type, text contrast, 44px primary navigation targets, keyboard access, native dialogs and reduced-motion support. Automated checks supplement, rather than replace, real assistive-technology and user testing.
+
+## Date fields, joining and event history
+
+Date, time and datetime-local inputs use `appearance: none`, explicit border-box sizing, bounded width, and a minimum height. Their labels can shrink within grid tracks. This avoids the native iOS theme’s content-box sizing while retaining native date/time selection; WebKit’s value area has an explicit minimum height and left alignment.
+
+Your team offers one shared link per volunteer/vendor role alongside personal invitations. The organiser sees expiry and join counts, can disable or replace links, and can enable notification sound. Shared-link instructions explain that anyone holding the link may join; names come from each account. The guide teaches the shared-link path first.
+
+More → My events & history lists active and ended events with their date and venue. Ending requires confirmation and explains unfinished work and retained records. Ended workspaces show a persistent read-only notice; mutation controls are disabled, and the server rejects new work. The creator can reopen an event. Existing privacy and role permissions also apply to archived records.

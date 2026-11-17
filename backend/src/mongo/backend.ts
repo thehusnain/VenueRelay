@@ -7,7 +7,7 @@ import { MongoAccounts } from './accounts.ts';
 import { MongoDomain } from './domain.ts';
 import { MongoPush } from './push.ts';
 import { attachMongoRealtime } from './realtime.ts';
-import { organiser } from '../permissions.ts';
+import { organiser, activeEvent } from '../permissions.ts';
 import { demoScript } from '../demo-script.ts';
 import { demoCredentials, type Member } from '../../../shared/contracts.ts';
 import { id, token, hash, now, passwordHash, publicUser, sessionValue } from '../auth.ts';
@@ -193,12 +193,25 @@ export class MongoBackend implements ApplicationBackend {
         result = await this.domain.accept(user, text(p.token, 'Invitation token', 200));
       send(result);
       this.changed(result.eventId);
+      this.wakeDelivery?.();
       return;
     }
     const match = path.match(/^\/api\/v1\/events\/([^/]+)(?:\/(.*))?$/);
     ensure(match, 404, 'NOT_FOUND', 'Endpoint not found.');
     const ctx = await this.domain.context(req, decodeURIComponent(match[1])),
       resource = match[2] ?? 'snapshot';
+    if (resource === 'lifecycle' && method === 'POST') {
+      send(await this.domain.setEnded(ctx, (await body()).ended));
+      this.changed(ctx.event.id);
+      this.wakeDelivery?.();
+      return;
+    }
+    if (
+      ['POST', 'DELETE', 'PATCH', 'PUT'].includes(method ?? '') &&
+      !['commands', 'notifications/read', 'live-ticket', 'push/subscription'].includes(resource)
+    )
+      activeEvent(ctx.event);
+
     if (resource === 'attendee-links' && method === 'GET') {
       send({ items: await attendees.links(ctx) });
       return;

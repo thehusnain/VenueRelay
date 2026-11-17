@@ -26,6 +26,7 @@ import { InvitationPanel } from './Invitations';
 export function TeamPage({
   data,
   onInvite,
+  onInviteRole,
   onAttendees,
   onShareInvitation,
   invitationLinks,
@@ -33,6 +34,7 @@ export function TeamPage({
 }: {
   data: Snapshot;
   onInvite: () => void;
+  onInviteRole: (role: 'volunteer' | 'vendor') => void;
   onAttendees: () => void;
   onShareInvitation: (invitation: Invitation) => void;
   invitationLinks: Record<string, string>;
@@ -46,10 +48,14 @@ export function TeamPage({
         </div>
         {data.me.role === 'organiser' ? (
           <div className="button-row">
-            <button className="button secondary" onClick={onAttendees}>
+            <button
+              className="button secondary"
+              onClick={onAttendees}
+              disabled={!!data.event.ended_at}
+            >
               Share attendee QR
             </button>
-            <button className="button primary" onClick={onInvite}>
+            <button className="button primary" onClick={onInvite} disabled={!!data.event.ended_at}>
               <Plus size={16} />
               Invite a teammate
             </button>
@@ -62,6 +68,7 @@ export function TeamPage({
           savedLinks={invitationLinks}
           onShare={onShareInvitation}
           onChanged={onRefresh}
+          onCreateRole={onInviteRole}
         />
       ) : null}
       <h2 className="team-directory-heading">Team members</h2>
@@ -146,7 +153,7 @@ export function SchedulePage({ data, onAdd }: { data: Snapshot; onAdd: () => voi
           <span className="divider-dot">·</span>All times in Pakistan Standard Time
         </p>
         {data.me.role === 'organiser' ? (
-          <button className="button primary" onClick={onAdd}>
+          <button className="button primary" onClick={onAdd} disabled={!!data.event.ended_at}>
             <Plus size={16} />
             Add a session
           </button>

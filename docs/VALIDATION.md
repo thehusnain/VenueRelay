@@ -2,7 +2,23 @@
 
 Checked locally on **17 November 2026**, using Node.js 24 and Chromium. These results cover the working source in this revision. They do not establish that the hosted demo has been updated.
 
-## Current checks
+## Latest follow-up: joining, date fields and event history
+
+| Check | Result |
+| --- | --- |
+| `npm test` | 70 passed |
+| `npm run test:mongo` | 19 passed against a disposable replica set, including concurrent shared-link joins, organiser notifications and ended-event write protection |
+| `npm run test:team` | Signup through a reusable role link, same-link sharing after reload, organiser alert/chime, date-field bounds, end/archive/reopen passed in Chromium |
+| `npm run test:mobile` | 52 existing phone/landscape/desktop checks passed, with no overflow or axe findings |
+| `npm run test:usability` | 12 checks passed, including navigation targets, menu bounds and first-task visibility |
+| `npm run build` | TypeScript and production build passed |
+
+The additional API tests verify no duplicate membership or notification on retry, fixed server-side roles, private token listings, token rotation/revocation, creator-only end/reopen, preserved records, blocked new requests and retained attendee tracking. A committed request can still be recovered after the event ends.
+
+Date-input checks include 320px and 390px phones, a 390×420 short viewport and 844×390 landscape. The CSS explicitly removes the native iOS date-control sizing. Chromium checks and screenshots passed; WebKit could not launch here because the host lacks its required system libraries. A physical iPhone check is still required.
+
+## Earlier baseline checks (17 November)
+
 
 | Check | Result |
 | --- | --- |
@@ -49,5 +65,5 @@ Browser tests default to `http://127.0.0.1:3001`. Set `RALLY_TEST_URL` for anoth
 - Phone layouts and installation prompts were emulated. **Physical iPhone/Android installation, real camera capture and external push delivery were not tested.**
 - Home Screen installation on phones requires a supported browser and trusted HTTPS. A local network HTTP address does not provide full PWA capabilities.
 - Automated accessibility results are not certification or a substitute for screen-reader and user testing. Browser emulation does not guarantee every device.
-- This pass did not rerun the optional MongoDB integration suite, load testing, backup restoration or long-running production checks. Local operation uses SQLite.
+- Load testing, backup restoration and long-running production checks were not run. Local operation uses SQLite; the follow-up also tested the MongoDB adapter against a disposable replica set.
 - No deployment, hackathon submission or video recording was performed. Check the final hosted release and the hackathon’s requirements before submitting. Earlier validation and deployment notes remain available in Git history.

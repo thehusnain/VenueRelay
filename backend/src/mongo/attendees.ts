@@ -1,7 +1,7 @@
 import type { Event, Task, Activity } from '../../../shared/contracts.ts';
 import { hash, id, now, token } from '../auth.ts';
 import { ensure } from '../errors.ts';
-import { organiser } from '../permissions.ts';
+import { organiser, activeEvent } from '../permissions.ts';
 import type { Context } from '../domain.ts';
 import {
   attendeeInput,
@@ -114,6 +114,7 @@ export class MongoAttendees implements AttendeePort {
       );
     const event = await tx.get<Event>('events', { id: eventId });
     ensure(event, 404, 'NOT_FOUND', 'Event not found.');
+    if (active) activeEvent(event);
     return { link, event };
   }
   async event(eventId: string, secret: string) {

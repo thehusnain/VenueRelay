@@ -2,6 +2,7 @@ export type Role = 'organiser' | 'volunteer' | 'vendor' | 'attendee';
 export const demoCredentials = { email: 'demo@rally.local', password: 'RallyDemo2026!' };
 export type Status = 'open' | 'assigned' | 'in_progress' | 'blocked' | 'resolved' | 'closed';
 export interface Event {
+  ended_at?: string | null;
   id: string;
   owner_id: string;
   name: string;
@@ -20,6 +21,8 @@ export interface Member {
   is_guest?: boolean;
 }
 export interface Invitation {
+  reusable?: boolean;
+  joinCount?: number;
   id: string;
   name: string;
   role: Role;
@@ -28,6 +31,7 @@ export interface Invitation {
   status: 'pending' | 'accepted' | 'expired' | 'cancelled';
 }
 export interface InvitationPage {
+  roleLinks?: Invitation[];
   items: Invitation[];
   pendingCount: number;
   nextOffset: number | null;

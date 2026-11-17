@@ -50,3 +50,9 @@ Open **Install VenueRelay** on the welcome screen or **More → Alerts & install
 ## No-signup attendee demonstration
 
 Open **Your team → Share attendee QR → Create attendee QR & link**. Open the link in a private browser window, describe a request and submit without registering. Save its private tracking link. In the organiser window, assign, complete and confirm the resulting task. Refresh the attendee link to see the finished result. Disable the shared event link; existing tracking still works. Repeat with a dropped response/offline reload to demonstrate one correct request after retry. The browser test is `npm run test:attendees`.
+
+## Shared team access and closing the event
+
+In **Your team**, create a volunteer link and send it to two separate testers. Each signs up or signs in and appears under their account name. Enable notification sound on the organiser’s device to hear the join update while the app is active. Create a separate vendor link for suppliers; retain personal invitations for one-person access.
+
+At the end, open **More → My events & history → End this event**. Confirm the retained, read-only record, then reopen it to demonstrate recovery. Existing member access stays role-limited; guest tracking links retain access only to their own requests.

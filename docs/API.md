@@ -53,14 +53,14 @@ Only a signed-in organiser can manage staff invitations. Integration keys and ot
 
 | Endpoint | Purpose |
 | --- | --- |
-| `POST /events/{id}/invitations` | Create `{name,role}`; return the single-use token once, valid for 48 hours |
-| `GET /events/{id}/invitations?offset=0&limit=50` | Read `{items,pendingCount,nextOffset}`; pending first, with accepted/expired/cancelled history |
+| `POST /events/{id}/invitations` | Create `{name,role}` for a personal 48-hour invitation, or `{role,reusable:true}` for a shared volunteer/vendor link valid for seven days; return token once |
+| `GET /events/{id}/invitations?offset=0&limit=50` | Read `{items,pendingCount,nextOffset,roleLinks}`; pending first, with accepted/expired/cancelled history |
 | `POST /events/{id}/invitations/{invitationId}/renew` | Replace a pending/expired link; invalidate the old token and return a fresh one once |
 | `DELETE /events/{id}/invitations/{invitationId}` | Cancel an unused invitation; repeated cancellation is idempotent |
 
 Names are compared within the event after Unicode normalisation, case folding and whitespace collapse. A name already pending returns `409 ALREADY_INVITED`; a joined name returns `409 ALREADY_MEMBER`. Names are labels rather than verified identity; use distinguishable names for different people. Concurrent invitations for the same normalised name cannot create duplicate pending records. Accepted or cancelled records cannot be renewed. Listing never returns raw tokens, hashes or the accepting account ID. Replacement and cancellation preserve the activity log. Creation and replacement must not be retried automatically after an unknown outcome; inspect the pending list first.
 
-The organiser can copy/share a new invitation while its dialog is open and reopen it in the same app session. After a reload, **Your team → Pending invitations → Replace link** issues a new shareable link. Recipients land in the invited event after authentication, including when they already have a newer event of their own.
+The organiser can copy/share a new invitation while its dialog is open and reopen it in the same app session. After a reload, **Your team → Pending invitations → Replace link** issues a new shareable link. Shared role links are also retained in session storage for this account/event so the same link can be shared after a reload in the same tab. Recipients land in the invited event after authentication, including when they already have a newer event of their own.
 
 ## Account-free attendees
 
@@ -82,3 +82,11 @@ Each submission atomically creates its lightweight reporter, task, command, acti
 Public request attempts are bounded to 120/minute per event and 60/minute per server peer; public reads share a 1200/minute peer budget. Respect `Retry-After` and retain the original intent. A shared connection may reach a limit at a busy event. These bounds protect entry points; they are not a load-capacity guarantee.
 
 Render serves the website and HTTP API from the same origin so cookies stay first-party. Request a fresh ticket for each direct Render WebSocket connection. Keep established `X-Rally-*` headers, cookies and device-storage identifiers for backward compatibility after the VenueRelay rename. The production adapter shares task rules with the local SQLite adapter; production requires MongoDB transactions.
+
+## Shared links and event lifecycle
+
+Shared links permit multiple separate accounts to join as volunteer or vendor, using each account’s name. Only one non-cancelled link per role may exist, including expired links; replace or cancel it instead of creating duplicates. New members emit one organiser notification. Rejoining the same role is idempotent; joining under another existing role returns `409 ALREADY_MEMBER`. Sharing a link grants access to whoever receives it; names are self-provided, not identity verification. Listing returns no token/hash. Creation/replacement returns the secret once and is not automatically retried after an unknown outcome.
+
+`POST /events/{id}/lifecycle` accepts `{ended:true}` or `{ended:false}`. Only the signed-in event creator can use it; integrations and other members cannot. Repeating the same state is idempotent. Snapshot events include nullable `ended_at`.
+
+An ended event remains available to its members with existing role permissions. New commands, invitations, joins and attendee requests fail with `409 EVENT_ENDED`; saved tracking links, history/export and read acknowledgements remain available. Previously committed command/request retries still return the original result. Reopening restores editing and unexpired access links. Ending never marks unfinished tasks completed or deletes records. Event-end/reopen activity is retained and staff receive an update.
