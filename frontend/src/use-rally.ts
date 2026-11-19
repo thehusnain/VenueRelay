@@ -120,6 +120,16 @@ export function useRally() {
         if (paused.current || !navigator.onLine)
           throw new Error('You are offline. Showing the last saved event where available.');
         if (!eventId) {
+          if (
+            !session &&
+            !current.current &&
+            location.pathname === '/' &&
+            !location.search &&
+            !(await readState('activeUser')) &&
+            run === generation.current
+          ) {
+            setStage((previous) => (previous === 'loading' ? 'welcome' : previous));
+          }
           const auth = session ?? (await request<SessionInfo>('/auth/me'));
           if (run !== generation.current) return;
           setAccount(auth.user);
