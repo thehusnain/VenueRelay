@@ -1,55 +1,49 @@
-<div align="center">
-  <img src="frontend/public/favicon.svg" alt="VenueRelay" width="72" height="72">
+# VenueRelay
 
-  # VenueRelay
+At a busy festival, a visitor can tell someone the step-free entrance is blocked and still have no way to know who is clearing it. VenueRelay gives the visitor a private tracking link, gives one crew member the job, and asks the organiser to check the result.
 
-  **Every team. Every update. One place.**
+**[Open the live demo](https://venuerelay.onrender.com/sign-in)**
 
-  An event workspace that turns attendee requests into coordinated, completed work.
+| Demo account | Sign-in details |
+| --- | --- |
+| Username | `demo@rally.local` |
+| Password | `RallyDemo2026!` |
+| Event | Riverside Makers Festival |
 
-  <a href="https://venuerelay.onrender.com">Open the demo</a>
+### Follow one request
 
-  <br>
+1. **At the organiser’s desk**, sign in and choose **Share attendee QR** on Home or under **Your team**. Choose **Create attendee QR & link**, then open the link in a private window to use it as a visitor.
+2. **As the visitor**, report “Crate blocking the step-free entrance” at the north gate. Keep the private tracking page open.
+3. **Back at the desk**, open the new request in **Tasks** and assign it to **Ayesha Khan**. In the sample event, use **More → Try a different role** to view her work as a volunteer. Choose **Start task**, then **This task is done**, describe the cleared entrance and send the result for review.
+4. **As the organiser**, open the same task and choose **Confirm it’s done**. In the visitor window, choose **Check for updates** to see **Finished**. Home now counts the request as confirmed. A task awaiting review still counts as open.
 
-  <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white">
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white">
-  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
-  <img alt="Progressive web app" src="https://img.shields.io/badge/Progressive%20Web%20App-Installable-5A8F7B?logo=pwa&logoColor=white">
-</div>
+The public account shares sample data across visitors. For a separate event with your own crew, choose **Start your event** and invite volunteers and vendors with role-specific links.
 
-<br>
+![Organiser view of the sample festival, including work awaiting assignment or review](docs/screenshots/desktop.png)
 
-<p align="center">
-  <img src="docs/screenshots/desktop.png" alt="VenueRelay event workspace on desktop" width="880">
-</p>
+[Phone workspace](docs/screenshots/mobile.png) · [Attendee request form](docs/screenshots/attendee-form.png) · [Task on a phone](docs/screenshots/mobile-task.png) · [Event history](docs/screenshots/event-history.png) · [Tutorial](docs/screenshots/tutorial.png)
 
-## What it does
+### When the venue loses connectivity
 
-- **Keeps the whole team coordinated.** Organisers, volunteers and vendors each have a clear role.
-- **Turns requests into owned work.** Attendees can request help from a QR code without creating an account. Staff can assign, track and review the work.
-- **Keeps event information together.** Share the programme, receive team updates, and find live, upcoming and past events.
-- **Works well on phones.** Install VenueRelay from the browser and continue with cached event details when the connection drops.
+Open the event online once. On **More → Event tools → Connection help**, pause task updates, add a task and reconnect. Watch the waiting action become one saved task. The browser keeps a pending action in IndexedDB, and the server uses its original request ID to recognise a retry. If two people edit the same task version, the second edit goes back for review.
 
-<details>
-  <summary><strong>More screenshots</strong></summary>
-  <br>
+### Run locally
 
-  <img src="docs/screenshots/mobile.png" alt="VenueRelay on a phone" width="340">
-  <img src="docs/screenshots/mobile-task.png" alt="Focused task creation on a phone" width="340">
-  <img src="docs/screenshots/event-history.png" alt="Live, upcoming and past events" width="760">
-  <img src="docs/screenshots/tutorial.png" alt="VenueRelay step-by-step tutorial" width="560">
-  <img src="docs/screenshots/attendee-form.png" alt="No-account attendee help request" width="340">
-</details>
+Use Node.js 24 and Git.
 
-## Run locally
-
-Install [Node.js 24](https://nodejs.org/) and Git. Then:
-
-~~~sh
+```sh
 git clone https://github.com/thehusnain/VenueRelay.git
 cd VenueRelay
-npm install
+npm ci
 npm run dev
-~~~
+```
 
-Open **http://127.0.0.1:3001** when the terminal says **VenueRelay is ready**. Choose **Explore the demo** to start right away. The local SQLite database is created automatically; no environment file or external service is needed. Press **Ctrl+C** to stop.
+When the terminal prints **VenueRelay is ready**, open **http://127.0.0.1:3001** and choose **Explore the demo**. The app creates its SQLite database and sample festival on first start. Press Ctrl+C to stop. To type-check and build the production frontend, run `npm run build`.
+
+### How it runs
+
+React and TypeScript power the installable web app. The Node.js API checks event membership and role on every operational command. Hosted events use MongoDB transactions so a task change, its history and its notifications commit together. WebSocket messages tell connected devices when to refresh their role-specific view.
+
+The deployment runs one application instance. Moving to multiple instances would require sharing live-update notifications across servers. The organiser’s attendee-request counts come from saved event records and can be used during a pilot to see how much visitor work remains open at closing time.
+
+[Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [API](docs/API.md) · [Mobile installation](docs/PWA.md)

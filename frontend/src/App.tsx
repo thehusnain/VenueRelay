@@ -688,6 +688,7 @@ export function App() {
                 onTasks={() => go('/tasks')}
                 onSchedule={() => go('/schedule')}
                 onInvite={invite}
+                onShareAttendee={() => setDialog('attendees')}
               />
             )}
             {path === '/' ? (

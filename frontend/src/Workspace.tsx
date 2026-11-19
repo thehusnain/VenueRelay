@@ -110,6 +110,61 @@ function TaskItem({
     </button>
   );
 }
+function AttendeeRequests({
+  data,
+  onShare,
+  onTask,
+}: {
+  data: Snapshot;
+  onShare: () => void;
+  onTask: (id: string) => void;
+}) {
+  const reporters = new Set(data.members.filter((m) => m.role === 'attendee').map((m) => m.id));
+  const requests = data.tasks.filter((task) => reporters.has(task.reporter_id));
+  const open = requests.filter((task) => task.status !== 'closed');
+  const oldest = open.reduce<Task | undefined>(
+    (first, task) => (!first || task.created_at < first.created_at ? task : first),
+    undefined,
+  );
+  return (
+    <section className="plan-preview" aria-label="Attendee requests">
+      <div className="section-heading">
+        <h2>Attendee requests</h2>
+      </div>
+      {requests.length ? (
+        <>
+          <dl className="request-totals">
+            <div>
+              <dt>Still open</dt>
+              <dd>{open.length}</dd>
+            </div>
+            <div>
+              <dt>Confirmed finished</dt>
+              <dd>{requests.length - open.length}</dd>
+            </div>
+          </dl>
+          {oldest ? (
+            <button className="text-link oldest-request" onClick={() => onTask(oldest.id)}>
+              Oldest open request · {oldest.title}
+              <ArrowRight size={16} />
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <p>
+          {data.event.ended_at
+            ? 'No attendee requests were recorded.'
+            : 'Share the event QR so attendees can ask for help and track the result.'}
+        </p>
+      )}
+      {!data.event.ended_at ? (
+        <button className="text-link" onClick={onShare}>
+          Share attendee QR <ArrowRight size={16} />
+        </button>
+      ) : null}
+    </section>
+  );
+}
 export function Home({
   data,
   pending,
@@ -118,6 +173,7 @@ export function Home({
   onTasks,
   onSchedule,
   onInvite,
+  onShareAttendee,
 }: {
   data: Snapshot;
   pending: Pending[];
@@ -126,6 +182,7 @@ export function Home({
   onTasks: () => void;
   onSchedule: () => void;
   onInvite: () => void;
+  onShareAttendee: () => void;
 }) {
   const org = data.me.role === 'organiser',
     attendee = data.me.role === 'attendee';
@@ -439,6 +496,7 @@ export function Home({
             )
           ) : null}
 
+          {org ? <AttendeeRequests data={data} onShare={onShareAttendee} onTask={onTask} /> : null}
           <section className="plan-preview">
             <div className="section-heading">
               <h2>On the programme</h2>

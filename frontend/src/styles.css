@@ -1269,6 +1269,25 @@ pre {
 .programme-preview {
   margin-block: 16px;
 }
+.request-totals {
+  display: flex;
+  gap: 24px;
+  margin-block: 16px 8px;
+}
+.request-totals dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.request-totals dd {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.oldest-request {
+  display: flex;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
 .next-session {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);

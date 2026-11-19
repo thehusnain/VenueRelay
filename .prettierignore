@@ -1,12 +1,3 @@
 node_modules
 frontend/dist
 package-lock.json
-test-results
-.sites-runtime
-tests/browser-scenario.js
-tests/design-scenario.js
-
-tests/pwa-scenario.js
-
-tests/layout-scenario.js
-tests/usability-scenario.js

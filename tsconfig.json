@@ -26,6 +26,6 @@
     "frontend/**/*.ts",
     "frontend/**/*.tsx",
     "shared/**/*.ts",
-    "tests/**/*.ts"
+    "scripts/**/*.ts"
   ]
 }
