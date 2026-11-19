@@ -161,6 +161,10 @@ export interface AttendeeRequestView {
   >;
   updates: { status: Status; createdAt: string }[];
 }
+export interface SessionInfo {
+  user: Account;
+  delivery: Delivery;
+}
 export interface Delivery {
   mode: 'smtp' | 'brevo' | 'preview' | 'disabled';
   connected: boolean;

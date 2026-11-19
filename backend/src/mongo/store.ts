@@ -197,9 +197,13 @@ export class MongoStore {
       counters: [{ key: { name: 1 }, unique: true }],
       server_settings: [{ key: { key: 1 }, unique: true }],
     };
-    for (const [table, indexes] of Object.entries(definitions)) {
-      await this.collection(table).createIndexes(indexes);
-    }
+    const collections = Object.entries(definitions);
+    for (let i = 0; i < collections.length; i += 4)
+      await Promise.all(
+        collections
+          .slice(i, i + 4)
+          .map(([table, indexes]) => this.collection(table).createIndexes(indexes)),
+      );
     const hello = await this.client.db(this.name).admin().command({ hello: 1 });
     if (!hello.setName && hello.msg !== 'isdbgrid')
       throw new Error(

@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import QRCode from 'qrcode';
-import jsQR from 'jsqr';
 import { Modal } from './components';
 export function parseRallyLink(value: string, origin: string) {
   let url: URL;
@@ -27,7 +25,10 @@ export function QrCode({ value }: { value: string }) {
   const [image, setImage] = useState('');
   useEffect(() => {
     let active = true;
-    void QRCode.toDataURL(value, { width: 280, margin: 3, errorCorrectionLevel: 'M' })
+    void import('qrcode')
+      .then(({ default: qr }) =>
+        qr.toDataURL(value, { width: 280, margin: 3, errorCorrectionLevel: 'M' }),
+      )
       .then((url) => {
         if (active) setImage(url);
       })
@@ -86,7 +87,12 @@ export function QrScanner({
       setError((e as Error).message);
     }
   };
-  const scan = (source: CanvasImageSource, width: number, height: number) => {
+  const scan = (
+    jsQR: (typeof import('jsqr'))['default'],
+    source: CanvasImageSource,
+    width: number,
+    height: number,
+  ) => {
     const canvas = document.createElement('canvas'),
       ratio = Math.min(1, 1200 / Math.max(width, height));
     canvas.width = Math.floor(width * ratio);
@@ -118,11 +124,12 @@ export function QrScanner({
       video.current!.srcObject = media;
       await video.current!.play();
       setRunning(true);
+      const { default: jsQR } = await import('jsqr');
       const tick = () => {
         if (!active.current) return;
         const el = video.current;
         if (el && el.readyState >= 2) {
-          const result = scan(el, el.videoWidth, el.videoHeight);
+          const result = scan(jsQR, el, el.videoWidth, el.videoHeight);
           if (result) {
             accept(result);
             if (!active.current) return;
@@ -157,7 +164,8 @@ export function QrScanner({
         image.onerror = reject;
         image.src = url;
       });
-      const value = scan(image, image.naturalWidth, image.naturalHeight);
+      const { default: jsQR } = await import('jsqr');
+      const value = scan(jsQR, image, image.naturalWidth, image.naturalHeight);
       if (!value) throw new Error('No QR code was found. Try a clearer image.');
       accept(value);
     } catch (e) {

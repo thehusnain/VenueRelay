@@ -127,7 +127,7 @@ export class MongoDomain {
       'Create your own verified account to manage a real event.',
     );
   }
-  async eventForUser(userId: string, store = this.store) {
+  async defaultMembership(userId: string, store = this.store) {
     const rows = await store
       .collection('members')
       .aggregate(
@@ -135,15 +135,17 @@ export class MongoDomain {
           { $match: { user_id: userId } },
           { $lookup: { from: 'events', localField: 'event_id', foreignField: 'id', as: 'event' } },
           { $unwind: '$event' },
-          { $replaceWith: '$event' },
-          { $sort: { is_demo: 1, created_at: -1 } },
+          { $sort: { 'event.is_demo': 1, 'event.created_at': -1 } },
           { $limit: 1 },
-          { $project: { _id: 0 } },
+          { $project: { _id: 0, 'event._id': 0 } },
         ],
         { session: store.session },
       )
       .toArray();
-    return rows[0] as unknown as Event | undefined;
+    const selected = rows[0] as (Member & { event: Event }) | undefined;
+    if (!selected) return;
+    const { event, ...me } = selected;
+    return { event, me };
   }
   async append(
     tx: MongoStore,

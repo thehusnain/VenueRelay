@@ -94,9 +94,9 @@ export class MongoBackend implements ApplicationBackend {
             this.settings.checkDomain,
           ),
           domain = new MongoDomain(tx, accounts);
-        const existing = await domain.eventForUser(user.id, tx);
+        const existing = await domain.defaultMembership(user.id, tx);
         const eventId =
-          existing?.id ??
+          existing?.event.id ??
           (await domain.createEvent(
             user,
             {
@@ -166,12 +166,16 @@ export class MongoBackend implements ApplicationBackend {
     }
     if (path === '/api/v1/bootstrap' && method === 'POST') {
       const user = await this.accounts.require(req),
-        event = await this.domain.eventForUser(user.id);
-      if (!event) {
+        membership = await this.domain.defaultMembership(user.id);
+      if (!membership) {
         send({ requiresSetup: true, user: publicUser(user) });
         return;
       }
-      const ctx = await this.domain.context(req, event.id, this.store, user);
+      const persona = req.headers['x-rally-persona'];
+      const ctx =
+        (!persona || persona === 'self') && !req.headers.authorization?.startsWith('Bearer rly_')
+          ? { ...membership, user }
+          : await this.domain.context(req, membership.event.id, this.store, user);
       send(await this.domain.snapshot(ctx));
       return;
     }

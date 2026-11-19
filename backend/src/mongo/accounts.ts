@@ -61,37 +61,38 @@ export class MongoAccounts {
     return requireVerified(user);
   }
   async limit(key: string, maximum: number, windowMs: number) {
+    const stamp = now();
+    const expired = { $lte: [{ $ifNull: ['$window_ends', ''] }, stamp] };
     const consume = () =>
-      this.store.transaction(async (tx) => {
-        const k = hash(key),
-          stamp = now(),
-          row = await tx.get<{ attempts: number; window_ends: string }>('auth_rate_limits', {
-            key: k,
-          });
-        if (!row || row.window_ends <= stamp)
-          await tx.update(
-            'auth_rate_limits',
-            { key: k },
-            { $set: { attempts: 1, window_ends: new Date(Date.now() + windowMs).toISOString() } },
-            true,
-          );
-        else {
-          ensure(
-            row.attempts < maximum,
-            429,
-            'RATE_LIMIT',
-            'Please wait a little before trying again.',
-            { retryAfter: Math.ceil((Date.parse(row.window_ends) - Date.now()) / 1000) },
-          );
-          await tx.update('auth_rate_limits', { key: k }, { $inc: { attempts: 1 } });
-        }
-      });
-    try {
-      await consume();
-    } catch (error) {
-      if ((error as { code?: number }).code === 11000) await consume();
-      else throw error;
-    }
+      this.store.collection('auth_rate_limits').findOneAndUpdate(
+        { key: hash(key) },
+        [
+          {
+            $set: {
+              window_ends: {
+                $cond: [expired, new Date(Date.now() + windowMs).toISOString(), '$window_ends'],
+              },
+              attempts: { $cond: [expired, 1, { $min: [maximum, { $add: ['$attempts', 1] }] }] },
+            },
+          },
+        ],
+        { upsert: true, returnDocument: 'before' },
+      );
+    // The pre-update value identifies the caller that consumed the last slot.
+    const previous = await consume().catch((error) => {
+      if (error.code === 11000) return consume();
+      throw error;
+    });
+    if (previous && previous.window_ends > stamp)
+      ensure(
+        previous.attempts < maximum,
+        429,
+        'RATE_LIMIT',
+        'Please wait a little before trying again.',
+        {
+          retryAfter: Math.ceil((Date.parse(previous.window_ends) - Date.parse(stamp)) / 1000),
+        },
+      );
   }
   async record(tx: MongoStore, userId: string, action: string) {
     await tx.insert('account_activity', { id: id(), user_id: userId, action, created_at: now() });
@@ -370,6 +371,15 @@ export class MongoAccounts {
       res.setHeader('Set-Cookie', this.cookie('', true));
       return { ok: true };
     }
+    const raw = token();
+    const startSession = async (tx: MongoStore, userId: string) => {
+      await this.endSession(tx, req);
+      await tx.insert('sessions', {
+        token_hash: hash(raw),
+        user_id: userId,
+        expires_at: new Date(Date.now() + 604800000).toISOString(),
+      });
+    };
     let user: User;
     let recoverySecret: string | undefined;
     if (route === 'register') {
@@ -400,12 +410,14 @@ export class MongoAccounts {
           await tx.insert('users', {
             ...created,
             password_hash: saved,
+            session_version: 1,
             created_at: now(),
             is_demo: false,
             recovery_code_hash: recoverySecret ? recoveryHash(recoverySecret) : null,
           });
           await this.record(tx, created.id, 'registered');
           if (email && this.mail.mode !== 'disabled') await this.proof(tx, created, 'verify');
+          await startSession(tx, created.id);
           return created;
         });
       } catch (e) {
@@ -438,13 +450,14 @@ export class MongoAccounts {
       );
       const nextRecovery = recoveryCode();
       user = await this.store.transaction(async (tx) => {
-        const latest = await tx.get<User>('users', { id: found.id });
-        ensure(
-          latest?.password_hash === saved,
-          401,
-          'INVALID_CREDENTIALS',
-          'Your password changed. Sign in again.',
-        );
+        const latest = (await tx
+          .collection('users')
+          .findOneAndUpdate(
+            { id: found.id, password_hash: saved },
+            { $inc: { session_version: 1 } },
+            { session: tx.session, returnDocument: 'after' },
+          )) as unknown as User | null;
+        ensure(latest, 401, 'INVALID_CREDENTIALS', 'Your password changed. Sign in again.');
         let current = latest;
         recoverySecret = undefined;
         if (
@@ -479,26 +492,10 @@ export class MongoAccounts {
         )
           await this.proof(tx, current, 'verify');
         await this.record(tx, current.id, 'signed_in');
+        await startSession(tx, current.id);
         return current;
       });
     } else throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
-    const raw = token();
-    await this.store.transaction(async (tx) => {
-      const current = await tx.get<User>('users', { id: user.id });
-      ensure(
-        current?.password_hash === user.password_hash || route === 'register',
-        401,
-        'INVALID_CREDENTIALS',
-        'Your password changed. Sign in again.',
-      );
-      await tx.update('users', { id: user.id }, { $inc: { session_version: 1 } });
-      await this.endSession(tx, req);
-      await tx.insert('sessions', {
-        token_hash: hash(raw),
-        user_id: user.id,
-        expires_at: new Date(Date.now() + 604800000).toISOString(),
-      });
-    });
     res.setHeader('Set-Cookie', this.cookie(raw));
     return {
       user: publicUser(user),

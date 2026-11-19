@@ -13,7 +13,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { request, RequestError } from './use-rally';
-import type { Account, Delivery } from '../../shared/contracts';
+import type { Account, Delivery, SessionInfo } from '../../shared/contracts';
 import { demoCredentials } from '../../shared/contracts';
 import { downloadRecoveryCode } from './AccountSecurity';
 import { InstallButton } from './PwaTools';
@@ -46,7 +46,7 @@ export function Entry({
   delivery: Delivery;
   error: string;
   onNavigate: (path: string) => void;
-  onReady: (eventId?: string) => Promise<void>;
+  onReady: (eventId?: string, session?: SessionInfo) => Promise<void>;
   onSignOut: () => Promise<void>;
   onInstall: () => void;
   onScan: () => void;
@@ -59,8 +59,11 @@ export function Entry({
     setDemoBusy(true);
     setDemoError('');
     try {
-      await request('/auth/login', { method: 'POST', body: JSON.stringify(demoCredentials) });
-      await onReady();
+      const session = await request<SessionInfo>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(demoCredentials),
+      });
+      await onReady(undefined, session);
       onNavigate('/');
     } catch (error) {
       setDemoError((error as Error).message);
@@ -133,7 +136,7 @@ export function Entry({
                 path === '/sign-in' ? 'signin' : path === '/forgot-password' ? 'forgot' : 'register'
               }
               onNavigate={onNavigate}
-              onReady={onReady}
+              onReady={(session) => onReady(undefined, session)}
               identifier={account?.username ?? account?.email ?? ''}
               onDemo={openDemo}
               demoBusy={demoBusy}
@@ -313,7 +316,7 @@ function AccountPage({
   mode: 'signin' | 'register' | 'forgot';
   identifier: string;
   onNavigate: (p: string) => void;
-  onReady: () => Promise<void>;
+  onReady: (session?: SessionInfo) => Promise<void>;
   onDemo: () => Promise<void>;
   demoBusy: boolean;
   demoError: string;
@@ -369,7 +372,7 @@ function AccountPage({
           'The reset response was incomplete. Try signing in with your new password.',
         );
       } else {
-        await onReady();
+        await onReady(result);
         onNavigate('/');
       }
     } catch (e) {

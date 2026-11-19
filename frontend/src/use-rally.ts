@@ -1,6 +1,6 @@
 import { sessionPreference } from './session-preferences';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Snapshot, Account, Delivery } from '../../shared/contracts';
+import type { Snapshot, Account, Delivery, SessionInfo } from '../../shared/contracts';
 import { fetchJson, RequestError } from './transport';
 import { isSnapshot } from './device-state';
 import { pendingReads, confirmedState, retainConfirmedVersions } from './confirmed-state';
@@ -112,7 +112,7 @@ export function useRally() {
     }
   }, []);
   const load = useCallback(
-    async (eventId?: string, nextPersona = personaRef.current) => {
+    async (eventId?: string, nextPersona = personaRef.current, session?: SessionInfo) => {
       const run = ++generation.current;
       loadingContext.current = true;
       try {
@@ -120,7 +120,7 @@ export function useRally() {
         if (paused.current || !navigator.onLine)
           throw new Error('You are offline. Showing the last saved event where available.');
         if (!eventId) {
-          const auth = await request<{ user: Account; delivery: Delivery }>('/auth/me');
+          const auth = session ?? (await request<SessionInfo>('/auth/me'));
           if (run !== generation.current) return;
           setAccount(auth.user);
           setDelivery(auth.delivery);

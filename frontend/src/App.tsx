@@ -27,7 +27,7 @@ import { Inbox } from './Inbox';
 import { AttendeePortal, AttendeeAccess } from './AttendeePortal';
 import { AccountSecurity } from './AccountSecurity';
 import { InvitationDialog } from './Invitations';
-import type { Invitation } from '../../shared/contracts';
+import type { Invitation, SessionInfo } from '../../shared/contracts';
 import { notificationLink } from '../../shared/notification-link';
 import { NotificationAlerts } from './notification-alerts';
 import { QuickStart, QuickStartOffer } from './QuickStart';
@@ -144,8 +144,8 @@ export function App() {
     setSearch('');
     navigate(next);
   };
-  const ready = async (id?: string) => {
-    await rally.load(id, 'self');
+  const ready = async (id?: string, session?: SessionInfo) => {
+    await rally.load(id, 'self', session);
   };
   useEffect(() => {
     if (rally.stage === 'loading') return;
